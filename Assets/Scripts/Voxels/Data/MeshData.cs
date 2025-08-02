@@ -8,16 +8,15 @@ namespace Voxels.Data
         public List<Vector3> Vertices { get; } = new();
         public List<int> Triangles { get; } = new();
         public List<Vector2> UV { get; } = new();
-
         public List<Vector3> ColliderVertices { get; } = new();
         public List<int> ColliderTriangles { get; } = new();
 
-        public MeshData WaterMeshData { get; }
+        public MeshData WaterMeshData { get; set; }
         private bool _isMainMesh;
 
         public MeshData(bool isMainMesh = true)
         {
-            this._isMainMesh = isMainMesh;
+            _isMainMesh = isMainMesh;
             if (isMainMesh)
             {
                 WaterMeshData = new MeshData(false);

@@ -7,7 +7,7 @@ namespace Voxels.Data
     public class VoxelTextureManager : MonoBehaviour
     {
         public static float TextureOffset = 0.001f; // Offset to prevent z-fighting
-        public static Dictionary<VoxelType, TextureData> VoxelTextures { get; } = new();
+        public static Dictionary<VoxelType, TextureData> VoxelData { get; } = new();
         public VoxelDataSO textureData;
         
         public static Vector2 UVTileSize;
@@ -22,7 +22,7 @@ namespace Voxels.Data
 
             foreach (TextureData texture in textureData.voxelTextures)
             {
-                if (!VoxelTextures.TryAdd(texture.voxelType, texture))
+                if (!VoxelData.TryAdd(texture.voxelType, texture))
                 {
                     Debug.LogWarning($"Duplicate voxel type {texture.voxelType} found in VoxelDataSO.");
                 }
