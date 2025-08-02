@@ -10,6 +10,14 @@ namespace Voxels.Data
         public Vector2Int atlasTextureSize;
         public Vector2Int voxelTextureSize;
         public List<TextureData> voxelTextures;
+
+        public Vector2 GetUVTileSize()
+        {
+            return new Vector2(
+                1f/(atlasTextureSize.x / (float)voxelTextureSize.x),
+                1f/(atlasTextureSize.y / (float)voxelTextureSize.y)
+            );
+        }
     }
     
     [Serializable]
