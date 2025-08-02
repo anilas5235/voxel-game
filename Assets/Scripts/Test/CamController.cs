@@ -10,6 +10,7 @@ namespace Test
         private Vector2 moveInput;
         private Vector2 lookInput;
         private float pitch = 0f; // vertical rotation
+        private float verticalInput = 0f; // for up/down movement
         
         [Range(1f,100f)] public float moveSpeed = 5f;
         [Range(1f,100f)] public float lookSpeed = 10f;
@@ -34,12 +35,35 @@ namespace Test
 
         private void Update()
         {
-            // Move the camera with WASD or left stick
-            Vector3 moveDirection = new(moveInput.x, 0, moveInput.y);
+            // Handle vertical movement with E (up) and Q (down) keys
+            verticalInput = 0f;
+            if (Keyboard.current.spaceKey.isPressed) verticalInput += 1f;
+            if (Keyboard.current.leftCtrlKey.isPressed) verticalInput -= 1f;
+            float speedModifier = 1f;
+            if (Keyboard.current.shiftKey.isPressed) speedModifier = 2f; // Shift
 
+            // Create movement vector relative to camera orientation
+            Vector3 forward = _camera.transform.forward;
+            Vector3 right = _camera.transform.right;
+            
+            // Zero out y component for forward/right movement
+            forward.y = 0;
+            right.y = 0;
+            
+            // Normalize to prevent faster diagonal movement
+            if (forward.magnitude > 0.01f) forward.Normalize();
+            if (right.magnitude > 0.01f) right.Normalize();
+
+            // Create movement direction
+            Vector3 moveDirection = (forward * moveInput.y + right * moveInput.x);
+            
+            // Add vertical movement
+            moveDirection += Vector3.up * verticalInput;
+
+            // Apply movement
             if (moveDirection != Vector3.zero)
             {
-                _camera.transform.Translate(moveDirection.normalized * (moveSpeed * Time.deltaTime), Space.World);
+                _camera.transform.Translate(moveDirection.normalized * (moveSpeed * speedModifier * Time.deltaTime), Space.World);
             }
 
             // Rotate the camera with mouse or right stick

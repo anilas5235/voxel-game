@@ -44,7 +44,7 @@ namespace Voxels.Data
         {
             return InRange(voxelPosition)
                 ? chunkData.voxelData[GetIndex(voxelPosition)]
-                : chunkData.World.GetVoxelFromChunkCoordinates(chunkData, chunkData.WorldPosition + voxelPosition);
+                : chunkData.World.GetVoxelFromOtherChunk(chunkData.WorldPosition + voxelPosition);
         }
 
         public static void SetVoxel(ChunkData chunkData, Vector3Int voxelPosition, VoxelType voxelType)
@@ -77,13 +77,13 @@ namespace Voxels.Data
             return new Vector3Int(x, y, z);
         }
 
-        public static Vector3Int GetVoxelPosition(Vector3Int worldPosition, ChunkData chunkData)
+        public static Vector3Int GetVoxelPosition(Vector3Int voxelWorldPos, ChunkData chunkData)
         {
             return new Vector3Int
             {
-                x = worldPosition.x - chunkData.WorldPosition.x,
-                y = worldPosition.y - chunkData.WorldPosition.y,
-                z = worldPosition.z - chunkData.WorldPosition.z
+                x = voxelWorldPos.x - chunkData.WorldPosition.x,
+                y = voxelWorldPos.y - chunkData.WorldPosition.y,
+                z = voxelWorldPos.z - chunkData.WorldPosition.z
             };
         }
 
@@ -100,13 +100,13 @@ namespace Voxels.Data
             return meshData;
         }
 
-        internal static Vector3Int ChunkPositionFromVoxelCoords(Vector3Int pos)
+        internal static Vector3Int GetChunkPosition(Vector3Int voxelWorldPos)
         {
             return new Vector3Int
             {
-                x = Mathf.FloorToInt(pos.x / (float)ChunkSize) * ChunkSize,
-                y = Mathf.FloorToInt(pos.y / (float)ChunkHeight) * ChunkHeight,
-                z = Mathf.FloorToInt(pos.z / (float)ChunkSize) * ChunkSize
+                x = Mathf.FloorToInt(voxelWorldPos.x / (float)ChunkSize) * ChunkSize,
+                y = Mathf.FloorToInt(voxelWorldPos.y / (float)ChunkHeight) * ChunkHeight,
+                z = Mathf.FloorToInt(voxelWorldPos.z / (float)ChunkSize) * ChunkSize
             };
         }
     }

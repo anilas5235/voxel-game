@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 namespace Voxels.Data
@@ -8,11 +7,11 @@ namespace Voxels.Data
     {
         public const int ChunkSize = 16;
         public const int HalfChunkSize = ChunkSize / 2;
-        public const int ChunkHeight = 256; // Height of the chunk, can be adjusted as needed
+        public const int ChunkHeight = 128; // Height of the chunk, can be adjusted as needed
         public const int HalfChunkHeight = ChunkHeight / 2;
         public const int VoxelsPerChunk = ChunkSize * ChunkSize * ChunkHeight;
 
-        public int mapSizeInChunks = 6;
+        public int mapSizeInChunks = 8;
         public int waterThreshold = 50;
         public float noiseScale = 0.03f;
         public GameObject chunkPrefab;
@@ -83,17 +82,16 @@ namespace Voxels.Data
             }
         }
 
-        internal VoxelType GetVoxelFromChunkCoordinates(ChunkData chunkData, Vector3Int voxelPos)
+        internal VoxelType GetVoxelFromOtherChunk(Vector3Int voxelWorldPos)
         {
-            Vector3Int pos = Chunk.ChunkPositionFromVoxelCoords(voxelPos);
+            Vector3Int pos = Chunk.GetChunkPosition(voxelWorldPos);
 
             _chunkData.TryGetValue(pos, out ChunkData containerChunk);
 
-            if (containerChunk == null)
-                return VoxelType.Nothing;
-            Vector3Int blockInCHunkCoordinates =
-                Chunk.GetVoxelPosition(voxelPos, chunkData);
-            return Chunk.GetVoxel(containerChunk, blockInCHunkCoordinates);
+            if (containerChunk == null) return VoxelType.Nothing;
+            
+            Vector3Int voxelInChunk = Chunk.GetVoxelPosition(voxelWorldPos, containerChunk);
+            return Chunk.GetVoxel(containerChunk, voxelInChunk);
         }
     }
 }
