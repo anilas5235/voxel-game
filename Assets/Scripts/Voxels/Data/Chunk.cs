@@ -1,16 +1,17 @@
 ﻿using System;
 using UnityEngine;
+using static Voxels.Data.VoxelWorld;
 
 namespace Voxels.Data
 {
     public static class Chunk
     {
-        public static void LoopThroughVoxels(ChunkData chunkData, Action<int, int, int> action)
+        public static void LoopThroughVoxels(Action<Vector3Int> action)
         {
-            for (int i = 0; i < ChunkData.VoxelsPerChunk; i++)
+            for (int i = 0; i < VoxelsPerChunk; i++)
             {
                 Vector3Int pos = GetVoxelPosition(i);
-                action(pos.x, pos.y, pos.z);
+                action(pos);
             }
         }
 
@@ -21,31 +22,29 @@ namespace Voxels.Data
 
         private static bool InRangeX(int axisCoordinate)
         {
-            return axisCoordinate is >= 0 and < ChunkData.ChunkSize;
+            return axisCoordinate is >= 0 and < ChunkSize;
         }
 
         private static bool InRangeY(int axisCoordinate)
         {
-            return axisCoordinate is >= 0 and < ChunkData.ChunkHeight;
+            return axisCoordinate is >= 0 and < ChunkHeight;
         }
 
         private static bool InRangeZ(int axisCoordinate)
         {
-            return axisCoordinate is >= 0 and < ChunkData.ChunkSize;
+            return axisCoordinate is >= 0 and < ChunkSize;
         }
 
         public static VoxelType GetVoxel(ChunkData chunkData, int x, int y, int z)
         {
             return GetVoxel(chunkData, new Vector3Int(x, y, z));
         }
-        
+
         public static VoxelType GetVoxel(ChunkData chunkData, Vector3Int voxelPosition)
         {
-            if (!InRange(voxelPosition))
-                throw new ArgumentOutOfRangeException(nameof(voxelPosition), "Voxel position is out of range.");
-            
-            int index = GetIndex(voxelPosition);
-            return chunkData.voxelData[index];
+            return InRange(voxelPosition)
+                ? chunkData.voxelData[GetIndex(voxelPosition)]
+                : chunkData.World.GetVoxelFromChunkCoordinates(chunkData, chunkData.WorldPosition + voxelPosition);
         }
 
         public static void SetVoxel(ChunkData chunkData, Vector3Int voxelPosition, VoxelType voxelType)
@@ -60,8 +59,8 @@ namespace Voxels.Data
         private static int GetIndex(Vector3Int voxelPosition)
         {
             return voxelPosition.x +
-                   voxelPosition.y * ChunkData.ChunkSize +
-                   voxelPosition.z * ChunkData.ChunkSize * ChunkData.ChunkHeight;
+                   voxelPosition.y * ChunkSize +
+                   voxelPosition.z * ChunkSize * ChunkHeight;
         }
 
         /// <summary>
@@ -71,9 +70,9 @@ namespace Voxels.Data
         /// <returns>A Vector3Int representing the voxel position in the chunk.</returns>
         private static Vector3Int GetVoxelPosition(int index)
         {
-            int x = index % ChunkData.ChunkSize;
-            int y = (index / ChunkData.ChunkSize) % ChunkData.ChunkHeight;
-            int z = index / (ChunkData.ChunkSize * ChunkData.ChunkHeight);
+            int x = index % ChunkSize;
+            int y = (index / ChunkSize) % ChunkHeight;
+            int z = index / (ChunkSize * ChunkHeight);
 
             return new Vector3Int(x, y, z);
         }
@@ -92,7 +91,23 @@ namespace Voxels.Data
         {
             MeshData meshData = new();
 
+            LoopThroughVoxels(pos =>
+            {
+                meshData = VoxelHelper.GetMeshData(chunkData, pos, meshData,
+                    chunkData.voxelData[GetIndex(pos)]);
+            });
+
             return meshData;
+        }
+
+        internal static Vector3Int ChunkPositionFromVoxelCoords(Vector3Int pos)
+        {
+            return new Vector3Int
+            {
+                x = Mathf.FloorToInt(pos.x / (float)ChunkSize) * ChunkSize,
+                y = Mathf.FloorToInt(pos.y / (float)ChunkHeight) * ChunkHeight,
+                z = Mathf.FloorToInt(pos.z / (float)ChunkSize) * ChunkSize
+            };
         }
     }
 }

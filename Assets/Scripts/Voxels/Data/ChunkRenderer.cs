@@ -1,7 +1,8 @@
-﻿using System;
-using System.Linq;
+﻿using System.Linq;
 using UnityEditor;
 using UnityEngine;
+using static Voxels.Data.VoxelWorld;
+
 
 namespace Voxels.Data
 {
@@ -80,8 +81,8 @@ namespace Voxels.Data
                 : new Color(1, 0, 1, .4f);
 
             Gizmos.DrawCube(transform.position +
-                            new Vector3(ChunkData.HalfChunkSize, ChunkData.HalfChunkHeight, ChunkData.HalfChunkSize)
-                , new Vector3(ChunkData.ChunkSize, ChunkData.ChunkHeight, ChunkData.ChunkSize));
+                            new Vector3(HalfChunkSize, HalfChunkHeight, HalfChunkSize)
+                , new Vector3(ChunkSize, ChunkHeight, ChunkSize));
         }
 #endif
     }

@@ -31,14 +31,14 @@ namespace Voxels.Data
         }
         
         public static MeshData GetMeshData
-            (ChunkData chunk, int x, int y, int z, MeshData meshData, VoxelType voxelType)
+            (ChunkData chunk, Vector3Int pos, MeshData meshData, VoxelType voxelType)
         {
             if (voxelType is VoxelType.Air or VoxelType.Nothing)
                 return meshData;
 
             foreach (Direction direction in Directions)
             {
-                Vector3Int neighbourBlockCoordinates = new Vector3Int(x, y, z) + direction.GetVector();
+                Vector3Int neighbourBlockCoordinates = pos + direction.GetVector();
                 VoxelType neighbourBlockType = Chunk.GetVoxel(chunk, neighbourBlockCoordinates);
 
                 if (neighbourBlockType == VoxelType.Nothing || VoxelData[neighbourBlockType].isSolid) continue;
@@ -46,11 +46,11 @@ namespace Voxels.Data
                 if (voxelType == VoxelType.Water)
                 {
                     if (neighbourBlockType == VoxelType.Air)
-                        meshData.WaterMeshData = GetFaceDataIn(direction, chunk, x, y, z, meshData.WaterMeshData, voxelType);
+                        meshData.WaterMeshData = GetFaceDataIn(direction, chunk, pos, meshData.WaterMeshData, voxelType);
                 }
                 else
                 {
-                    meshData = GetFaceDataIn(direction, chunk, x, y, z, meshData, voxelType);
+                    meshData = GetFaceDataIn(direction, chunk, pos, meshData, voxelType);
                 }
             }
 
@@ -85,30 +85,30 @@ namespace Voxels.Data
             return uvs;
         }
 
-        private static MeshData GetFaceDataIn(Direction direction, ChunkData chunk, int x, int y, int z, MeshData meshData, VoxelType voxelType)
+        private static MeshData GetFaceDataIn(Direction direction, ChunkData chunk, Vector3Int pos, MeshData meshData, VoxelType voxelType)
         {
-            GetFaceVertices(direction, x, y, z, meshData, voxelType);
+            GetFaceVertices(direction, pos, meshData, voxelType);
             meshData.AddQuadTriangles(VoxelData[voxelType].collision);
             meshData.UV.AddRange(FaceUVs(direction, voxelType));
             
             return meshData;
         }
 
-        private static void GetFaceVertices(Direction direction, int x, int y, int z, MeshData meshData,
+        private static void GetFaceVertices(Direction direction, Vector3Int pos, MeshData meshData,
             VoxelType blockType)
         {
             bool col = VoxelData[blockType].collision;
             //order of vertices matters for the normals and how we render the mesh
             Vector3[] vertices =
             {
-                new(x - 0.5f, y - 0.5f, z - 0.5f),
-                new(x - 0.5f, y + 0.5f, z - 0.5f),
-                new(x + 0.5f, y + 0.5f, z - 0.5f),
-                new(x + 0.5f, y - 0.5f, z - 0.5f),
-                new(x + 0.5f, y - 0.5f, z + 0.5f),
-                new(x + 0.5f, y + 0.5f, z + 0.5f),
-                new(x - 0.5f, y + 0.5f, z + 0.5f),
-                new(x - 0.5f, y - 0.5f, z + 0.5f),
+                new(pos.x - 0.5f, pos.y - 0.5f, pos.z - 0.5f),
+                new(pos.x - 0.5f, pos.y + 0.5f, pos.z - 0.5f),
+                new(pos.x + 0.5f, pos.y + 0.5f, pos.z - 0.5f),
+                new(pos.x + 0.5f, pos.y - 0.5f, pos.z - 0.5f),
+                new(pos.x + 0.5f, pos.y - 0.5f, pos.z + 0.5f),
+                new(pos.x + 0.5f, pos.y + 0.5f, pos.z + 0.5f),
+                new(pos.x - 0.5f, pos.y + 0.5f, pos.z + 0.5f),
+                new(pos.x - 0.5f, pos.y - 0.5f, pos.z + 0.5f),
             };
             switch (direction)
             {
