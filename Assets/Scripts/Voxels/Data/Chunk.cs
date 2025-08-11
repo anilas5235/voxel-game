@@ -35,25 +35,25 @@ namespace Voxels.Data
             return axisCoordinate is >= 0 and < ChunkSize;
         }
 
-        public static VoxelType GetVoxel(ChunkData chunkData, int x, int y, int z)
+        public static int GetVoxel(ChunkData chunkData, int x, int y, int z)
         {
             return GetVoxel(chunkData, new Vector3Int(x, y, z));
         }
 
-        public static VoxelType GetVoxel(ChunkData chunkData, Vector3Int voxelPosition)
+        public static int GetVoxel(ChunkData chunkData, Vector3Int voxelPosition)
         {
             return InRange(voxelPosition)
-                ? chunkData.voxelData[GetIndex(voxelPosition)]
+                ? chunkData.voxels[GetIndex(voxelPosition)]
                 : chunkData.World.GetVoxelFromOtherChunk(chunkData.WorldPosition + voxelPosition);
         }
 
-        public static void SetVoxel(ChunkData chunkData, Vector3Int voxelPosition, VoxelType voxelType)
+        public static void SetVoxel(ChunkData chunkData, Vector3Int voxelPosition, int voxelId)
         {
             if (!InRange(voxelPosition))
                 throw new ArgumentOutOfRangeException(nameof(voxelPosition), "Voxel position is out of range.");
 
             int index = GetIndex(voxelPosition);
-            chunkData.voxelData[index] = voxelType;
+            chunkData.voxels[index] = voxelId;
         }
 
         private static int GetIndex(Vector3Int voxelPosition)
@@ -94,7 +94,7 @@ namespace Voxels.Data
             LoopThroughVoxels(pos =>
             {
                 meshData = VoxelHelper.GetMeshData(chunkData, pos, meshData,
-                    chunkData.voxelData[GetIndex(pos)]);
+                    VoxelRegistry.Get(chunkData.voxels[GetIndex(pos)]));
             });
 
             return meshData;

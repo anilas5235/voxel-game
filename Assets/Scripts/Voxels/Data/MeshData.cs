@@ -7,7 +7,7 @@ namespace Voxels.Data
     {
         public List<Vector3> Vertices { get; } = new();
         public List<int> Triangles { get; } = new();
-        public List<Vector2> UV { get; } = new();
+        public List<Vector3> UV { get; } = new();
         public List<Vector3> ColliderVertices { get; } = new();
         public List<int> ColliderTriangles { get; } = new();
 

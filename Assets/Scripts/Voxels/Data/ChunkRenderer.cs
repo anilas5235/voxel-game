@@ -48,7 +48,7 @@ namespace Voxels.Data
             mesh.SetTriangles(meshData.WaterMeshData.Triangles.Select(val => val + meshData.Vertices.Count).ToArray(),
                 1);
 
-            mesh.uv = meshData.UV.Concat(meshData.WaterMeshData.UV).ToArray();
+            mesh.SetUVs(0, meshData.UV.Concat(meshData.WaterMeshData.UV).ToArray());
             mesh.RecalculateNormals();
 
             meshCollider.sharedMesh = null;

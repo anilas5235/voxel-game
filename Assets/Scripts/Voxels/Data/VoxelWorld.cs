@@ -57,6 +57,9 @@ namespace Voxels.Data
 
         private void GenerateVoxels(ChunkData data)
         {
+            int dirt = 1;
+            int grass = 2;
+            int water = 3;
             for (int x = 0; x < ChunkSize; x++)
             {
                 for (int z = 0; z < ChunkSize; z++)
@@ -66,29 +69,29 @@ namespace Voxels.Data
                     int groundPosition = Mathf.RoundToInt(noiseValue * ChunkHeight);
                     for (int y = 0; y < ChunkHeight; y++)
                     {
-                        VoxelType voxelType = VoxelType.Dirt;
+                        int voxelId = dirt;
                         if (y > groundPosition)
                         {
-                            voxelType = y < waterThreshold ? VoxelType.Water : VoxelType.Air;
+                            voxelId = y < waterThreshold ? water : 0;
                         }
                         else if (y == groundPosition)
                         {
-                            voxelType = VoxelType.GrassDirt;
+                            voxelId = grass;
                         }
 
-                        Chunk.SetVoxel(data, new Vector3Int(x, y, z), voxelType);
+                        Chunk.SetVoxel(data, new Vector3Int(x, y, z), voxelId);
                     }
                 }
             }
         }
 
-        internal VoxelType GetVoxelFromOtherChunk(Vector3Int voxelWorldPos)
+        internal int GetVoxelFromOtherChunk(Vector3Int voxelWorldPos)
         {
             Vector3Int pos = Chunk.GetChunkPosition(voxelWorldPos);
 
             _chunkData.TryGetValue(pos, out ChunkData containerChunk);
 
-            if (containerChunk == null) return VoxelType.Nothing;
+            if (containerChunk == null) return -1;
             
             Vector3Int voxelInChunk = Chunk.GetVoxelPosition(voxelWorldPos, containerChunk);
             return Chunk.GetVoxel(containerChunk, voxelInChunk);

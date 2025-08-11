@@ -569,7 +569,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &884209218
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -687,7 +687,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8ea334ed0f9e41aaaeb72f0194c790cb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  textureData: {fileID: 11400000, guid: 9e294d34517279542aaf9b97122faca2, type: 2}
+  voxelMaterial: {fileID: 2100000, guid: 89b8ef3b9e2e47e4293f65e6b2991753, type: 2}
 --- !u!4 &1291856481
 Transform:
   m_ObjectHideFlags: 0
