@@ -569,7 +569,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!114 &884209218
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -589,7 +589,7 @@ MonoBehaviour:
   - {x: 2, y: 2}
   - {x: 4, y: 2}
   - {x: 2, y: 6}
-  selectedTex: {x: 7, y: 8}
+  selectedTex: 2
 --- !u!33 &884209219
 MeshFilter:
   m_ObjectHideFlags: 0

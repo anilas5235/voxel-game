@@ -57,9 +57,9 @@ namespace Voxels.Data
 
         private void GenerateVoxels(ChunkData data)
         {
-            int dirt = 1;
-            int grass = 2;
-            int water = 3;
+            int dirt = VoxelRegistry.GetId("std:Dirt");
+            int grass = VoxelRegistry.GetId("std:Grass");
+            int water = VoxelRegistry.GetId("std:Water");
             for (int x = 0; x < ChunkSize; x++)
             {
                 for (int z = 0; z < ChunkSize; z++)

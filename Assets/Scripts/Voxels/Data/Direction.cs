@@ -28,5 +28,30 @@ namespace Voxels.Data
                 _ => throw new System.ArgumentOutOfRangeException(nameof(direction), direction, null)
             };
         }
+        
+        public static Direction GetOpposite(this Direction direction)
+        {
+            return direction switch
+            {
+                Direction.Up => Direction.Down,
+                Direction.Down => Direction.Up,
+                Direction.Forward => Direction.Backwards,
+                Direction.Backwards => Direction.Forward,
+                Direction.Right => Direction.Left,
+                Direction.Left => Direction.Right,
+                
+                _ => throw new System.ArgumentOutOfRangeException(nameof(direction), direction, null)
+            };
+        }
+        
+        public static readonly Direction[] TraversalOrder =
+        {
+            Direction.Backwards,
+            Direction.Down,
+            Direction.Forward,
+            Direction.Left,
+            Direction.Right,
+            Direction.Up,
+        };
     }
 }

@@ -19,28 +19,30 @@ namespace Voxels.Data
                 Name = packagePrefix + ":" + definition.name,
                 Collision = definition.collision,
                 Transparent = definition.transparent,
-                TexIds = new float[6]
+                TexIds = RegisterTextures(definition),
             };
             
-            for (int i = 0; i < 6; i++)
-            {
-                Texture2D tex = definition.GetTexture((Direction)i);
-                if (tex)
-                {
-                    if (!TextureToId.TryGetValue(tex, out int textureId))
-                    {
-                        textureId = TextureToId.Count;
-                        TextureToId[tex] = textureId;
-                    }
-                    type.TexIds[i] = textureId;
-                }
-                else
-                {
-                    type.TexIds[i] = -1; // No texture assigned
-                }
-            }
             IDToVoxel.Add(type);
             NameToId[type.Name] = type.Id;
+        }
+
+        private static float[] RegisterTextures(VoxelDefinition definition)
+        {
+            float[] textureIds = { -1, -1, -1, -1, -1, -1 };
+            for (int i = 0; i < textureIds.Length; i++)
+            {
+                Texture2D tex = definition.GetTexture((Direction)i);
+                if (!tex) continue;
+                
+                if (!TextureToId.TryGetValue(tex, out int textureId))
+                {
+                    textureId = TextureToId.Count;
+                    TextureToId[tex] = textureId;
+                }
+                textureIds[i] = textureId;
+            }
+
+            return textureIds;
         }
 
         public static int GetId(string name) => NameToId[name];
@@ -57,8 +59,12 @@ namespace Voxels.Data
                 TextureToId.Count,
                 TextureFormat.DXT1,
                 false
-            );
-
+            )
+            {
+                filterMode = FilterMode.Point,
+                wrapMode = TextureWrapMode.Repeat,  
+            };
+            // Copy each texture into the texture array
             int index = 0;
             foreach (KeyValuePair<Texture2D, int> kvp in TextureToId)
             {

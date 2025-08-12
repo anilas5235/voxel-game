@@ -16,25 +16,15 @@ namespace Voxels.Data
 
             foreach (VoxelDataPackage package in voxelDataPackages)
             {
-                string prefix = package.packagePrefix;
-                if (string.IsNullOrEmpty(prefix))
-                {
-                    Debug.LogWarning("VoxelDataPackage prefix is empty. Using default 'UserPackage'.");
-                    prefix = "UserPackage";
-                }
-                foreach (VoxelDefinition definition in package.voxelTextures)
-                {
-                    if (!definition)
-                    {
-                        Debug.LogWarning("Found null VoxelDefinition in package: " + package.name);
-                        continue;
-                    }
-
-                    VoxelRegistry.Register(prefix,definition);
-                }
+                RegisterPackage(package);
             }
             
-            if (voxelMaterial != null)
+            UpdateMaterial();
+        }
+
+        private void UpdateMaterial()
+        {
+            if (voxelMaterial)
             {
                 Texture2DArray texArray = VoxelRegistry.GetTextureArray();
                 if (texArray)
@@ -49,6 +39,26 @@ namespace Voxels.Data
             else
             {
                 Debug.LogWarning("Voxel material is null, cannot assign texture array.");
+            }
+        }
+
+        private static void RegisterPackage(VoxelDataPackage package)
+        {
+            string prefix = package.packagePrefix;
+            if (string.IsNullOrEmpty(prefix))
+            {
+                Debug.LogWarning("VoxelDataPackage prefix is empty. Using default 'UserPackage'.");
+                prefix = "UserPackage";
+            }
+            foreach (VoxelDefinition definition in package.voxelTextures)
+            {
+                if (!definition)
+                {
+                    Debug.LogWarning("Found null VoxelDefinition in package: " + package.name);
+                    continue;
+                }
+
+                VoxelRegistry.Register(prefix,definition);
             }
         }
     }

@@ -17,7 +17,15 @@ namespace Test
             new Vector2Int(2, 2)
         };
         
-        public Vector2Int selectedTex = Vector2Int.one;
+        // Add UVs (normalized coordinates)
+        private readonly Vector2[] UVs = {
+            new(0, 0), // Bottom left
+            new(1, 0), // Bottom right
+            new(0, 1), // Top left
+            new(1, 1) // Top right
+        };
+        
+        public int selectedTex = 1;
 
         private void Awake()
         {
@@ -36,7 +44,7 @@ namespace Test
 
             List<Vector3> vertices = new();
             List<int> triangles = new();
-            List<Vector4> uvs = new();
+            List<Vector3> uvs = new();
 
             float xOffset = 0;
 
@@ -63,19 +71,11 @@ namespace Test
                 triangles.Add(vertexIndex); // Bottom left
                 triangles.Add(vertexIndex + 3); // Top right
                 triangles.Add(vertexIndex + 1); // Bottom right
-
-                // Add UVs (normalized coordinates)
-                Vector2[] UVs = {
-                    new(0, 0), // Bottom left
-                    new(1, 0), // Bottom right
-                    new(0, 1), // Top left
-                    new(1, 1) // Top right
-                };
                 
                 foreach (Vector2 uv in UVs)
                 {
                     Vector2 u = uv * quadSize;
-                    uvs.Add(new Vector4(u.x,u.y,selectedTex.x, selectedTex.y));
+                    uvs.Add(new Vector3(u.x,u.y,selectedTex));
                 }
 
                 // Move the x offset for the next quad
