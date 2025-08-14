@@ -85,16 +85,22 @@ namespace Voxels.Data
             }
         }
 
-        internal int GetVoxelFromOtherChunk(Vector3Int voxelWorldPos)
+        internal ChunkData GetChunkFrom(Vector3Int voxelWorldPos)
         {
-            Vector3Int pos = Chunk.GetChunkPosition(voxelWorldPos);
+            Vector3Int pos = GetChunkPosition(voxelWorldPos);
 
-            _chunkData.TryGetValue(pos, out ChunkData containerChunk);
+            _chunkData.TryGetValue(pos, out ChunkData data);
+            return data;
+        }
 
-            if (containerChunk == null) return -1;
-            
-            Vector3Int voxelInChunk = Chunk.GetVoxelPosition(voxelWorldPos, containerChunk);
-            return Chunk.GetVoxel(containerChunk, voxelInChunk);
+        private static Vector3Int GetChunkPosition(Vector3Int voxelWorldPos)
+        {
+            return new Vector3Int
+            {
+                x = Mathf.FloorToInt(voxelWorldPos.x / (float)ChunkSize) * ChunkSize,
+                y = Mathf.FloorToInt(voxelWorldPos.y / (float)ChunkHeight) * ChunkHeight,
+                z = Mathf.FloorToInt(voxelWorldPos.z / (float)ChunkSize) * ChunkSize
+            };
         }
     }
 }
