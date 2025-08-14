@@ -9,7 +9,8 @@ namespace Voxels.Data
         private static readonly List<VoxelType> IDToVoxel = new(){ null };
         
         private static readonly Dictionary<Texture2D,int> TextureToId = new();
-        
+        private const int TextureSize = 128; // Assuming all textures are 128x128
+
 
         public static void Register(string packagePrefix, VoxelDefinition definition)
         {
@@ -26,9 +27,9 @@ namespace Voxels.Data
             NameToId[type.Name] = type.Id;
         }
 
-        private static float[] RegisterTextures(VoxelDefinition definition)
+        private static int[] RegisterTextures(VoxelDefinition definition)
         {
-            float[] textureIds = { -1, -1, -1, -1, -1, -1 };
+            int[] textureIds = { -1, -1, -1, -1, -1, -1 };
             for (int i = 0; i < textureIds.Length; i++)
             {
                 Texture2D tex = definition.GetTexture((Direction)i);
@@ -54,8 +55,8 @@ namespace Voxels.Data
             if (TextureToId.Count == 0) return null;
 
             Texture2DArray textureArray = new(
-                128, // Assuming all textures are 16x16
-                128,
+                TextureSize, 
+                TextureSize,
                 TextureToId.Count,
                 TextureFormat.DXT1,
                 false
@@ -74,14 +75,5 @@ namespace Voxels.Data
             textureArray.Apply();
             return textureArray;
         }
-    }
-
-    public class VoxelType
-    {
-        public int Id; // internal ID
-        public string Name;
-        public bool Collision;
-        public bool Transparent;
-        public float[] TexIds; // Texture IDs for the voxel, must have 6 elements (for each face)
     }
 }
