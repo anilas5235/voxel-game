@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
+using Voxels.Data.MeshGeneration;
 
 namespace Voxels.Data
 {
@@ -35,7 +36,7 @@ namespace Voxels.Data
 
             foreach (ChunkData data in _chunkData.Values)
             {
-                MeshData meshData = Chunk.GetChunkMeshData(data);
+                MeshData meshData = GreedyMesher.Run(data); //= Chunk.GetChunkMeshData(data);
                 GameObject chunkObject = Instantiate(chunkPrefab, data.WorldPosition, Quaternion.identity);
                 ChunkRenderer chunkRenderer = chunkObject.GetComponent<ChunkRenderer>();
                 _chunks.Add(data.WorldPosition, chunkRenderer);

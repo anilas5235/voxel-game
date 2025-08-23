@@ -61,11 +61,6 @@ namespace Voxels.Data
             meshCollider.sharedMesh = colliderMesh;
         }
 
-        public void UpdateChunk()
-        {
-            RenderMesh(Chunk.GetChunkMeshData(ChunkData));
-        }
-
         public void UpdateChunk(MeshData meshData)
         {
             RenderMesh(meshData);

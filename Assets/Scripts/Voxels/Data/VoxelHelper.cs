@@ -6,7 +6,7 @@ namespace Voxels.Data
 {
     public static class VoxelHelper
     {
-        private const float TextureOffset = 0.01f;
+        internal const float TextureOffset = 0.01f;
         private const float OneMinusTextureOffset = 1 - TextureOffset;
 
         public static MeshData GetMeshData(ChunkData chunk, Vector3Int pos, MeshData meshData, VoxelType voxelType)
