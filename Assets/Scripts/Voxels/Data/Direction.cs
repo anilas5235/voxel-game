@@ -29,6 +29,14 @@ namespace Voxels.Data
             };
         }
         
+        /// <summary>
+        /// Determines if a face is vertical (not up or down).
+        /// </summary>
+        public static bool IsVertical(this Direction direction)
+        {
+            return direction is not (Direction.Up or Direction.Down);
+        }
+        
         public static Direction GetOpposite(this Direction direction)
         {
             return direction switch
