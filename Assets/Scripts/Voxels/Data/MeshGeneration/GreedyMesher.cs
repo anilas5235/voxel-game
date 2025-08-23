@@ -231,35 +231,30 @@ namespace Voxels.Data.MeshGeneration
                         vertices[3] = new Vector3(pos.x, pos.y + size.y, _thirdCoord + 1);
                         break;
                     case Direction.Backwards: // Z-
-                        // Note: vertices are reversed to maintain counter-clockwise winding order
                         vertices[0] = new Vector3(pos.x + size.x, pos.y, _thirdCoord);
                         vertices[1] = new Vector3(pos.x, pos.y, _thirdCoord);
                         vertices[2] = new Vector3(pos.x, pos.y + size.y, _thirdCoord);
                         vertices[3] = new Vector3(pos.x + size.x, pos.y + size.y, _thirdCoord);
                         break;
                     case Direction.Right: // X+
-                        // Note: vertices are arranged to maintain counter-clockwise winding order
                         vertices[0] = new Vector3(_thirdCoord + 1, pos.y, pos.x + size.x);
                         vertices[1] = new Vector3(_thirdCoord + 1, pos.y, pos.x);
                         vertices[2] = new Vector3(_thirdCoord + 1, pos.y + size.y, pos.x);
                         vertices[3] = new Vector3(_thirdCoord + 1, pos.y + size.y, pos.x + size.x);
                         break;
                     case Direction.Left: // X-
-                        // Note: vertices are arranged to maintain counter-clockwise winding order
                         vertices[0] = new Vector3(_thirdCoord, pos.y, pos.x);
                         vertices[1] = new Vector3(_thirdCoord, pos.y, pos.x + size.x);
                         vertices[2] = new Vector3(_thirdCoord, pos.y + size.y, pos.x + size.x);
                         vertices[3] = new Vector3(_thirdCoord, pos.y + size.y, pos.x);
                         break;
                     case Direction.Up: // Y+
-                        // Note: vertices are arranged to maintain counter-clockwise winding order
                         vertices[0] = new Vector3(pos.x, _thirdCoord + 1, pos.y + size.y);
                         vertices[1] = new Vector3(pos.x + size.x, _thirdCoord + 1, pos.y + size.y);
                         vertices[2] = new Vector3(pos.x + size.x, _thirdCoord + 1, pos.y);
                         vertices[3] = new Vector3(pos.x, _thirdCoord + 1, pos.y);
                         break;
                     case Direction.Down: // Y-
-                        // Note: vertices are arranged to maintain counter-clockwise winding order
                         vertices[0] = new Vector3(pos.x, _thirdCoord, pos.y);
                         vertices[1] = new Vector3(pos.x + size.x, _thirdCoord, pos.y);
                         vertices[2] = new Vector3(pos.x + size.x, _thirdCoord, pos.y + size.y);
