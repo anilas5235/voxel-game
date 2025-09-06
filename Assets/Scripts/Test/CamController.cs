@@ -2,6 +2,7 @@
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using Voxels;
 
 namespace Test
 {
@@ -31,6 +32,20 @@ namespace Test
         public void OnLook(InputValue value)
         {
             lookInput = value.Get<Vector2>();
+        }
+
+        public void OnAttack(InputValue value)
+        {
+            bool interaction = value.isPressed;
+            if (!interaction) return;
+            bool res = Physics.Raycast(_camera.transform.position, _camera.transform.forward, out RaycastHit hitInfo, 5f);
+            if (res)
+            {
+                Vector3 worldPos = hitInfo.point + _camera.transform.forward * .001f;
+                Vector3Int voxelWorldPos = Vector3Int.FloorToInt(worldPos);
+                VoxelWorld.Instance.SetVoxelFromWorldVoxPos(voxelWorldPos, 0);
+                Debug.DrawLine(_camera.transform.position, hitInfo.point, Color.red,30f);
+            }
         }
 
         private void Update()

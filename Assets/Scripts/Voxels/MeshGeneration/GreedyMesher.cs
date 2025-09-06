@@ -72,7 +72,7 @@ namespace Voxels.MeshGeneration
         /// </summary>
         private void GenerateVisibleFaces()
         {
-            Chunk.Chunk.LoopThroughVoxels(ProcessVoxel);
+            ChunkUtils.LoopThroughVoxels(ProcessVoxel);
         }
 
         /// <summary>
@@ -97,7 +97,7 @@ namespace Voxels.MeshGeneration
         /// </summary>
         private bool ShouldCreateFace(Vector3Int pos, Direction direction, VoxelType currentVoxelType)
         {
-            int neighborId = Chunk.Chunk.GetVoxel(_chunk, pos + direction.GetVector());
+            int neighborId = ChunkUtils.GetVoxel(_chunk, pos + direction.GetVector());
             if (neighborId < 0) return false; // Negative IDs are invalid voxels
 
             VoxelType neighborVoxelType = VoxelRegistry.Get(neighborId);

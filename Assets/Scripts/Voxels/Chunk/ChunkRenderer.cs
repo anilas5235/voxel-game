@@ -1,7 +1,6 @@
 ﻿using System.Linq;
 using UnityEditor;
 using UnityEngine;
-using Voxels.Data;
 using Voxels.MeshGeneration;
 using static Voxels.VoxelWorld;
 
@@ -12,23 +11,19 @@ namespace Voxels.Chunk
     public class ChunkRenderer : MonoBehaviour
     {
         public bool showGizmos;
-        private Mesh mesh;
-        private MeshCollider meshCollider;
-        private MeshFilter meshFilter;
-        public ChunkData ChunkData { get; private set; }
+        private Mesh _mesh;
+        private MeshCollider _meshCollider;
+        private MeshFilter _meshFilter;
+        private ChunkData ChunkData { get; set; }
 
-        public bool Modified
-        {
-            get => ChunkData.modified;
-            set => ChunkData.modified = value;
-        }
+        public bool Modified => ChunkData.modified;
 
         private void Awake()
         {
-            meshFilter = GetComponent<MeshFilter>();
-            meshCollider = GetComponent<MeshCollider>();
+            _meshFilter = GetComponent<MeshFilter>();
+            _meshCollider = GetComponent<MeshCollider>();
 
-            mesh = meshFilter.mesh;
+            _mesh = _meshFilter.mesh;
         }
 
 #if UNITY_EDITOR
@@ -55,31 +50,39 @@ namespace Voxels.Chunk
         {
             if (meshData == null) return;
 
-            mesh.Clear();
+            _mesh.Clear();
 
-            mesh.subMeshCount = 2;
-            mesh.vertices = meshData.Vertices.Concat(meshData.WaterMeshData.Vertices).ToArray();
+            _mesh.subMeshCount = 2;
+            _mesh.vertices = meshData.Vertices.Concat(meshData.WaterMeshData.Vertices).ToArray();
 
-            mesh.SetTriangles(meshData.Triangles.ToArray(), 0);
-            mesh.SetTriangles(meshData.WaterMeshData.Triangles.Select(val => val + meshData.Vertices.Count).ToArray(),
+            _mesh.SetTriangles(meshData.Triangles.ToArray(), 0);
+            _mesh.SetTriangles(meshData.WaterMeshData.Triangles.Select(val => val + meshData.Vertices.Count).ToArray(),
                 1);
 
-            mesh.SetUVs(0, meshData.UV.Concat(meshData.WaterMeshData.UV).ToArray());
-            mesh.RecalculateNormals();
+            _mesh.SetUVs(0, meshData.UV.Concat(meshData.WaterMeshData.UV).ToArray());
+            _mesh.RecalculateNormals();
 
-            meshCollider.sharedMesh = null;
+            _meshCollider.sharedMesh = null;
             Mesh colliderMesh = new()
             {
                 vertices = meshData.ColliderVertices.ToArray(),
                 triangles = meshData.ColliderTriangles.ToArray()
             };
             colliderMesh.RecalculateNormals();
-            meshCollider.sharedMesh = colliderMesh;
+            _meshCollider.sharedMesh = colliderMesh;
         }
 
-        public void UpdateChunk(MeshData meshData)
+        private void FixedUpdate()
         {
+            UpdateChunk();
+        }
+
+        private void UpdateChunk()
+        {
+            if (!ChunkData.dirty) return;
+            MeshData meshData = GreedyMesher.Run(ChunkData);
             RenderMesh(meshData);
+            ChunkData.dirty = false;
         }
     }
 }

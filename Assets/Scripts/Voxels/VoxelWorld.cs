@@ -1,12 +1,12 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
+using Utils;
 using Voxels.Chunk;
 using Voxels.Data;
-using Voxels.MeshGeneration;
 
 namespace Voxels
 {
-    public class VoxelWorld : MonoBehaviour
+    public class VoxelWorld : Singleton<VoxelWorld>
     {
         public const int ChunkSize = 16;
         public const int HalfChunkSize = ChunkSize / 2;
@@ -19,8 +19,8 @@ namespace Voxels
         public float noiseScale = 0.03f;
         public GameObject chunkPrefab;
 
-        private readonly Dictionary<Vector3Int, ChunkData> _chunkData = new();
-        private readonly Dictionary<Vector3Int, ChunkRenderer> _chunks = new();
+        private readonly Dictionary<Vector2Int, ChunkData> _chunkData = new();
+        private readonly Dictionary<Vector2Int, ChunkRenderer> _chunks = new();
 
         public void GenerateWorld()
         {
@@ -29,19 +29,20 @@ namespace Voxels
             for (int x = 0; x < mapSizeInChunks; x++)
             for (int z = 0; z < mapSizeInChunks; z++)
             {
-                ChunkData data = new(this, new Vector3Int(x * ChunkSize, 0, z * ChunkSize));
+                Vector2Int chunkPos = new(x, z);
+                ChunkData data = new(this, chunkPos);
                 GenerateVoxels(data);
-                _chunkData.Add(data.WorldPosition, data);
+                _chunkData.Add(chunkPos, data);
             }
 
             foreach (ChunkData data in _chunkData.Values)
             {
-                MeshData meshData = GreedyMesher.Run(data); //= Chunk.GetChunkMeshData(data);
                 GameObject chunkObject = Instantiate(chunkPrefab, data.WorldPosition, Quaternion.identity);
+                Vector2Int chunkPos = data.ChunkPosition;
+                chunkObject.name = chunkPos.ToString();
                 ChunkRenderer chunkRenderer = chunkObject.GetComponent<ChunkRenderer>();
-                _chunks.Add(data.WorldPosition, chunkRenderer);
+                _chunks.Add(chunkPos, chunkRenderer);
                 chunkRenderer.Initialize(data);
-                chunkRenderer.UpdateChunk(meshData);
             }
         }
 
@@ -71,34 +72,56 @@ namespace Voxels
                         voxelId = y < waterThreshold ? water : 0;
                     else if (y == groundPosition) voxelId = grass;
 
-                    Chunk.Chunk.SetVoxel(data, new Vector3Int(x, y, z), voxelId);
+                    ChunkUtils.SetVoxel(data, new Vector3Int(x, y, z), voxelId);
                 }
             }
         }
 
+        public int GetVoxelFromWoldVoxPos(Vector3Int voxelWorldPos)
+        {
+            if(IsNotInYRange(voxelWorldPos.y)) return -1;
+            ChunkData chunk = GetChunkFrom(voxelWorldPos);
+            if (chunk == null) return -1;
+            return ChunkUtils.GetVoxel(chunk, GetVoxPosFromWorldVoxPos(chunk, voxelWorldPos));
+        }
+        
+        private static bool IsNotInYRange(int y)
+        {
+            return y is < 0 or >= ChunkHeight;
+        }
+
+        public void SetVoxelFromWorldVoxPos(Vector3Int voxelWorldPos, int voxelId)
+        {
+            if(IsNotInYRange(voxelWorldPos.y)) return;
+            ChunkData chunk = GetChunkFrom(voxelWorldPos);
+            ChunkUtils.SetVoxel(chunk, GetVoxPosFromWorldVoxPos(chunk, voxelWorldPos), voxelId);
+        }
+
+        public static Vector3Int GetVoxPosFromWorldVoxPos(ChunkData chunkData, Vector3Int voxelWorldPos)
+        {
+            return voxelWorldPos - chunkData.WorldPosition;
+        }
+
+        public static Vector3Int GetVoxPosFromWorldVoxPos(Vector2Int chunkPos, Vector3Int voxelWorldPos)
+        {
+            return voxelWorldPos - new Vector3Int(chunkPos.x * ChunkSize, 0, chunkPos.y * ChunkSize);
+        }
+
         internal ChunkData GetChunkFrom(Vector3Int voxelWorldPos)
         {
-            Vector3Int pos = GetChunkPosition(voxelWorldPos);
-
+            Vector2Int pos = GetChunkPosition(voxelWorldPos);
             _chunkData.TryGetValue(pos, out ChunkData data);
             return data;
         }
 
-        private static Vector3Int GetChunkPosition(Vector3Int voxelWorldPos)
+        public static Vector2Int GetChunkPosition(Vector3Int voxelWorldPos)
         {
-            return new Vector3Int
-            {
-                x = Mathf.FloorToInt(voxelWorldPos.x / (float)ChunkSize) * ChunkSize,
-                y = Mathf.FloorToInt(voxelWorldPos.y / (float)ChunkHeight) * ChunkHeight,
-                z = Mathf.FloorToInt(voxelWorldPos.z / (float)ChunkSize) * ChunkSize
-            };
-        }
-
-        public void SetVoxel(Vector3Int worldPosition, int voxelId)
-        {
-            ChunkData chunk = GetChunkFrom(worldPosition);
-            if (chunk == null) return;
-            Chunk.Chunk.SetVoxel(chunk, worldPosition - chunk.WorldPosition, voxelId);
+            return Vector2Int.FloorToInt(
+                new Vector2(
+                    voxelWorldPos.x / (float)ChunkSize,
+                    voxelWorldPos.z / (float)ChunkSize
+                )
+            );
         }
     }
 }
