@@ -1,19 +1,20 @@
 ﻿using System.Linq;
 using UnityEditor;
 using UnityEngine;
-using static Voxels.Data.VoxelWorld;
+using Voxels.Data;
+using Voxels.MeshGeneration;
+using static Voxels.VoxelWorld;
 
 
-namespace Voxels.Data
+namespace Voxels.Chunk
 {
     [RequireComponent(typeof(MeshRenderer), typeof(MeshFilter), typeof(MeshCollider))]
     public class ChunkRenderer : MonoBehaviour
     {
-        private MeshFilter meshFilter;
-        private MeshCollider meshCollider;
-        private Mesh mesh;
-
         public bool showGizmos;
+        private Mesh mesh;
+        private MeshCollider meshCollider;
+        private MeshFilter meshFilter;
         public ChunkData ChunkData { get; private set; }
 
         public bool Modified
@@ -29,6 +30,21 @@ namespace Voxels.Data
 
             mesh = meshFilter.mesh;
         }
+
+#if UNITY_EDITOR
+        private void OnDrawGizmos()
+        {
+            if (!showGizmos || !Application.isPlaying || ChunkData == null) return;
+
+            Gizmos.color = Selection.activeGameObject == gameObject
+                ? new Color(0, 1, 0, .4f)
+                : new Color(1, 0, 1, .4f);
+
+            Gizmos.DrawCube(transform.position +
+                            new Vector3(HalfChunkSize, HalfChunkHeight, HalfChunkSize)
+                , new Vector3(ChunkSize, ChunkHeight, ChunkSize));
+        }
+#endif
 
         public void Initialize(ChunkData chunkData)
         {
@@ -65,20 +81,5 @@ namespace Voxels.Data
         {
             RenderMesh(meshData);
         }
-
-#if UNITY_EDITOR
-        private void OnDrawGizmos()
-        {
-            if (!showGizmos || !Application.isPlaying || ChunkData == null) return;
-
-            Gizmos.color = Selection.activeGameObject == gameObject
-                ? new Color(0, 1, 0, .4f)
-                : new Color(1, 0, 1, .4f);
-
-            Gizmos.DrawCube(transform.position +
-                            new Vector3(HalfChunkSize, HalfChunkHeight, HalfChunkSize)
-                , new Vector3(ChunkSize, ChunkHeight, ChunkSize));
-        }
-#endif
     }
 }

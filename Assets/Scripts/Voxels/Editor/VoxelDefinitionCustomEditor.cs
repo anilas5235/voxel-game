@@ -1,8 +1,8 @@
 ﻿using System;
 using UnityEditor;
-using UnityEngine;
+using Voxels.Data;
 
-namespace Voxels.Data.Editor
+namespace Voxels.Editor
 {
     [CustomEditor(typeof(VoxelDefinition))]
     public class VoxelDefinitionCustomEditor : UnityEditor.Editor

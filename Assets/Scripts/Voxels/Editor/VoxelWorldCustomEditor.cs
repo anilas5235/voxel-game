@@ -1,7 +1,8 @@
 ﻿using UnityEditor;
 using UnityEngine;
+using Voxels.Data;
 
-namespace Voxels.Data.Editor
+namespace Voxels.Editor
 {
     [CustomEditor(typeof(VoxelWorld))]
     public class VoxelWorldCustomEditor : UnityEditor.Editor
@@ -12,10 +13,7 @@ namespace Voxels.Data.Editor
 
             VoxelWorld voxelWorld = (VoxelWorld)target;
 
-            if (Application.isPlaying &&GUILayout.Button("Generate World"))
-            {
-                voxelWorld.GenerateWorld();
-            }
+            if (Application.isPlaying && GUILayout.Button("Generate World")) voxelWorld.GenerateWorld();
         }
     }
 }

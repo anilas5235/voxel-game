@@ -1,6 +1,7 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 
-namespace Voxels.Data
+namespace Voxels.MeshGeneration
 {
     public enum Direction
     {
@@ -12,8 +13,18 @@ namespace Voxels.Data
         Down = 5 // -y direction
     }
 
-	public static class DirectionUtils
+    public static class DirectionUtils
     {
+        public static readonly Direction[] TraversalOrder =
+        {
+            Direction.Backwards,
+            Direction.Down,
+            Direction.Forward,
+            Direction.Left,
+            Direction.Right,
+            Direction.Up
+        };
+
         public static Vector3Int GetVector(this Direction direction)
         {
             return direction switch
@@ -24,19 +35,19 @@ namespace Voxels.Data
                 Direction.Backwards => Vector3Int.back,
                 Direction.Right => Vector3Int.right,
                 Direction.Left => Vector3Int.left,
-              
-                _ => throw new System.ArgumentOutOfRangeException(nameof(direction), direction, null)
+
+                _ => throw new ArgumentOutOfRangeException(nameof(direction), direction, null)
             };
         }
-        
+
         /// <summary>
-        /// Determines if a face is vertical (not up or down).
+        ///     Determines if a face is vertical (not up or down).
         /// </summary>
         public static bool IsVertical(this Direction direction)
         {
             return direction is not (Direction.Up or Direction.Down);
         }
-        
+
         public static Direction GetOpposite(this Direction direction)
         {
             return direction switch
@@ -47,19 +58,9 @@ namespace Voxels.Data
                 Direction.Backwards => Direction.Forward,
                 Direction.Right => Direction.Left,
                 Direction.Left => Direction.Right,
-                
-                _ => throw new System.ArgumentOutOfRangeException(nameof(direction), direction, null)
+
+                _ => throw new ArgumentOutOfRangeException(nameof(direction), direction, null)
             };
         }
-        
-        public static readonly Direction[] TraversalOrder =
-        {
-            Direction.Backwards,
-            Direction.Down,
-            Direction.Forward,
-            Direction.Left,
-            Direction.Right,
-            Direction.Up,
-        };
     }
 }

@@ -1,23 +1,17 @@
 ﻿using System;
 using UnityEngine;
-using static Voxels.Data.VoxelWorld;
+using static Voxels.VoxelWorld;
 
-namespace Voxels.Data
+namespace Voxels.Chunk
 {
     public static class Chunk
     {
         public static void LoopThroughVoxels(Action<Vector3Int> action)
         {
             for (int y = 0; y < ChunkHeight; y++)
-            {
-                for (int z = 0; z < ChunkSize; z++)
-                {
-                    for (int x = 0; x < ChunkSize; x++)
-                    {
-                        action(new Vector3Int( x, y, z));
-                    }
-                }
-            }
+            for (int z = 0; z < ChunkSize; z++)
+            for (int x = 0; x < ChunkSize; x++)
+                action(new Vector3Int(x, y, z));
         }
 
         private static bool InRange(Vector3Int voxelPosition)
@@ -60,19 +54,6 @@ namespace Voxels.Data
 
             ChunkData other = chunkData.World.GetChunkFrom(chunkData.WorldPosition + voxelPosition);
             other?.SetVoxelFromWorldVoxPos(chunkData.WorldPosition + voxelPosition, voxelId);
-        }
-
-        public static MeshData GetChunkMeshData(ChunkData chunkData)
-        {
-            MeshData meshData = new();
-
-            LoopThroughVoxels(pos =>
-            {
-                meshData = VoxelHelper.GetMeshData(chunkData, pos, meshData,
-                    VoxelRegistry.Get(chunkData.GetVoxel(pos)));
-            });
-
-            return meshData;
         }
     }
 }

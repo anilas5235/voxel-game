@@ -1,15 +1,16 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
+using Voxels.MeshGeneration;
 
 namespace Voxels.Data
 {
     public static class VoxelRegistry
     {
-        private static readonly Dictionary<string, int> NameToId = new(){{"air", 0}};
-        private static readonly List<VoxelType> IDToVoxel = new(){ null };
-        
-        private static readonly Dictionary<Texture2D,int> TextureToId = new();
         private const int TextureSize = 128; // Assuming all textures are 128x128
+        private static readonly Dictionary<string, int> NameToId = new() { { "air", 0 } };
+        private static readonly List<VoxelType> IDToVoxel = new() { null };
+
+        private static readonly Dictionary<Texture2D, int> TextureToId = new();
 
 
         public static void Register(string packagePrefix, VoxelDefinition definition)
@@ -20,9 +21,9 @@ namespace Voxels.Data
                 Name = packagePrefix + ":" + definition.name,
                 Collision = definition.collision,
                 Transparent = definition.transparent,
-                TexIds = RegisterTextures(definition),
+                TexIds = RegisterTextures(definition)
             };
-            
+
             IDToVoxel.Add(type);
             NameToId[type.Name] = type.Id;
         }
@@ -34,28 +35,35 @@ namespace Voxels.Data
             {
                 Texture2D tex = definition.GetTexture((Direction)i);
                 if (!tex) continue;
-                
+
                 if (!TextureToId.TryGetValue(tex, out int textureId))
                 {
                     textureId = TextureToId.Count;
                     TextureToId[tex] = textureId;
                 }
+
                 textureIds[i] = textureId;
             }
 
             return textureIds;
         }
 
-        public static int GetId(string name) => NameToId[name];
+        public static int GetId(string name)
+        {
+            return NameToId[name];
+        }
 
-        public static VoxelType Get(int id) => IDToVoxel[id];
+        public static VoxelType Get(int id)
+        {
+            return IDToVoxel[id];
+        }
 
         public static Texture2DArray GetTextureArray()
         {
             if (TextureToId.Count == 0) return null;
 
             Texture2DArray textureArray = new(
-                TextureSize, 
+                TextureSize,
                 TextureSize,
                 TextureToId.Count,
                 TextureFormat.DXT1,
@@ -63,7 +71,7 @@ namespace Voxels.Data
             )
             {
                 filterMode = FilterMode.Point,
-                wrapMode = TextureWrapMode.Repeat,  
+                wrapMode = TextureWrapMode.Repeat
             };
             // Copy each texture into the texture array
             int index = 0;
@@ -72,6 +80,7 @@ namespace Voxels.Data
                 Graphics.CopyTexture(kvp.Key, 0, 0, textureArray, index, 0);
                 index++;
             }
+
             textureArray.Apply();
             return textureArray;
         }

@@ -5,6 +5,7 @@ namespace Voxels.Data
     public class VoxelDataImporter : MonoBehaviour
     {
         public Material voxelMaterial;
+
         private void Awake()
         {
             VoxelDataPackage[] voxelDataPackages = Resources.LoadAll<VoxelDataPackage>("VoxelDataPackages");
@@ -14,11 +15,8 @@ namespace Voxels.Data
                 return;
             }
 
-            foreach (VoxelDataPackage package in voxelDataPackages)
-            {
-                RegisterPackage(package);
-            }
-            
+            foreach (VoxelDataPackage package in voxelDataPackages) RegisterPackage(package);
+
             UpdateMaterial();
         }
 
@@ -28,13 +26,9 @@ namespace Voxels.Data
             {
                 Texture2DArray texArray = VoxelRegistry.GetTextureArray();
                 if (texArray)
-                {
                     voxelMaterial.SetTexture("_texArray", texArray);
-                }
                 else
-                {
                     Debug.LogWarning("Texture array is null, cannot assign to material.");
-                }
             }
             else
             {
@@ -50,6 +44,7 @@ namespace Voxels.Data
                 Debug.LogWarning("VoxelDataPackage prefix is empty. Using default 'UserPackage'.");
                 prefix = "UserPackage";
             }
+
             foreach (VoxelDefinition definition in package.voxelTextures)
             {
                 if (!definition)
@@ -58,7 +53,7 @@ namespace Voxels.Data
                     continue;
                 }
 
-                VoxelRegistry.Register(prefix,definition);
+                VoxelRegistry.Register(prefix, definition);
             }
         }
     }

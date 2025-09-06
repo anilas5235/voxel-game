@@ -1,8 +1,10 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
-using Voxels.Data.MeshGeneration;
+using Voxels.Chunk;
+using Voxels.Data;
+using Voxels.MeshGeneration;
 
-namespace Voxels.Data
+namespace Voxels
 {
     public class VoxelWorld : MonoBehaviour
     {
@@ -25,13 +27,11 @@ namespace Voxels.Data
             ClearWorld();
 
             for (int x = 0; x < mapSizeInChunks; x++)
+            for (int z = 0; z < mapSizeInChunks; z++)
             {
-                for (int z = 0; z < mapSizeInChunks; z++)
-                {
-                    ChunkData data = new(this, new Vector3Int(x * ChunkSize, 0, z * ChunkSize));
-                    GenerateVoxels(data);
-                    _chunkData.Add(data.WorldPosition, data);
-                }
+                ChunkData data = new(this, new Vector3Int(x * ChunkSize, 0, z * ChunkSize));
+                GenerateVoxels(data);
+                _chunkData.Add(data.WorldPosition, data);
             }
 
             foreach (ChunkData data in _chunkData.Values)
@@ -48,10 +48,7 @@ namespace Voxels.Data
         private void ClearWorld()
         {
             _chunkData.Clear();
-            foreach (ChunkRenderer chunk in _chunks.Values)
-            {
-                Destroy(chunk.gameObject);
-            }
+            foreach (ChunkRenderer chunk in _chunks.Values) Destroy(chunk.gameObject);
 
             _chunks.Clear();
         }
@@ -62,26 +59,19 @@ namespace Voxels.Data
             int grass = VoxelRegistry.GetId("std:Grass");
             int water = VoxelRegistry.GetId("std:Water");
             for (int x = 0; x < ChunkSize; x++)
+            for (int z = 0; z < ChunkSize; z++)
             {
-                for (int z = 0; z < ChunkSize; z++)
+                float noiseValue = Mathf.PerlinNoise((data.WorldPosition.x + x) * noiseScale,
+                    (data.WorldPosition.z + z) * noiseScale);
+                int groundPosition = Mathf.RoundToInt(noiseValue * ChunkHeight);
+                for (int y = 0; y < ChunkHeight; y++)
                 {
-                    float noiseValue = Mathf.PerlinNoise((data.WorldPosition.x + x) * noiseScale,
-                        (data.WorldPosition.z + z) * noiseScale);
-                    int groundPosition = Mathf.RoundToInt(noiseValue * ChunkHeight);
-                    for (int y = 0; y < ChunkHeight; y++)
-                    {
-                        int voxelId = dirt;
-                        if (y > groundPosition)
-                        {
-                            voxelId = y < waterThreshold ? water : 0;
-                        }
-                        else if (y == groundPosition)
-                        {
-                            voxelId = grass;
-                        }
+                    int voxelId = dirt;
+                    if (y > groundPosition)
+                        voxelId = y < waterThreshold ? water : 0;
+                    else if (y == groundPosition) voxelId = grass;
 
-                        Chunk.SetVoxel(data, new Vector3Int(x, y, z), voxelId);
-                    }
+                    Chunk.Chunk.SetVoxel(data, new Vector3Int(x, y, z), voxelId);
                 }
             }
         }
@@ -102,6 +92,13 @@ namespace Voxels.Data
                 y = Mathf.FloorToInt(voxelWorldPos.y / (float)ChunkHeight) * ChunkHeight,
                 z = Mathf.FloorToInt(voxelWorldPos.z / (float)ChunkSize) * ChunkSize
             };
+        }
+
+        public void SetVoxel(Vector3Int worldPosition, int voxelId)
+        {
+            ChunkData chunk = GetChunkFrom(worldPosition);
+            if (chunk == null) return;
+            Chunk.Chunk.SetVoxel(chunk, worldPosition - chunk.WorldPosition, voxelId);
         }
     }
 }
