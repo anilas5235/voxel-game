@@ -13,7 +13,7 @@ namespace Voxels.Editor
 
             VoxelWorld voxelWorld = (VoxelWorld)target;
 
-            if (Application.isPlaying && GUILayout.Button("Generate World")) voxelWorld.GenerateWorld();
+            //if (Application.isPlaying && GUILayout.Button("Generate World")) voxelWorld.GenerateWorld();
         }
     }
 }
