@@ -13,8 +13,6 @@ namespace Voxels.MeshGeneration
     /// </summary>
     public class GreedyMesher
     {
-        // Slight offset to prevent texture bleeding in the final render
-        private const float TextureOffset = 0.01f;
         private readonly ChunkData _chunk;
         private readonly MeshData _meshData = new();
 

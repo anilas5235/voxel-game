@@ -93,6 +93,7 @@ namespace Voxels.Chunk
                 foreach (ChunkData chunk in adjacentChunks)
                 {
                     chunk.dirty = true;
+                    chunkData.World.UpdateChunkMesh(chunk.ChunkPosition);
                 }
                 return;
             }

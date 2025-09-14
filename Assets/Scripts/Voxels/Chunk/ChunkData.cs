@@ -33,6 +33,7 @@ namespace Voxels.Chunk
             voxels[GetIndex(voxelPosition)] = voxelId;
             modified = true;
             dirty = true;
+            World.UpdateChunkMesh(ChunkPosition);
         }
 
         private static int GetIndex(Vector3Int voxelPosition)

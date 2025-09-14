@@ -1,6 +1,5 @@
 ﻿using System.Linq;
-using System.Threading.Tasks;
-using System.Collections.Concurrent;
+using Unity.Jobs;
 using UnityEditor;
 using UnityEngine;
 using Voxels.MeshGeneration;
@@ -19,8 +18,6 @@ namespace Voxels.Chunk
         private ChunkData ChunkData { get; set; }
 
         public bool Modified => ChunkData.modified;
-
-        private readonly ConcurrentQueue<MeshData> _meshDataQueue = new();
 
         private void Awake()
         {
@@ -76,30 +73,12 @@ namespace Voxels.Chunk
             _meshCollider.sharedMesh = colliderMesh;
         }
 
-        private void FixedUpdate()
-        {
-            UpdateChunk();
-            ApplyMeshIfReady();
-        }
-
-        private void UpdateChunk()
+        public void UpdateChunk()
         {
             if (!ChunkData.dirty) return;
+            MeshData meshData = GreedyMesher.Run(ChunkData);
+            RenderMesh(meshData);
             ChunkData.dirty = false;
-            // Run mesh generation asynchronously
-            Task.Run(() =>
-            {
-                MeshData meshData = GreedyMesher.Run(ChunkData);
-                _meshDataQueue.Enqueue(meshData);
-            });
-        }
-
-        private void ApplyMeshIfReady()
-        {
-            if (_meshDataQueue.TryDequeue(out MeshData meshData))
-            {
-                RenderMesh(meshData);
-            }
         }
     }
 }

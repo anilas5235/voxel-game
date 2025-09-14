@@ -1,4 +1,5 @@
-﻿using System.Collections.Concurrent;
+﻿using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -23,9 +24,7 @@ namespace Voxels
 
         private readonly List<Vector2Int> _chunksToLoad = new();
         private readonly List<Vector2Int> _chunksToUnload = new();
-
-        // Thread-safe queue for completed chunk data
-        private readonly ConcurrentQueue<(ChunkData, Vector2Int)> _completedChunks = new();
+        private readonly HashSet<Vector2Int> _chunksToUpdate = new();
 
         public WorldData WorldData { get; private set; }
 
@@ -39,6 +38,11 @@ namespace Voxels
                 ChunkSize = ChunkSize,
                 ChunkHeight = ChunkHeight
             };
+        }
+        
+        private void Start()
+        {
+            StartCoroutine(UpdateChunkRoutine());
         }
 
         public void LoadChunk(Vector2Int chunkPosition)
@@ -69,17 +73,33 @@ namespace Voxels
         {
             LoadChunkStep();
             UnloadChunkStep();
-            ProcessCompletedChunks();
+        }
+        
+        private IEnumerator UpdateChunkRoutine()
+        {
+            while (true)
+            {
+                UpdateChunkStep();
+                yield return new WaitForSecondsRealtime(.05f);
+            }
         }
 
-        private void ProcessCompletedChunks()
+        private void UpdateChunkStep()
         {
-            if (_completedChunks.TryDequeue(out (ChunkData, Vector2Int) item))
+            if (_chunksToUpdate.Count == 0) return;
+            Vector2Int pos = _chunksToUpdate.First();
+            _chunksToUpdate.Remove(pos);
+
+            if (!WorldData.ChunkData.TryGetValue(pos, out ChunkData data)) return;
+            if (data == null)
             {
-                (ChunkData data, Vector2Int chunkPos) = item;
-                WorldData.ChunkData[chunkPos] = data;
-                AddChunkRenderer(data, chunkPos);
+                _chunksToUpdate.Add(pos);
+                return;
             }
+            if (!data.dirty) return;
+            ChunkRenderer chunkRenderer = GetOrAddChunkRenderer(data, pos);
+            chunkRenderer.UpdateChunk();
+            data.dirty = false;
         }
 
         private void UnloadChunkStep()
@@ -96,34 +116,30 @@ namespace Voxels
         private void LoadChunkStep()
         {
             if (_chunksToLoad.Count == 0) return;
-            Vector2Int chunkPos = _chunksToLoad.First();
-            _chunksToLoad.Remove(chunkPos);
-            if (WorldData.Chunks.ContainsKey(chunkPos)) return;
-
-            WorldData.ChunkData.TryGetValue(chunkPos, out ChunkData data);
-            if (data == null)
+            foreach (Vector2Int chunkPos in _chunksToLoad)
             {
-                // Run voxel generation asynchronously
-                Task.Run(() =>
+                if (WorldData.Chunks.ContainsKey(chunkPos)) return;
+
+                WorldData.ChunkData.TryGetValue(chunkPos, out ChunkData data);
+                if (data == null)
                 {
                     data = new ChunkData(this, chunkPos);
-                    WorldData.ChunkData.Add(chunkPos, null);
                     WorldGeneration.GenerateVoxels(data, noiseScale, waterThreshold);
-                    _completedChunks.Enqueue((data, chunkPos));
-                });
+                    WorldData.ChunkData.Add(chunkPos, data);
+                }
+
+                _chunksToUpdate.Add(chunkPos);
             }
-            else
-            {
-                AddChunkRenderer(data, chunkPos);
-            }
+
+            _chunksToLoad.Clear();
         }
 
-        private void AddChunkRenderer(ChunkData data, Vector2Int chunkPos)
+        private ChunkRenderer GetOrAddChunkRenderer(ChunkData data, Vector2Int chunkPos)
         {
-            if (WorldData.Chunks.ContainsKey(chunkPos)) return;
+            if (WorldData.Chunks.TryGetValue(chunkPos, out ChunkRenderer chunkRenderer)) return chunkRenderer;
             GameObject chunkObject = Instantiate(chunkPrefab, data.WorldPosition, Quaternion.identity);
             chunkObject.name = chunkPos.ToString();
-            ChunkRenderer chunkRenderer = chunkObject.GetComponent<ChunkRenderer>();
+            chunkRenderer = chunkObject.GetComponent<ChunkRenderer>();
             WorldData.Chunks.Add(chunkPos, chunkRenderer);
             chunkRenderer.Initialize(data);
             for (int x = -1; x < 2; x++)
@@ -131,8 +147,10 @@ namespace Voxels
             {
                 Vector2Int neighborPos = chunkPos + new Vector2Int(x, z);
                 if (!WorldData.ChunkData.TryGetValue(neighborPos, out ChunkData neighborChunk)) continue;
-                if(neighborChunk != null) neighborChunk.dirty = true;
+                if (neighborChunk != null) neighborChunk.dirty = true;
             }
+
+            return chunkRenderer;
         }
 
         private void ClearWorld()
@@ -192,6 +210,11 @@ namespace Voxels
         public static Vector2Int GetChunkPosition(Vector3 worldPos)
         {
             return GetChunkPosition(Vector3Int.FloorToInt(worldPos));
+        }
+
+        public void UpdateChunkMesh(Vector2Int chunkPosition)
+        {
+            _chunksToUpdate.Add(chunkPosition);
         }
     }
 
