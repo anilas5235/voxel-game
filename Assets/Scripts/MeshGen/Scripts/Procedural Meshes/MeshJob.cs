@@ -6,7 +6,7 @@ using UnityEngine;
 namespace ProceduralMeshes {
 
 	[BurstCompile(FloatPrecision.Standard, FloatMode.Fast, CompileSynchronously = true)]
-	public struct MeshJob<G, S> : IJobFor
+	public struct MeshJob<G, S> : IJob
 		where G : struct, IMeshGenerator
 		where S : struct, IMeshStreams {
 
@@ -15,22 +15,22 @@ namespace ProceduralMeshes {
 		[WriteOnly]
 		S streams;
 
-		public void Execute (int i) => generator.Execute(i, streams);
+		public void Execute () => generator.Execute(streams);
 
-		public static JobHandle ScheduleParallel (
-			Mesh mesh, Mesh.MeshData meshData, int resolution, JobHandle dependency
+		public static JobHandle Schedule (
+			Mesh mesh, Mesh.MeshData meshData, G generator, JobHandle dependency
 		) {
-			var job = new MeshJob<G, S>();
-			job.generator.Resolution = resolution;
+			var job = new MeshJob<G, S>
+			{
+				generator = generator
+			};
 			job.streams.Setup(
 				meshData,
 				mesh.bounds = job.generator.Bounds,
 				job.generator.VertexCount,
 				job.generator.IndexCount
 			);
-			return job.ScheduleParallel(
-				job.generator.JobLength, 1, dependency
-			);
+			return job.Schedule(dependency);
 		}
 	}
 }

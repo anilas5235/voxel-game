@@ -8,7 +8,8 @@ namespace ProceduralMeshes.Streams {
 
 		public ushort a, b, c;
 
-		public static implicit operator TriangleUInt16 (int3 t) => new TriangleUInt16 {
+		public static implicit operator TriangleUInt16 (int3 t) => new()
+		{
 			a = (ushort)t.x,
 			b = (ushort)t.y,
 			c = (ushort)t.z

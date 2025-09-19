@@ -14,6 +14,6 @@ namespace ProceduralMeshes {
 
 		int Resolution { get; set; }
 
-		void Execute<S> (int i, S streams) where S : struct, IMeshStreams;
+		void Execute<S> (S streams) where S : struct, IMeshStreams;
 	}
 }

@@ -11,21 +11,21 @@ namespace ProceduralMeshes.Streams {
 	public struct MultiStream : IMeshStreams {
 
 		[NativeDisableContainerSafetyRestriction]
-		NativeArray<float3> stream0, stream1;
+		private NativeArray<float3> stream0, stream1;
 
 		[NativeDisableContainerSafetyRestriction]
-		NativeArray<float4> stream2;
+		private NativeArray<float4> stream2;
 
 		[NativeDisableContainerSafetyRestriction]
-		NativeArray<float4> stream3;
+		private NativeArray<float4> stream3;
 
 		[NativeDisableContainerSafetyRestriction]
-		NativeArray<TriangleUInt16> triangles;
+		private NativeArray<TriangleUInt16> triangles;
 
 		public void Setup (
 			Mesh.MeshData meshData, Bounds bounds, int vertexCount, int indexCount
 		) {
-			var descriptor = new NativeArray<VertexAttributeDescriptor>(
+			NativeArray<VertexAttributeDescriptor> descriptor = new(
 				4, Allocator.Temp, NativeArrayOptions.UninitializedMemory
 			);
 			descriptor[0] = new VertexAttributeDescriptor(dimension: 3);

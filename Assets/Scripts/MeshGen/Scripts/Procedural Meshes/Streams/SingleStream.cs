@@ -6,66 +6,51 @@ using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-namespace ProceduralMeshes.Streams {
+namespace ProceduralMeshes.Streams
+{
+    public struct SingleStream : IMeshStreams
+    {
+        [NativeDisableContainerSafetyRestriction]
+        private NativeArray<Vertex> _vertices;
 
-    public struct SingleStream : IMeshStreams {
+        [NativeDisableContainerSafetyRestriction]
+        private NativeArray<TriangleUInt16> _triangles;
 
-		[StructLayout(LayoutKind.Sequential)]
-		struct Stream0 {
-			public float3 position, normal;
-			public float4 tangent;
-			public float4 UV0;
-		}
+        public void Setup(
+            Mesh.MeshData meshData, Bounds bounds, int vertexCount, int indexCount
+        )
+        {
+            NativeArray<VertexAttributeDescriptor> descriptor = new(
+                4, Allocator.Temp, NativeArrayOptions.UninitializedMemory
+            )
+            {
+                [0] = new VertexAttributeDescriptor(VertexAttribute.Position, dimension: 3),
+                [1] = new VertexAttributeDescriptor(VertexAttribute.Normal, dimension: 3),
+                [2] = new VertexAttributeDescriptor(VertexAttribute.Tangent, dimension: 4),
+                [3] = new VertexAttributeDescriptor(VertexAttribute.TexCoord0, dimension: 4)
+            };
+            meshData.SetVertexBufferParams(vertexCount, descriptor);
+            descriptor.Dispose();
 
-		[NativeDisableContainerSafetyRestriction]
-		NativeArray<Stream0> stream0;
+            meshData.SetIndexBufferParams(indexCount, IndexFormat.UInt16);
 
-		[NativeDisableContainerSafetyRestriction]
-		NativeArray<TriangleUInt16> triangles;
+            meshData.subMeshCount = 1;
+            meshData.SetSubMesh(
+                0, new SubMeshDescriptor(0, indexCount)
+                {
+                    bounds = bounds,
+                    vertexCount = vertexCount
+                },
+                MeshUpdateFlags.DontRecalculateBounds |
+                MeshUpdateFlags.DontValidateIndices
+            );
 
-		public void Setup (
-			Mesh.MeshData meshData, Bounds bounds, int vertexCount, int indexCount
-		) {
-			var descriptor = new NativeArray<VertexAttributeDescriptor>(
-				4, Allocator.Temp, NativeArrayOptions.UninitializedMemory
-			);
-			descriptor[0] = new VertexAttributeDescriptor(dimension: 3);
-			descriptor[1] = new VertexAttributeDescriptor(
-				VertexAttribute.Normal, dimension: 3
-			);
-			descriptor[2] = new VertexAttributeDescriptor(
-				VertexAttribute.Tangent, dimension: 4
-			);
-			descriptor[3] = new VertexAttributeDescriptor(
-				VertexAttribute.TexCoord0, dimension: 4
-			);
-			meshData.SetVertexBufferParams(vertexCount, descriptor);
-			descriptor.Dispose();
+            _vertices = meshData.GetVertexData<Vertex>();
+            _triangles = meshData.GetIndexData<ushort>().Reinterpret<TriangleUInt16>(2);
+        }
 
-			meshData.SetIndexBufferParams(indexCount, IndexFormat.UInt16);
+        public void SetVertex(int index, Vertex vertex) => _vertices[index] = vertex; 
 
-			meshData.subMeshCount = 1;
-			meshData.SetSubMesh(
-				0, new SubMeshDescriptor(0, indexCount) {
-					bounds = bounds,
-					vertexCount = vertexCount
-				},
-				MeshUpdateFlags.DontRecalculateBounds |
-				MeshUpdateFlags.DontValidateIndices
-			);
-
-			stream0 = meshData.GetVertexData<Stream0>();
-			triangles = meshData.GetIndexData<ushort>().Reinterpret<TriangleUInt16>(2);
-		}
-
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public void SetVertex (int index, Vertex vertex) => stream0[index] = new Stream0 {
-			position = vertex.Position,
-			normal = vertex.Normal,
-			tangent = vertex.Tangent,
-			UV0 = vertex.UV0
-		};
-
-		public void SetTriangle (int index, int3 triangle) => triangles[index] = triangle;
-	}
+        public void SetTriangle(int index, int3 triangle) => _triangles[index] = triangle;
+    }
 }
