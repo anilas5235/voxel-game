@@ -75,10 +75,8 @@ namespace Voxels.Chunk
 
         public void UpdateChunk()
         {
-            if (!ChunkData.dirty) return;
             MeshData meshData = GreedyMesher.Run(ChunkData);
             RenderMesh(meshData);
-            ChunkData.dirty = false;
         }
     }
 }

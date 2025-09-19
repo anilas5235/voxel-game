@@ -92,7 +92,6 @@ namespace Voxels.Chunk
                 List<ChunkData> adjacentChunks = GetChunksFromEdgeVoxel(chunkData, voxelPosition);
                 foreach (ChunkData chunk in adjacentChunks)
                 {
-                    chunk.dirty = true;
                     chunkData.World.UpdateChunkMesh(chunk.ChunkPosition);
                 }
                 return;

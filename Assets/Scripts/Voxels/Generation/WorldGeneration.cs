@@ -30,7 +30,6 @@ namespace Voxels.Generation
                     ChunkUtils.SetVoxel(data, new Vector3Int(x, y, z), voxelId);
                 }
             }
-            data.dirty = true;
             return data;
         }
     }

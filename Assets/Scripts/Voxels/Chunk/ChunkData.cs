@@ -7,7 +7,6 @@ namespace Voxels.Chunk
     {
         private readonly int[] voxels;
         public bool modified;
-        public bool dirty;
 
         public ChunkData(VoxelWorld world, Vector2Int chunkPosition)
         {
@@ -32,8 +31,6 @@ namespace Voxels.Chunk
         {
             voxels[GetIndex(voxelPosition)] = voxelId;
             modified = true;
-            dirty = true;
-            World.UpdateChunkMesh(ChunkPosition);
         }
 
         private static int GetIndex(Vector3Int voxelPosition)

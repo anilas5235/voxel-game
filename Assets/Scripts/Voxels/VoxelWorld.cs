@@ -1,8 +1,6 @@
 ﻿using System.Collections;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 using UnityEngine;
 using Utils;
 using Voxels.Chunk;
@@ -39,7 +37,7 @@ namespace Voxels
                 ChunkHeight = ChunkHeight
             };
         }
-        
+
         private void Start()
         {
             StartCoroutine(UpdateChunkRoutine());
@@ -74,7 +72,7 @@ namespace Voxels
             LoadChunkStep();
             UnloadChunkStep();
         }
-        
+
         private IEnumerator UpdateChunkRoutine()
         {
             while (true)
@@ -96,10 +94,9 @@ namespace Voxels
                 _chunksToUpdate.Add(pos);
                 return;
             }
-            if (!data.dirty) return;
+
             ChunkRenderer chunkRenderer = GetOrAddChunkRenderer(data, pos);
             chunkRenderer.UpdateChunk();
-            data.dirty = false;
         }
 
         private void UnloadChunkStep()
@@ -147,7 +144,7 @@ namespace Voxels
             {
                 Vector2Int neighborPos = chunkPos + new Vector2Int(x, z);
                 if (!WorldData.ChunkData.TryGetValue(neighborPos, out ChunkData neighborChunk)) continue;
-                if (neighborChunk != null) neighborChunk.dirty = true;
+                if (neighborChunk != null) _chunksToUpdate.Add(neighborPos);
             }
 
             return chunkRenderer;
