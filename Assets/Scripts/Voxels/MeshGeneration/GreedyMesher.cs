@@ -13,15 +13,17 @@ namespace Voxels.MeshGeneration
     /// </summary>
     public class GreedyMesher
     {
+        public Mesh.MeshData MeshData { get; }
         private readonly ChunkData _chunk;
-        private readonly MeshData _meshData = new();
+        internal readonly MeshData _meshData = new();
 
         // Dictionary that holds slice meshers for each direction
         // Each direction has an array of slices that correspond to the layers in that direction
         private readonly Dictionary<Direction, SliceGreedyMesher[]> _slices = new();
 
-        private GreedyMesher(ChunkData chunk)
+        public GreedyMesher(ChunkData chunk, Mesh.MeshData meshData)
         {
+            MeshData = meshData;
             _chunk = chunk;
             InitializeSlices();
         }
@@ -44,31 +46,25 @@ namespace Voxels.MeshGeneration
         }
 
         /// <summary>
-        ///     Static entry point to run the greedy meshing algorithm on a chunk.
-        /// </summary>
-        public static MeshData Run(ChunkData chunk)
-        {
-            GreedyMesher greedyMesher = new(chunk);
-            greedyMesher.GenerateVisibleFaces();
-            greedyMesher.AddAllFacesToMeshData();
-            return greedyMesher._meshData;
-        }
-
-        /// <summary>
         ///     Adds all visible faces from all slices to the mesh data.
         /// </summary>
-        private void AddAllFacesToMeshData()
+        internal void AddAllFacesToMeshData()
         {
             foreach (Direction direction in DirectionUtils.TraversalOrder)
             foreach (SliceGreedyMesher slice in _slices[direction])
                 slice.AddQuadsToMeshData(_meshData);
+        }
+        
+        public void WriteMeshData()
+        {
+            _meshData.WriteTo(MeshData);
         }
 
         /// <summary>
         ///     Analyzes the chunk to determine which voxel faces should be visible and records them in the appropriate slice
         ///     meshers.
         /// </summary>
-        private void GenerateVisibleFaces()
+        internal void GenerateVisibleFaces()
         {
             ChunkUtils.LoopThroughVoxels(ProcessVoxel);
         }
@@ -96,10 +92,12 @@ namespace Voxels.MeshGeneration
         private bool ShouldCreateFace(Vector3Int pos, Direction direction, VoxelType currentVoxelType)
         {
             int neighborId = ChunkUtils.GetVoxel(_chunk, pos + direction.GetVector());
-            if (neighborId < 0) return false; // Negative IDs are invalid voxels
-
             VoxelType neighborVoxelType = VoxelRegistry.Get(neighborId);
-            return neighborVoxelType == null || (neighborVoxelType.Transparent && !currentVoxelType.Transparent);
+            // Only draw face if neighbor is air or transparent (and current is not transparent)
+            if (neighborVoxelType == null) return true;
+            if (neighborVoxelType.Transparent && !currentVoxelType.Transparent) return true;
+            // Otherwise, neighbor is solid, do not draw face
+            return false;
         }
 
         /// <summary>
@@ -112,7 +110,7 @@ namespace Voxels.MeshGeneration
             switch (direction)
             {
                 case Direction.Forward:
-                case Direction.Backwards:
+                case Direction.Backward:
                     // For forward/backward faces, use Z coordinate as the slice index
                     slices[position.z].SetVoxel(position.x, position.y, voxelId);
                     break;

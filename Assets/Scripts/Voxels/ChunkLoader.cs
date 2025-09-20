@@ -13,7 +13,6 @@ namespace Voxels
         private void Start()
         {
             _chunkPosition = VoxelWorld.GetChunkPosition(transform.position);
-            VoxelWorld.Instance.LoadChunk(ChunksAround(_chunkPosition));
         }
 
         private List<Vector2Int> ChunksAround(Vector2Int centerChunk)
@@ -35,8 +34,6 @@ namespace Voxels
             List<Vector2Int> now = ChunksAround(_chunkPosition);
             List<Vector2Int> toLoad = now.Where(chunk => !old.Contains(chunk)).ToList();
             List<Vector2Int> toUnload = old.Where(chunk => !now.Contains(chunk)).ToList();
-            VoxelWorld.Instance.LoadChunk(toLoad);
-            VoxelWorld.Instance.UnloadChunk(toUnload);
         }
     }
 }

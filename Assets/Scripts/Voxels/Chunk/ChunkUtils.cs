@@ -40,7 +40,7 @@ namespace Voxels.Chunk
             switch (voxelPosition.z)
             {
                 case 0:
-                    chunks.Add(GetAdjacentChunk(chunkData, Direction.Backwards));
+                    chunks.Add(GetAdjacentChunk(chunkData, Direction.Backward));
                     break;
                 case ChunkSize - 1:
                     chunks.Add(GetAdjacentChunk(chunkData, Direction.Forward));
@@ -90,10 +90,6 @@ namespace Voxels.Chunk
             {
                 chunkData.SetVoxel(voxelPosition, voxelId);
                 List<ChunkData> adjacentChunks = GetChunksFromEdgeVoxel(chunkData, voxelPosition);
-                foreach (ChunkData chunk in adjacentChunks)
-                {
-                    chunkData.World.UpdateChunkMesh(chunk.ChunkPosition);
-                }
                 return;
             }
             chunkData.World.SetVoxelFromWorldVoxPos(chunkData.WorldPosition + voxelPosition, voxelId);

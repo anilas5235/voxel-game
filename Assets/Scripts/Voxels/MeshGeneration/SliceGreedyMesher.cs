@@ -57,12 +57,20 @@ namespace Voxels.MeshGeneration
                 if (voxelType == null) continue;
 
                 // Create vertices for this quad based on its direction and position
-                Vector3[] vertices = GetVerticesForDirection(_direction, quad);
-                foreach (Vector3 vertex in vertices) meshData.AddVertex(vertex, voxelType.Collision);
+                Vector3[] positions = GetVerticesForDirection(_direction, quad);
+                Vector3 normal = MeshData.GetNormalForDirection(_direction);
+                Vector4 tangent = MeshData.GetTangentForDirection(_direction);
+                Vector3[] uvs = GenerateFaceUVs(_direction, voxelType, quad.Size);
 
-                // Add triangles and UVs for the quad
+                // Convert Vector3 UVs to Vector4 (w=0)
+                Vector4[] uv4s = new Vector4[4];
+                for (int i = 0; i < 4; i++)
+                    uv4s[i] = new Vector4(uvs[i].x, uvs[i].y, uvs[i].z, 0);
+
+                for (int i = 0; i < 4; i++)
+                    meshData.AddVertex(positions[i], normal, tangent, uv4s[i], voxelType.Collision);
+
                 meshData.AddQuadTriangles(voxelType.Collision);
-                meshData.UV.AddRange(GenerateFaceUVs(_direction, voxelType, quad.Size));
             }
         }
 
@@ -101,7 +109,7 @@ namespace Voxels.MeshGeneration
                     vertices[2] = new Vector3(pos.x + size.x, pos.y + size.y, _thirdCoord + 1);
                     vertices[3] = new Vector3(pos.x, pos.y + size.y, _thirdCoord + 1);
                     break;
-                case Direction.Backwards: // Z-
+                case Direction.Backward: // Z-
                     vertices[0] = new Vector3(pos.x + size.x, pos.y, _thirdCoord);
                     vertices[1] = new Vector3(pos.x, pos.y, _thirdCoord);
                     vertices[2] = new Vector3(pos.x, pos.y + size.y, _thirdCoord);

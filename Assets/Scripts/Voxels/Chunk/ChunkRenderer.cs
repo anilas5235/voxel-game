@@ -12,10 +12,10 @@ namespace Voxels.Chunk
     public class ChunkRenderer : MonoBehaviour
     {
         public bool showGizmos;
-        private Mesh _mesh;
-        private MeshCollider _meshCollider;
+        internal Mesh _mesh;
+        internal MeshCollider _meshCollider;
         private MeshFilter _meshFilter;
-        private ChunkData ChunkData { get; set; }
+        internal ChunkData ChunkData { get; set; }
 
         public bool Modified => ChunkData.modified;
 
@@ -45,38 +45,6 @@ namespace Voxels.Chunk
         public void Initialize(ChunkData chunkData)
         {
             ChunkData = chunkData;
-        }
-
-        private void RenderMesh(MeshData meshData)
-        {
-            if (meshData == null) return;
-
-            _mesh.Clear();
-
-            _mesh.subMeshCount = 2;
-            _mesh.vertices = meshData.Vertices.Concat(meshData.WaterMeshData.Vertices).ToArray();
-
-            _mesh.SetTriangles(meshData.Triangles.ToArray(), 0);
-            _mesh.SetTriangles(meshData.WaterMeshData.Triangles.Select(val => val + meshData.Vertices.Count).ToArray(),
-                1);
-
-            _mesh.SetUVs(0, meshData.UV.Concat(meshData.WaterMeshData.UV).ToArray());
-            _mesh.RecalculateNormals();
-
-            _meshCollider.sharedMesh = null;
-            Mesh colliderMesh = new()
-            {
-                vertices = meshData.ColliderVertices.ToArray(),
-                triangles = meshData.ColliderTriangles.ToArray()
-            };
-            colliderMesh.RecalculateNormals();
-            _meshCollider.sharedMesh = colliderMesh;
-        }
-
-        public void UpdateChunk()
-        {
-            MeshData meshData = GreedyMesher.Run(ChunkData);
-            RenderMesh(meshData);
         }
     }
 }

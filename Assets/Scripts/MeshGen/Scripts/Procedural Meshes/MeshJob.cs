@@ -1,36 +1,60 @@
+using System;
+using System.Linq;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
 using UnityEngine;
+using Voxels;
+using Voxels.Chunk;
+using Voxels.MeshGeneration;
 
-namespace ProceduralMeshes {
+namespace ProceduralMeshes
+{
+    public struct MeshJob<G, S> : IJob
+        where G : struct, IMeshGenerator
+        where S : struct, IMeshStreams
+    {
+        G generator;
 
-	[BurstCompile(FloatPrecision.Standard, FloatMode.Fast, CompileSynchronously = true)]
-	public struct MeshJob<G, S> : IJob
-		where G : struct, IMeshGenerator
-		where S : struct, IMeshStreams {
+        [WriteOnly] S streams;
 
-		G generator;
+        public void Execute() => generator.Execute(streams);
 
-		[WriteOnly]
-		S streams;
+        public static JobHandle Schedule(
+            Mesh mesh, Mesh.MeshData meshData, G generator, JobHandle dependency
+        )
+        {
+            var job = new MeshJob<G, S>
+            {
+                generator = generator
+            };
+            job.streams.Setup(
+                meshData,
+                mesh.bounds = job.generator.Bounds,
+                job.generator.VertexCount,
+                job.generator.IndexCount
+            );
+            return job.Schedule(dependency);
+        }
+    }
 
-		public void Execute () => generator.Execute(streams);
+    public class ChunkMeshJob
+    {
+        [ReadOnly] private readonly ChunkRenderer _meshRenderer;
+        [ReadOnly] private readonly VoxelWorld _world;
 
-		public static JobHandle Schedule (
-			Mesh mesh, Mesh.MeshData meshData, G generator, JobHandle dependency
-		) {
-			var job = new MeshJob<G, S>
-			{
-				generator = generator
-			};
-			job.streams.Setup(
-				meshData,
-				mesh.bounds = job.generator.Bounds,
-				job.generator.VertexCount,
-				job.generator.IndexCount
-			);
-			return job.Schedule(dependency);
-		}
-	}
+        public ChunkMeshJob(ChunkRenderer meshRenderer, VoxelWorld world)
+        {
+            _meshRenderer = meshRenderer;
+            _world = world;
+        }
+
+        public void Execute(Mesh.MeshData meshData)
+        {
+            GreedyMesher greedyMesher = new(_meshRenderer.ChunkData, meshData);
+            greedyMesher.GenerateVisibleFaces();
+            greedyMesher.AddAllFacesToMeshData();
+            greedyMesher.WriteMeshData();
+        }
+    }
 }

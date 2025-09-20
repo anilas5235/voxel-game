@@ -7,7 +7,7 @@ namespace Voxels.MeshGeneration
     {
         Forward = 0, // z+ direction
         Right = 1, // +x direction
-        Backwards = 2, // -z direction
+        Backward = 2, // -z direction
         Left = 3, // -x direction
         Up = 4, // +y direction
         Down = 5 // -y direction
@@ -17,7 +17,7 @@ namespace Voxels.MeshGeneration
     {
         public static readonly Direction[] TraversalOrder =
         {
-            Direction.Backwards,
+            Direction.Backward,
             Direction.Down,
             Direction.Forward,
             Direction.Left,
@@ -32,7 +32,7 @@ namespace Voxels.MeshGeneration
                 Direction.Up => Vector3Int.up,
                 Direction.Down => Vector3Int.down,
                 Direction.Forward => Vector3Int.forward,
-                Direction.Backwards => Vector3Int.back,
+                Direction.Backward => Vector3Int.back,
                 Direction.Right => Vector3Int.right,
                 Direction.Left => Vector3Int.left,
 
@@ -54,8 +54,8 @@ namespace Voxels.MeshGeneration
             {
                 Direction.Up => Direction.Down,
                 Direction.Down => Direction.Up,
-                Direction.Forward => Direction.Backwards,
-                Direction.Backwards => Direction.Forward,
+                Direction.Forward => Direction.Backward,
+                Direction.Backward => Direction.Forward,
                 Direction.Right => Direction.Left,
                 Direction.Left => Direction.Right,
 

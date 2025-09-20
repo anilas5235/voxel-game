@@ -45,7 +45,7 @@ namespace Voxels.Data
                     Direction.Up => top,
                     Direction.Down => bottom,
                     Direction.Forward => front,
-                    Direction.Backwards => back,
+                    Direction.Backward => back,
                     Direction.Left => left,
                     Direction.Right => right,
                     _ => null
