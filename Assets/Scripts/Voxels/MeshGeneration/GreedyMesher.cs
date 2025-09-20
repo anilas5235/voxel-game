@@ -91,7 +91,8 @@ namespace Voxels.MeshGeneration
         /// </summary>
         private bool ShouldCreateFace(Vector3Int pos, Direction direction, VoxelType currentVoxelType)
         {
-            int neighborId = ChunkUtils.GetVoxel(_chunk, pos + direction.GetVector());
+            bool valid = ChunkUtils.GetVoxel(_chunk, pos + direction.GetVector(),out ushort neighborId);
+            if (!valid) return false;
             VoxelType neighborVoxelType = VoxelRegistry.Get(neighborId);
             // Only draw face if neighbor is air or transparent (and current is not transparent)
             if (neighborVoxelType == null) return true;
@@ -104,7 +105,7 @@ namespace Voxels.MeshGeneration
         ///     Marks a voxel face as visible in the appropriate slice mesher.
         ///     The face is positioned based on the direction and voxel position.
         /// </summary>
-        private void PutVisibleFace(Direction direction, Vector3Int position, int voxelId)
+        private void PutVisibleFace(Direction direction, Vector3Int position, ushort voxelId)
         {
             SliceGreedyMesher[] slices = _slices[direction];
             switch (direction)

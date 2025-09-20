@@ -77,14 +77,19 @@ namespace Voxels.Chunk
             return axisCoordinate is >= 0 and < ChunkSize;
         }
 
-        public static int GetVoxel(ChunkData chunkData, Vector3Int voxelPosition)
+        public static bool GetVoxel(ChunkData chunkData, Vector3Int voxelPosition, out ushort voxelId)
         {
-            return InRange(voxelPosition)
-                ? chunkData.GetVoxel(voxelPosition)
-                : chunkData.World.GetVoxelFromWoldVoxPos(chunkData.WorldPosition + voxelPosition);
+            voxelId = 0;
+            if (chunkData == null) return false;
+            if (!InRange(voxelPosition))
+            {
+                return chunkData.World.GetVoxelFromWoldVoxPos(chunkData.WorldPosition + voxelPosition, out voxelId);
+            }
+            voxelId = chunkData.GetVoxel(voxelPosition);
+            return true;
         }
 
-        public static void SetVoxel(ChunkData chunkData, Vector3Int voxelPosition, int voxelId)
+        public static void SetVoxel(ChunkData chunkData, Vector3Int voxelPosition, ushort voxelId)
         {
             if (InRange(voxelPosition))
             {
@@ -92,6 +97,7 @@ namespace Voxels.Chunk
                 List<ChunkData> adjacentChunks = GetChunksFromEdgeVoxel(chunkData, voxelPosition);
                 return;
             }
+
             chunkData.World.SetVoxelFromWorldVoxPos(chunkData.WorldPosition + voxelPosition, voxelId);
         }
     }

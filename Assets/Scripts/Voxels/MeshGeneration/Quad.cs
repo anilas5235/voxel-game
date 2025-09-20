@@ -12,7 +12,7 @@ namespace Voxels.MeshGeneration
         /// </summary>
         public Vector2Int Size;
 
-        public Quad(Vector2Int bottomLeft, int voxelId)
+        public Quad(Vector2Int bottomLeft, ushort voxelId)
         {
             BottomLeft = bottomLeft;
             VoxelId = voxelId;
@@ -27,6 +27,6 @@ namespace Voxels.MeshGeneration
         /// <summary>
         ///     The voxel ID for all cells in this quad.
         /// </summary>
-        public int VoxelId { get; }
+        public ushort VoxelId { get; }
     }
 }

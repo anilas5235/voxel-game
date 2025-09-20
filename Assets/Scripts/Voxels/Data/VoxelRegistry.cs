@@ -7,7 +7,7 @@ namespace Voxels.Data
     public static class VoxelRegistry
     {
         private const int TextureSize = 128; // Assuming all textures are 128x128
-        private static readonly Dictionary<string, int> NameToId = new() { { "air", 0 } };
+        private static readonly Dictionary<string, ushort> NameToId = new() { { "air", 0 } };
         private static readonly List<VoxelType> IDToVoxel = new() { null };
 
         private static readonly Dictionary<Texture2D, int> TextureToId = new();
@@ -17,7 +17,7 @@ namespace Voxels.Data
         {
             VoxelType type = new()
             {
-                Id = IDToVoxel.Count,
+                Id = (ushort)IDToVoxel.Count,
                 Name = packagePrefix + ":" + definition.name,
                 Collision = definition.collision,
                 Transparent = definition.transparent,
@@ -48,12 +48,12 @@ namespace Voxels.Data
             return textureIds;
         }
 
-        public static int GetId(string name)
+        public static ushort GetId(string name)
         {
             return NameToId[name];
         }
 
-        public static VoxelType Get(int id)
+        public static VoxelType Get(ushort id)
         {
             return IDToVoxel[id];
         }

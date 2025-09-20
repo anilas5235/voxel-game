@@ -13,7 +13,7 @@ namespace Voxels.MeshGeneration
         private const float TextureOffset = 0.01f;
 
         // 2D grid representing the voxel IDs in this slice
-        private readonly int[,] _data;
+        private readonly ushort[,] _data;
 
         // The direction this slice faces and its position in that direction
         private readonly Direction _direction;
@@ -27,7 +27,7 @@ namespace Voxels.MeshGeneration
 
         public SliceGreedyMesher(int width, int height, Direction direction, int thirdCoord)
         {
-            _data = new int[width, height];
+            _data = new ushort[width, height];
             _width = width;
             _height = height;
             _direction = direction;
@@ -37,7 +37,7 @@ namespace Voxels.MeshGeneration
         /// <summary>
         ///     Records a voxel face in this slice.
         /// </summary>
-        public void SetVoxel(int x, int y, int voxelId)
+        public void SetVoxel(int x, int y, ushort voxelId)
         {
             _data[x, y] = voxelId;
             _hasData = true;
@@ -155,13 +155,13 @@ namespace Voxels.MeshGeneration
             if (!_hasData) return quads;
 
             // Clone the data array so we can mark processed cells without affecting the original
-            int[,] dataCopy = (int[,])_data.Clone();
+            ushort[,] dataCopy = (ushort[,])_data.Clone();
 
             // Scan the grid from bottom to top, left to right
             for (int y = 0; y < _height; y++)
             for (int x = 0; x < _width; x++)
             {
-                int voxelId = dataCopy[x, y];
+                ushort voxelId = dataCopy[x, y];
                 if (voxelId == 0) continue; // Skip empty or already processed cells
 
                 // Start with a 1x1 quad at the current position
@@ -180,7 +180,7 @@ namespace Voxels.MeshGeneration
         /// <summary>
         ///     Expands a quad horizontally as far as possible (expanding width).
         /// </summary>
-        private void ExpandQuadHorizontally(Quad quad, int[,] data)
+        private void ExpandQuadHorizontally(Quad quad, ushort[,] data)
         {
             int startX = quad.BottomLeft.x;
             int y = quad.BottomLeft.y;
@@ -201,7 +201,7 @@ namespace Voxels.MeshGeneration
         ///     Expands a quad vertically as far as possible (expanding height).
         ///     Can only expand if all cells in the row match the quad's voxel type.
         /// </summary>
-        private void ExpandQuadVertically(Quad quad, int[,] data)
+        private void ExpandQuadVertically(Quad quad, ushort[,] data)
         {
             int startX = quad.BottomLeft.x;
             int startY = quad.BottomLeft.y;
@@ -221,7 +221,7 @@ namespace Voxels.MeshGeneration
         /// <summary>
         ///     Checks if a row can be added to the quad by verifying all cells match the quad's voxel type.
         /// </summary>
-        private static bool CanExpandToRow(Quad quad, int[,] data, int startX, int y)
+        private static bool CanExpandToRow(Quad quad, ushort[,] data, int startX, int y)
         {
             // Check each cell in the row
             for (int x = startX; x < startX + quad.Size.x; x++)
@@ -234,7 +234,7 @@ namespace Voxels.MeshGeneration
         /// <summary>
         ///     Marks a row of cells as processed (sets them to 0).
         /// </summary>
-        private static void ClearRow(int[,] data, int startX, int y, int width)
+        private static void ClearRow(ushort[,] data, int startX, int y, int width)
         {
             for (int x = startX; x < startX + width; x++) data[x, y] = 0;
         }

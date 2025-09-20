@@ -5,46 +5,41 @@ using static Voxels.VoxelWorld;
 
 namespace Voxels.Chunk
 {
-    public struct VoxelGrid : System.IDisposable
+    public class VoxelGrid
     {
         private int width;
         private int height;
         private int depth;
-        private NativeArray<int> voxels;
+        private ushort[] voxels;
 
-        public VoxelGrid(int width, int height, int depth, Allocator allocator = Allocator.Persistent)
+        public VoxelGrid(int width, int height, int depth)
         {
             this.width = width;
             this.height = height;
             this.depth = depth;
-            voxels = new NativeArray<int>(width * height * depth, allocator);
+            voxels = new ushort[width * height * depth];
         }
 
-        public readonly int GetVoxel(int x, int y, int z)
+        public ushort GetVoxel(int x, int y, int z)
         {
             return voxels[GetIndex(x, y, z)];
         }
 
-        public void SetVoxel(int x, int y, int z, int voxelId)
+        public void SetVoxel(int x, int y, int z, ushort voxelId)
         {
             voxels[GetIndex(x, y, z)] = voxelId;
         }
 
-        public int GetVoxel(int3 pos)
+        public ushort GetVoxel(int3 pos)
         {
             return GetVoxel(pos.x, pos.y, pos.z);
         }
 
-        public void SetVoxel(int3 pos, int voxelId)
+        public void SetVoxel(int3 pos, ushort voxelId)
         {
             SetVoxel(pos.x, pos.y, pos.z, voxelId);
         }
-
-        public void Dispose()
-        {
-            if (voxels.IsCreated)
-                voxels.Dispose();
-        }
+       
         private static int GetIndex(int x, int y, int z)
         {
             return x +
@@ -66,23 +61,18 @@ namespace Voxels.Chunk
             WorldPosition = new Vector3Int(chunkPosition.x * ChunkSize, 0, chunkPosition.y * ChunkSize);
             modified = false;
         }
-        
-        ~ChunkData()
-        {
-            voxels.Dispose();
-        }
 
         public VoxelWorld World { get; }
         public Vector3Int WorldPosition { get; }
 
         public Vector2Int ChunkPosition { get; }
 
-        internal int GetVoxel(Vector3Int voxelPosition)
+        internal ushort GetVoxel(Vector3Int voxelPosition)
         {
             return voxels.GetVoxel(voxelPosition.x, voxelPosition.y, voxelPosition.z);
         }
 
-        internal void SetVoxel(Vector3Int voxelPosition, int voxelId)
+        internal void SetVoxel(Vector3Int voxelPosition, ushort voxelId)
         {
             voxels.SetVoxel(voxelPosition.x, voxelPosition.y, voxelPosition.z, voxelId);
             modified = true;

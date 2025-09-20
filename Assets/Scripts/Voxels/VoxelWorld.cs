@@ -50,9 +50,10 @@ namespace Voxels
                 Vector2Int chunkPos = new(x, z);
                 ChunkData data = new(this, chunkPos);
                 WorldData.ChunkData.Add(chunkPos, WorldGeneration.GenerateVoxels(data, noiseScale, waterThreshold));
-                var chunkRenderer = GetOrAddChunkRenderer(data, chunkPos);
-                StartCoroutine(GenerateMesh(chunkRenderer));
+                GetOrAddChunkRenderer(data, chunkPos);
             }
+            foreach (var chunkRenderer in WorldData.Chunks.Values)
+                StartCoroutine(GenerateMesh(chunkRenderer));
         }
 
         private ChunkRenderer GetOrAddChunkRenderer(ChunkData data, Vector2Int chunkPos)
@@ -73,12 +74,14 @@ namespace Voxels
             WorldData.Chunks.Clear();
         }
 
-        public int GetVoxelFromWoldVoxPos(Vector3Int voxelWorldPos)
+        public bool GetVoxelFromWoldVoxPos(Vector3Int voxelWorldPos, out ushort voxelId)
         {
-            if (IsNotInYRange(voxelWorldPos.y)) return -1;
+            voxelId = 0;
+            if (IsNotInYRange(voxelWorldPos.y)) return false;
             ChunkData chunk = GetChunkFrom(voxelWorldPos);
-            if (chunk == null) return -1;
-            return ChunkUtils.GetVoxel(chunk, GetVoxPosFromWorldVoxPos(chunk, voxelWorldPos));
+            if (chunk == null) return false;
+            voxelId = chunk.GetVoxel(GetVoxPosFromWorldVoxPos(chunk, voxelWorldPos));
+            return true;
         }
 
         private static bool IsNotInYRange(int y)
@@ -86,7 +89,7 @@ namespace Voxels
             return y is < 0 or >= ChunkHeight;
         }
 
-        public void SetVoxelFromWorldVoxPos(Vector3Int voxelWorldPos, int voxelId)
+        public void SetVoxelFromWorldVoxPos(Vector3Int voxelWorldPos, ushort voxelId)
         {
             if (IsNotInYRange(voxelWorldPos.y)) return;
             ChunkData chunk = GetChunkFrom(voxelWorldPos);
