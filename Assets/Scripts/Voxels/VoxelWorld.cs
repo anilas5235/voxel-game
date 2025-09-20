@@ -12,7 +12,7 @@ namespace Voxels
     {
         public const int ChunkSize = 16;
         public const int HalfChunkSize = ChunkSize / 2;
-        public const int ChunkHeight = 128; // Height of the chunk, can be adjusted as needed
+        public const int ChunkHeight = 256;
         public const int HalfChunkHeight = ChunkHeight / 2;
         public const int VoxelsPerChunk = ChunkSize * ChunkSize * ChunkHeight;
 
