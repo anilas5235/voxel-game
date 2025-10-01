@@ -467,9 +467,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c45a1da1ce2947c48b82b35a926a53fd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  chunkPrefab: {fileID: 972016758114520785, guid: c64e56d0bf3b95d4786aca3e51faf0ed, type: 3}
-  chunkPosition: {x: 0, y: 0}
-  resolution: 10
 --- !u!4 &811155801
 Transform:
   m_ObjectHideFlags: 0
@@ -690,6 +687,8 @@ MonoBehaviour:
   waterThreshold: 39
   noiseScale: 0.03
   chunkPrefab: {fileID: 972016758114520785, guid: c64e56d0bf3b95d4786aca3e51faf0ed, type: 3}
+  playerTransform: {fileID: 330585546}
+  viewDistance: 6
 --- !u!4 &1592505029
 Transform:
   m_ObjectHideFlags: 0

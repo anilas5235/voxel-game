@@ -83,7 +83,8 @@ namespace Voxels.Chunk
             if (chunkData == null) return false;
             if (!InRange(voxelPosition))
             {
-                return chunkData.World.GetVoxelFromWoldVoxPos(chunkData.WorldPosition + voxelPosition, out voxelId);
+                return true;
+                //return chunkData.World.GetVoxelFromWoldVoxPos(chunkData.WorldPosition + voxelPosition, out voxelId);
             }
             voxelId = chunkData.GetVoxel(voxelPosition);
             return true;

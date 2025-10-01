@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Threading;
 using ProceduralMeshes;
 using UnityEngine;
-using UnityEngine.Rendering;
 using Utils;
 using Voxels.Chunk;
 using Voxels.Generation;
@@ -22,7 +21,13 @@ namespace Voxels
         public float noiseScale = 0.03f;
         public GameObject chunkPrefab;
 
+        public Transform playerTransform;
+        public int viewDistance = 2;
+
         public WorldData WorldData { get; private set; }
+
+        private Vector2Int lastPlayerChunkPos = new Vector2Int(int.MinValue, int.MinValue);
+        private HashSet<Vector2Int> chunksBeingGenerated = new HashSet<Vector2Int>();
 
         protected override void Awake()
         {
@@ -36,24 +41,19 @@ namespace Voxels
             };
         }
 
-        private void Start()
+        private void Update()
         {
-            GenerateWorld();
-        }
-
-        public void GenerateWorld()
-        {
-            ClearWorld();
-            for (int x = -1; x < 2; x++)
-            for (int z = -1; z < 2; z++)
+            if (playerTransform == null) return;
+            Vector3 playerPos = playerTransform.position;
+            Vector2Int playerChunkPos = new(
+                Mathf.FloorToInt(playerPos.x / (float)ChunkSize),
+                Mathf.FloorToInt(playerPos.z / (float)ChunkSize)
+            );
+            if (playerChunkPos != lastPlayerChunkPos)
             {
-                Vector2Int chunkPos = new(x, z);
-                ChunkData data = new(this, chunkPos);
-                WorldData.ChunkData.Add(chunkPos, WorldGeneration.GenerateVoxels(data, noiseScale, waterThreshold));
-                GetOrAddChunkRenderer(data, chunkPos);
+                lastPlayerChunkPos = playerChunkPos;
+                UpdateChunksAroundPlayer(playerChunkPos);
             }
-            foreach (var chunkRenderer in WorldData.Chunks.Values)
-                StartCoroutine(GenerateMesh(chunkRenderer));
         }
 
         private ChunkRenderer GetOrAddChunkRenderer(ChunkData data, Vector2Int chunkPos)
@@ -132,6 +132,73 @@ namespace Voxels
         {
             WorldData.ChunkData.TryGetValue(voxelWorldPos, out ChunkData data);
             return data;
+        }
+
+        private void UpdateChunksAroundPlayer(Vector2Int centerChunk)
+        {
+            HashSet<Vector2Int> neededChunks = new HashSet<Vector2Int>();
+            List<Vector2Int> newChunkPositions = new List<Vector2Int>();
+            for (int x = -viewDistance; x <= viewDistance; x++)
+            for (int z = -viewDistance; z <= viewDistance; z++)
+            {
+                Vector2Int chunkPos = new(centerChunk.x + x, centerChunk.y + z);
+                neededChunks.Add(chunkPos);
+                if (!WorldData.ChunkData.ContainsKey(chunkPos) && !chunksBeingGenerated.Contains(chunkPos))
+                {
+                    newChunkPositions.Add(chunkPos);
+                    chunksBeingGenerated.Add(chunkPos);
+                }
+            }
+            if (newChunkPositions.Count > 0)
+            {
+                StartCoroutine(GenerateChunkDataCoroutine(newChunkPositions));
+            }
+            // Unload chunks not needed
+            var chunksToRemove = new List<Vector2Int>();
+            foreach (var chunkPos in WorldData.Chunks.Keys)
+            {
+                if (!neededChunks.Contains(chunkPos))
+                {
+                    chunksToRemove.Add(chunkPos);
+                }
+            }
+            foreach (var chunkPos in chunksToRemove)
+            {
+                Destroy(WorldData.Chunks[chunkPos].gameObject);
+                WorldData.Chunks.Remove(chunkPos);
+                WorldData.ChunkData.Remove(chunkPos);
+            }
+        }
+
+        private IEnumerator GenerateChunkDataCoroutine(List<Vector2Int> chunkPositions)
+        {
+            List<Thread> threads = new List<Thread>();
+            Dictionary<Vector2Int, ChunkData> generatedData = new Dictionary<Vector2Int, ChunkData>();
+            foreach (var chunkPos in chunkPositions)
+            {
+                ChunkData data = new(this, chunkPos);
+                Thread thread = new Thread(() =>
+                {
+                    var chunkData = WorldGeneration.GenerateVoxels(data, noiseScale, waterThreshold);
+                    lock (generatedData)
+                    {
+                        generatedData.Add(chunkPos, chunkData);
+                    }
+                });
+                thread.Start();
+                threads.Add(thread);
+            }
+            foreach (var thread in threads)
+            {
+                yield return new WaitUntil(() => !thread.IsAlive);
+            }
+            foreach (var kvp in generatedData)
+            {
+                WorldData.ChunkData.Add(kvp.Key, kvp.Value);
+                GetOrAddChunkRenderer(kvp.Value, kvp.Key);
+                StartCoroutine(GenerateMesh(WorldData.Chunks[kvp.Key]));
+                chunksBeingGenerated.Remove(kvp.Key);
+            }
         }
 
         private IEnumerator GenerateMesh(ChunkRenderer chunkRenderer)
