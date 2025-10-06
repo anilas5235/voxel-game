@@ -133,7 +133,6 @@ GameObject:
   - component: {fileID: 330585547}
   - component: {fileID: 330585548}
   - component: {fileID: 330585549}
-  - component: {fileID: 330585550}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -303,20 +302,6 @@ MonoBehaviour:
   m_DefaultActionMap: Player
   m_SplitScreenIndex: -1
   m_Camera: {fileID: 0}
---- !u!114 &330585550
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 330585543}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f287909be4b341e9b09bc9206d84d79b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  loadDistance: 7
-  moving: 1
 --- !u!1 &410087039
 GameObject:
   m_ObjectHideFlags: 0
@@ -595,7 +580,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8ea334ed0f9e41aaaeb72f0194c790cb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  voxelMaterial: {fileID: 2100000, guid: 89b8ef3b9e2e47e4293f65e6b2991753, type: 2}
+  voxelMaterial: {fileID: 2100000, guid: b6215133664aff74dad83d56615f47d0, type: 2}
 --- !u!4 &1291856481
 Transform:
   m_ObjectHideFlags: 0
@@ -620,7 +605,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1592505029}
-  - component: {fileID: 1592505028}
   - component: {fileID: 1592505030}
   m_Layer: 0
   m_Name: World
@@ -629,23 +613,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1592505028
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1592505027}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7d4358d6b0ee48299059625c7f2829ba, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  waterThreshold: 39
-  noiseScale: 0.03
-  chunkPrefab: {fileID: 972016758114520785, guid: c64e56d0bf3b95d4786aca3e51faf0ed, type: 3}
-  playerTransform: {fileID: 330585546}
-  viewDistance: 6
 --- !u!4 &1592505029
 Transform:
   m_ObjectHideFlags: 0
@@ -673,8 +640,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3a921af540c54d29b837a613ecdd8e96, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _Focus: {fileID: 330585546}
-  _Settings: {fileID: 11400000, guid: 455fa891937aa3143ab4d3735c5e538d, type: 2}
+  focus: {fileID: 330585546}
+  settings: {fileID: 11400000, guid: 455fa891937aa3143ab4d3735c5e538d, type: 2}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

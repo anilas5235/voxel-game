@@ -2,6 +2,7 @@
 
 namespace Voxels.Data
 {
+    [DefaultExecutionOrder(-1000)]
     public class VoxelDataImporter : MonoBehaviour
     {
         public Material voxelMaterial;
