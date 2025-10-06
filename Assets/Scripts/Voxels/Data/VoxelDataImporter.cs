@@ -26,7 +26,7 @@ namespace Voxels.Data
             {
                 Texture2DArray texArray = VoxelRegistry.GetTextureArray();
                 if (texArray)
-                    voxelMaterial.SetTexture("_texArray", texArray);
+                    voxelMaterial.SetTexture("_Textures", texArray);
                 else
                     Debug.LogWarning("Texture array is null, cannot assign to material.");
             }
