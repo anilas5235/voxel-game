@@ -2,6 +2,7 @@
 using Unity.Jobs;
 using UnityEditor;
 using UnityEngine;
+using Utils;
 using Voxels.MeshGeneration;
 using static Voxels.VoxelWorld;
 
@@ -30,15 +31,14 @@ namespace Voxels.Chunk
 #if UNITY_EDITOR
         private void OnDrawGizmos()
         {
-            if (!showGizmos || !Application.isPlaying || ChunkData == null) return;
+            if (!showGizmos || !Application.isPlaying) return;
 
             Gizmos.color = Selection.activeGameObject == gameObject
                 ? new Color(0, 1, 0, .4f)
                 : new Color(1, 0, 1, .4f);
 
-            Gizmos.DrawCube(transform.position +
-                            new Vector3(HalfChunkSize, HalfChunkHeight, HalfChunkSize)
-                , new Vector3(ChunkSize, ChunkHeight, ChunkSize));
+            Gizmos.DrawCube(transform.position + HalfChunkSize.GetVector3()
+                , ChunkSize.GetVector3());
         }
 #endif
 

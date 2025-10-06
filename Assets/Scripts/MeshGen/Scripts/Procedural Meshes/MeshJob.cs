@@ -1,6 +1,3 @@
-using System;
-using System.Linq;
-using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
 using UnityEngine;
@@ -51,7 +48,7 @@ namespace ProceduralMeshes
 
         public void Execute(Mesh.MeshData meshData)
         {
-            GreedyMesher greedyMesher = new(_meshRenderer.ChunkData, meshData);
+            GreedyMesher greedyMesher = new(_meshRenderer.ChunkData, meshData, VoxelWorld.ChunkSize);
             greedyMesher.GenerateVisibleFaces();
             greedyMesher.AddAllFacesToMeshData();
             greedyMesher.WriteMeshData();

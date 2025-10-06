@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using Unity.Mathematics;
 using UnityEngine;
 using Voxels.Chunk;
 using Voxels.Data;
-using static Voxels.VoxelWorld;
 
 namespace Voxels.MeshGeneration
 {
@@ -17,14 +17,17 @@ namespace Voxels.MeshGeneration
         private readonly ChunkData _chunk;
         internal readonly MeshData _meshData = new();
 
+        private readonly int3 _chunkSize; // Store chunk size
+
         // Dictionary that holds slice meshers for each direction
         // Each direction has an array of slices that correspond to the layers in that direction
         private readonly Dictionary<Direction, SliceGreedyMesher[]> _slices = new();
 
-        public GreedyMesher(ChunkData chunk, Mesh.MeshData meshData)
+        public GreedyMesher(ChunkData chunk, Mesh.MeshData meshData, int3 chunkSize)
         {
             MeshData = meshData;
             _chunk = chunk;
+            _chunkSize = chunkSize;
             InitializeSlices();
         }
 
@@ -36,8 +39,13 @@ namespace Voxels.MeshGeneration
             foreach (Direction direction in DirectionUtils.TraversalOrder)
             {
                 // Determine the dimensions of the slices based on direction
-                Vector2Int size = new(ChunkSize, direction.IsVertical() ? ChunkHeight : ChunkSize);
-                _slices[direction] = new SliceGreedyMesher[direction.IsVertical() ? ChunkSize : ChunkHeight];
+                int2 size = new(
+                    _chunkSize.x,
+                    direction.IsVertical() ? _chunkSize.y : _chunkSize.z
+                );
+                _slices[direction] = new SliceGreedyMesher[
+                    direction.IsVertical() ? _chunkSize.x : _chunkSize.y
+                ];
 
                 // Create a mesher for each slice in this direction
                 for (int i = 0; i < _slices[direction].Length; i++)
@@ -54,7 +62,7 @@ namespace Voxels.MeshGeneration
             foreach (SliceGreedyMesher slice in _slices[direction])
                 slice.AddQuadsToMeshData(_meshData);
         }
-        
+
         public void WriteMeshData()
         {
             _meshData.WriteTo(MeshData);
@@ -72,7 +80,7 @@ namespace Voxels.MeshGeneration
         /// <summary>
         ///     Processes a single voxel to determine which of its faces should be visible.
         /// </summary>
-        private void ProcessVoxel(Vector3Int pos)
+        private void ProcessVoxel(int3 pos)
         {
             VoxelType voxelType = VoxelRegistry.Get(_chunk.GetVoxel(pos));
             if (voxelType == null) return;
@@ -89,9 +97,9 @@ namespace Voxels.MeshGeneration
         ///     - The neighbor is empty (air)
         ///     - The neighbor is transparent and the current voxel is not
         /// </summary>
-        private bool ShouldCreateFace(Vector3Int pos, Direction direction, VoxelType currentVoxelType)
+        private bool ShouldCreateFace(int3 pos, Direction direction, VoxelType currentVoxelType)
         {
-            bool valid = ChunkUtils.GetVoxel(_chunk, pos + direction.GetVector(),out ushort neighborId);
+            bool valid = ChunkUtils.GetVoxel(_chunk, pos + direction.GetInt3(), out ushort neighborId);
             if (!valid) return false;
             VoxelType neighborVoxelType = VoxelRegistry.Get(neighborId);
             // Only draw face if neighbor is air or transparent (and current is not transparent)
@@ -105,7 +113,7 @@ namespace Voxels.MeshGeneration
         ///     Marks a voxel face as visible in the appropriate slice mesher.
         ///     The face is positioned based on the direction and voxel position.
         /// </summary>
-        private void PutVisibleFace(Direction direction, Vector3Int position, ushort voxelId)
+        private void PutVisibleFace(Direction direction, int3 position, ushort voxelId)
         {
             SliceGreedyMesher[] slices = _slices[direction];
             switch (direction)

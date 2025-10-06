@@ -1,33 +1,28 @@
+using System;
 using Unity.Collections;
 using Unity.Mathematics;
-using UnityEngine;
-using static Voxels.VoxelWorld;
 
 namespace Voxels.Chunk
 {
-    public class VoxelGrid
+    public struct VoxelGrid : IDisposable
     {
-        private int width;
-        private int height;
-        private int depth;
-        private ushort[] voxels;
+        private int3 _size;
+        private NativeArray<ushort> _voxels;
 
-        public VoxelGrid(int width, int height, int depth)
+        public VoxelGrid(int3 size)
         {
-            this.width = width;
-            this.height = height;
-            this.depth = depth;
-            voxels = new ushort[width * height * depth];
+            _size = size;
+            _voxels = new NativeArray<ushort>(_size.x * _size.y * _size.z, Allocator.Persistent);
         }
 
         public ushort GetVoxel(int x, int y, int z)
         {
-            return voxels[GetIndex(x, y, z)];
+            return _voxels[GetIndex(x, y, z)];
         }
 
         public void SetVoxel(int x, int y, int z, ushort voxelId)
         {
-            voxels[GetIndex(x, y, z)] = voxelId;
+            _voxels[GetIndex(x, y, z)] = voxelId;
         }
 
         public ushort GetVoxel(int3 pos)
@@ -39,43 +34,53 @@ namespace Voxels.Chunk
         {
             SetVoxel(pos.x, pos.y, pos.z, voxelId);
         }
-       
-        private static int GetIndex(int x, int y, int z)
+
+        private int GetIndex(int x, int y, int z)
         {
             return x +
-                   y * ChunkSize +
-                   z * ChunkSize * ChunkHeight;
+                   y * _size.x +
+                   z * _size.x * _size.z;
+        }
+
+        public void Dispose()
+        {
+            _voxels.Dispose();
         }
     }
 
-    public class ChunkData
+    public struct ChunkData : IDisposable
     {
+        public readonly int3 ChunkSize;
         public VoxelGrid voxels;
         public bool modified;
 
-        public ChunkData(VoxelWorld world, Vector2Int chunkPosition)
+        public ChunkData(int2 chunkPosition, int3 chunkSize)
         {
-            voxels = new VoxelGrid(ChunkSize, ChunkHeight, ChunkSize);
-            World = world;
+            voxels = new VoxelGrid(chunkSize);
+            ChunkSize = chunkSize;
             ChunkPosition = chunkPosition;
-            WorldPosition = new Vector3Int(chunkPosition.x * ChunkSize, 0, chunkPosition.y * ChunkSize);
+            WorldPosition = new int3(chunkPosition.x * chunkSize.x, 0, chunkPosition.y * chunkSize.z);
             modified = false;
         }
 
-        public VoxelWorld World { get; }
-        public Vector3Int WorldPosition { get; }
+        public int3 WorldPosition { get; }
 
-        public Vector2Int ChunkPosition { get; }
+        public int2 ChunkPosition { get; }
 
-        internal ushort GetVoxel(Vector3Int voxelPosition)
+        internal ushort GetVoxel(int3 voxelPosition)
         {
             return voxels.GetVoxel(voxelPosition.x, voxelPosition.y, voxelPosition.z);
         }
 
-        internal void SetVoxel(Vector3Int voxelPosition, ushort voxelId)
+        internal void SetVoxel(int3 voxelPosition, ushort voxelId)
         {
             voxels.SetVoxel(voxelPosition.x, voxelPosition.y, voxelPosition.z, voxelId);
             modified = true;
+        }
+
+        public void Dispose()
+        {
+            voxels.Dispose();
         }
     }
 }

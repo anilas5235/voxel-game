@@ -1,5 +1,6 @@
 ﻿using Unity.Mathematics;
 using UnityEngine;
+using Utils;
 using Voxels.Chunk;
 using static Voxels.VoxelWorld;
 
@@ -33,7 +34,7 @@ namespace ProceduralMeshes.Generators
             new(0, 0, -1) // back
         };
 
-        public Bounds Bounds => new(Vector3.zero, new Vector3(ChunkSize, ChunkHeight, ChunkSize));
+        public Bounds Bounds => new(Vector3.zero, ChunkSize.GetVector3());
         public int VertexCount => 6 * VoxelsPerChunk;
         public int IndexCount => 6 * 4 * VoxelsPerChunk;
         public int JobLength => Resolution;
@@ -46,11 +47,11 @@ namespace ProceduralMeshes.Generators
             int vertexIndex = 0;
             int triangleIndex = 0;
 
-            for (int x = 0; x < ChunkSize; x++)
+            for (int x = 0; x < ChunkSize.x; x++)
             {
-                for (int y = 0; y < ChunkHeight; y++)
+                for (int y = 0; y < ChunkSize.y; y++)
                 {
-                    for (int z = 0; z < ChunkSize; z++)
+                    for (int z = 0; z < ChunkSize.z; z++)
                     {
                         int voxelId = VoxelGrid.GetVoxel(x, y, z);
                         var voxelPosition = new int3(x, y, z);
@@ -59,9 +60,9 @@ namespace ProceduralMeshes.Generators
                         for (int d = 0; d < 6; d++)
                         {
                             var neighbor = voxelPosition + Directions[d];
-                            bool outOfBounds = neighbor.x < 0 || neighbor.x >= ChunkSize ||
-                                               neighbor.y < 0 || neighbor.y >= ChunkHeight ||
-                                               neighbor.z < 0 || neighbor.z >= ChunkSize;
+                            bool outOfBounds = neighbor.x < 0 || neighbor.x >= ChunkSize.x ||
+                                               neighbor.y < 0 || neighbor.y >= ChunkSize.y ||
+                                               neighbor.z < 0 || neighbor.z >= ChunkSize.z;
                             int neighborId = outOfBounds ? 0 : VoxelGrid.GetVoxel(neighbor);
                             if (neighborId != 0) continue; // Not visible
 

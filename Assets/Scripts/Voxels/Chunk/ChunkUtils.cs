@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using UnityEngine;
+using Unity.Mathematics;
 using Voxels.MeshGeneration;
 using static Voxels.VoxelWorld;
 
@@ -9,87 +8,84 @@ namespace Voxels.Chunk
 {
     public static class ChunkUtils
     {
-        public static void LoopThroughVoxels(Action<Vector3Int> action)
+        public static void LoopThroughVoxels(Action<int3> action)
         {
-            for (int y = 0; y < ChunkHeight; y++)
-            for (int z = 0; z < ChunkSize; z++)
-            for (int x = 0; x < ChunkSize; x++)
-                action(new Vector3Int(x, y, z));
+            for (int y = 0; y < ChunkSize.y; y++)
+            for (int z = 0; z < ChunkSize.x; z++)
+            for (int x = 0; x < ChunkSize.z; x++)
+                action(new int3(x, y, z));
         }
 
-        private static bool IsEdgeVoxel(Vector3Int voxelPosition)
+        private static bool IsEdgeVoxel(int3 voxelPosition)
         {
-            return voxelPosition.x is 0 or ChunkSize - 1 ||
-                   voxelPosition.z is 0 or ChunkSize - 1;
+            return voxelPosition.x == 0 || voxelPosition.x == ChunkSize.x - 1 ||
+                   voxelPosition.z == 0 || voxelPosition.z == ChunkSize.z - 1;
         }
 
-        private static List<ChunkData> GetChunksFromEdgeVoxel(ChunkData chunkData, Vector3Int voxelPosition)
+        private static List<ChunkData> GetChunksFromEdgeVoxel(ChunkData chunkData, int3 voxelPosition)
         {
             List<ChunkData> chunks = new();
             if (!IsEdgeVoxel(voxelPosition)) return chunks;
-            switch (voxelPosition.x)
+            if (voxelPosition.x == 0)
             {
-                case 0:
-                    chunks.Add(GetAdjacentChunk(chunkData, Direction.Left));
-                    break;
-                case ChunkSize - 1:
-                    chunks.Add(GetAdjacentChunk(chunkData, Direction.Right));
-                    break;
+                chunks.Add(GetAdjacentChunk(chunkData, Direction.Left));
+            }
+            else if (voxelPosition.x == ChunkSize.x - 1)
+            {
+                chunks.Add(GetAdjacentChunk(chunkData, Direction.Right));
             }
 
-            switch (voxelPosition.z)
+            if (voxelPosition.z == 0)
             {
-                case 0:
-                    chunks.Add(GetAdjacentChunk(chunkData, Direction.Backward));
-                    break;
-                case ChunkSize - 1:
-                    chunks.Add(GetAdjacentChunk(chunkData, Direction.Forward));
-                    break;
+                chunks.Add(GetAdjacentChunk(chunkData, Direction.Backward));
+            }
+            else if (voxelPosition.z == ChunkSize.z - 1)
+            {
+                chunks.Add(GetAdjacentChunk(chunkData, Direction.Forward));
             }
 
-            chunks = chunks.Where(c => c != null).ToList();
             return chunks;
         }
 
         private static ChunkData GetAdjacentChunk(ChunkData chunkData, Direction direction)
         {
-            Vector3Int worldPos = chunkData.WorldPosition + direction.GetVector() * ChunkSize;
-            return chunkData.World.GetChunkFrom(worldPos);
+            int3 worldPos = chunkData.WorldPosition + direction.GetInt3() * ChunkSize.x;
+            return VoxelWorld.Instance.GetChunkFrom(worldPos);
         }
 
-        private static bool InRange(Vector3Int voxelPosition)
+        private static bool InRange(int3 voxelPosition)
         {
             return InRangeX(voxelPosition.x) && InRangeY(voxelPosition.y) && InRangeZ(voxelPosition.z);
         }
 
         private static bool InRangeX(int axisCoordinate)
         {
-            return axisCoordinate is >= 0 and < ChunkSize;
+            return axisCoordinate >= 0 && axisCoordinate < ChunkSize.x;
         }
 
         private static bool InRangeY(int axisCoordinate)
         {
-            return axisCoordinate is >= 0 and < ChunkHeight;
+            return axisCoordinate >= 0 && axisCoordinate < ChunkSize.y;
         }
 
         private static bool InRangeZ(int axisCoordinate)
         {
-            return axisCoordinate is >= 0 and < ChunkSize;
+            return axisCoordinate >= 0 && axisCoordinate < ChunkSize.z;
         }
 
-        public static bool GetVoxel(ChunkData chunkData, Vector3Int voxelPosition, out ushort voxelId)
+        public static bool GetVoxel(ChunkData chunkData, int3 voxelPosition, out ushort voxelId)
         {
             voxelId = 0;
-            if (chunkData == null) return false;
             if (!InRange(voxelPosition))
             {
-                return chunkData.World.GetVoxelFromWoldVoxPos(chunkData.WorldPosition + voxelPosition, out voxelId);
+                return VoxelWorld.Instance.GetVoxelFromWoldVoxPos(chunkData.WorldPosition + voxelPosition, out voxelId);
             }
+
             voxelId = chunkData.GetVoxel(voxelPosition);
             return true;
         }
 
-        public static void SetVoxel(ChunkData chunkData, Vector3Int voxelPosition, ushort voxelId)
+        public static void SetVoxel(ChunkData chunkData, int3 voxelPosition, ushort voxelId)
         {
             if (InRange(voxelPosition))
             {
@@ -98,7 +94,7 @@ namespace Voxels.Chunk
                 return;
             }
 
-            chunkData.World.SetVoxelFromWorldVoxPos(chunkData.WorldPosition + voxelPosition, voxelId);
+            VoxelWorld.Instance.SetVoxelFromWorldVoxPos(chunkData.WorldPosition + voxelPosition, voxelId);
         }
     }
 }

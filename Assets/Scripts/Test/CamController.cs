@@ -42,7 +42,7 @@ namespace Test
             {
                 Vector3 worldPos = hitInfo.point + _camera.transform.forward * .001f;
                 Vector3Int voxelWorldPos = Vector3Int.FloorToInt(worldPos);
-                VoxelWorld.Instance.SetVoxelFromWorldVoxPos(voxelWorldPos, 0);
+                //VoxelWorld.Instance.SetVoxelFromWorldVoxPos(voxelWorldPos, 0);
                 Debug.DrawLine(_camera.transform.position, hitInfo.point, Color.red, 30f);
             }
         }

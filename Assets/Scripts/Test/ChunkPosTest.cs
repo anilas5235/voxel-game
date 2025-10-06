@@ -1,5 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using Unity.Mathematics;
 using UnityEngine;
 using Voxels;
 
@@ -9,33 +9,33 @@ namespace Test
     {
         private void Start()
         {
-            List<Vector3Int> test = new()
+            List<int3> test = new()
             {
-                new Vector3Int(0, 0, 0),
-                new Vector3Int(15, 0, 0),
-                new Vector3Int(16, 0, 0),
-                new Vector3Int(31, 0, 0),
-                new Vector3Int(32, 0, 0),
-                new Vector3Int(-1, 0, 0),
-                new Vector3Int(-16, 0, 0),
-                new Vector3Int(-17, 0, 0),
-                new Vector3Int(-32, 0, 0),
-                new Vector3Int(-33, 0, 0),
-                new Vector3Int(0, 0, 15),
-                new Vector3Int(0, 0, 16),
-                new Vector3Int(0, 0, 31),
-                new Vector3Int(0, 0, 32),
-                new Vector3Int(0, 0, -1),
-                new Vector3Int(0, 0, -16),
-                new Vector3Int(0, 0, -17),
-                new Vector3Int(0, 0, -32),
-                new Vector3Int(0, 0, -33),
+                new int3(0, 0, 0),
+                new int3(15, 0, 0),
+                new int3(16, 0, 0),
+                new int3(31, 0, 0),
+                new int3(32, 0, 0),
+                new int3(-1, 0, 0),
+                new int3(-16, 0, 0),
+                new int3(-17, 0, 0),
+                new int3(-32, 0, 0),
+                new int3(-33, 0, 0),
+                new int3(0, 0, 15),
+                new int3(0, 0, 16),
+                new int3(0, 0, 31),
+                new int3(0, 0, 32),
+                new int3(0, 0, -1),
+                new int3(0, 0, -16),
+                new int3(0, 0, -17),
+                new int3(0, 0, -32),
+                new int3(0, 0, -33),
             };
 
-            foreach (Vector3Int pos in test)
+            foreach (int3 pos in test)
             {
-                Vector2Int chunkPos = VoxelWorld.GetChunkPosition(pos);
-                Vector3Int voxelPosInChunk = VoxelWorld.GetVoxPosFromWorldVoxPos(chunkPos, pos);
+                int2 chunkPos = VoxelWorld.GetChunkPosition(pos);
+                int3 voxelPosInChunk = VoxelWorld.GetVoxPosFromWorldVoxPos(chunkPos, pos);
                 Debug.Log($"Voxel Pos: {pos}, Chunk Pos: {chunkPos}, Voxel Pos In Chunk: {voxelPosInChunk}");
             }
 

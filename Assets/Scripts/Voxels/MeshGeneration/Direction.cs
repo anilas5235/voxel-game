@@ -1,4 +1,5 @@
 ﻿using System;
+using Unity.Mathematics;
 using UnityEngine;
 
 namespace Voxels.MeshGeneration
@@ -35,6 +36,21 @@ namespace Voxels.MeshGeneration
                 Direction.Backward => Vector3Int.back,
                 Direction.Right => Vector3Int.right,
                 Direction.Left => Vector3Int.left,
+
+                _ => throw new ArgumentOutOfRangeException(nameof(direction), direction, null)
+            };
+        }
+        
+        public static int3 GetInt3(this Direction direction)
+        {
+            return direction switch
+            {
+                Direction.Up => new int3(0, 1, 0),
+                Direction.Down => new int3(0, -1, 0),
+                Direction.Forward => new int3(0, 0, 1),
+                Direction.Backward => new int3(0, 0, -1),
+                Direction.Right => new int3(1, 0, 0),
+                Direction.Left => new int3(-1, 0, 0),
 
                 _ => throw new ArgumentOutOfRangeException(nameof(direction), direction, null)
             };
