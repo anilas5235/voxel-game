@@ -27,13 +27,13 @@ namespace Runtime.Engine.Data {
         }
 
         public bool SetBlock(int x, int y, int z, int block) {
-            var result = Data.Set(ChunkSize.Flatten(x,y,z), block);
+            bool result = Data.Set(ChunkSize.Flatten(x,y,z), block);
             if (result) Dirty = true;
             return result;
         }
         
         public bool SetBlock(int3 pos, int block) {
-            var result= Data.Set(ChunkSize.Flatten(pos), block);
+            bool result= Data.Set(ChunkSize.Flatten(pos), block);
             if (result) Dirty = true;
             return result;
         }

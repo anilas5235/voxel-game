@@ -15,16 +15,16 @@ namespace Runtime.Engine.Components
 {
     public class ChunkManager
     {
-        private Dictionary<int3, Chunk> _chunks;
-        private SimpleFastPriorityQueue<int3, int> _queue;
+        private readonly Dictionary<int3, Chunk> _chunks;
+        private readonly SimpleFastPriorityQueue<int3, int> _queue;
         private NativeParallelHashMap<int3, Chunk> _accessorMap;
 
-        private HashSet<int3> _reMeshChunks;
-        private HashSet<int3> _reCollideChunks;
+        private readonly HashSet<int3> _reMeshChunks;
+        private readonly HashSet<int3> _reCollideChunks;
 
         private int3 _focus;
-        private int3 _chunkSize;
-        private int _chunkStoreSize;
+        private readonly int3 _chunkSize;
+        private readonly int _chunkStoreSize;
 
         internal ChunkManager(VoxelEngineSettings settings)
         {
@@ -34,29 +34,26 @@ namespace Runtime.Engine.Components
             _reMeshChunks = new HashSet<int3>();
             _reCollideChunks = new HashSet<int3>();
 
-            _chunks = new Dictionary<int3, Chunk>(capacity: _chunkStoreSize);
+            _chunks = new Dictionary<int3, Chunk>(_chunkStoreSize);
             _queue = new SimpleFastPriorityQueue<int3, int>();
 
             _accessorMap = new NativeParallelHashMap<int3, Chunk>(
-                capacity: settings.Scheduler.MeshingBatchSize * 27,
-                allocator: Allocator.Persistent
+                settings.Scheduler.MeshingBatchSize * 27,
+                Allocator.Persistent
             );
         }
 
         #region API
 
-        public Block GetBlock(Vector3Int position)
+        internal int GetBlock(Vector3Int position)
         {
-            int3 chunkPos = VoxelUtils.GetChunkCoords(Position: position);
-            int3 blockPos = VoxelUtils.GetBlockIndex(Position: position);
+            int3 chunkPos = VoxelUtils.GetChunkCoords(position);
+            int3 blockPos = VoxelUtils.GetBlockIndex(position);
 
-            if (!_chunks.TryGetValue(key: chunkPos, value: out Chunk chunk))
-            {
-                VoxelEngineLogger.Warn<ChunkManager>(message: $"Chunk : {chunkPos} not loaded");
-                return Block.ERROR;
-            }
-
-            return (Block)chunk.GetBlock(pos: blockPos);
+            if (_chunks.TryGetValue(chunkPos, out Chunk chunk)) return chunk.GetBlock(blockPos);
+            
+            VoxelEngineLogger.Warn<ChunkManager>($"Chunk : {chunkPos} not loaded");
+            return 0;
         }
 
         /// <summary>
@@ -66,36 +63,36 @@ namespace Runtime.Engine.Components
         /// <param name="position">World Position</param>
         /// <param name="remesh">Regenerate Mesh and Collider ?</param>
         /// <returns>Operation Success</returns>
-        public bool SetBlock(Block block, Vector3Int position, bool remesh = true)
+        internal bool SetBlock(Block block, Vector3Int position, bool remesh = true)
         {
-            int3 chunkPos = VoxelUtils.GetChunkCoords(Position: position);
-            int3 blockPos = VoxelUtils.GetBlockIndex(Position: position);
+            int3 chunkPos = VoxelUtils.GetChunkCoords(position);
+            int3 blockPos = VoxelUtils.GetBlockIndex(position);
 
             if (!_chunks.TryGetValue(chunkPos, out Chunk chunk))
             {
-                VoxelEngineLogger.Warn<ChunkManager>(message: $"Chunk : {chunkPos} not loaded");
+                VoxelEngineLogger.Warn<ChunkManager>($"Chunk : {chunkPos} not loaded");
                 return false;
             }
 
-            bool result = chunk.SetBlock(pos: blockPos, block: VoxelUtils.GetBlockId(block: block));
+            bool result = chunk.SetBlock(blockPos, VoxelUtils.GetBlockId(block));
 
-            _chunks[key: chunkPos] = chunk;
+            _chunks[chunkPos] = chunk;
 
-            if (remesh && result) ReMeshChunks(blockPosition: position.Int3());
+            if (remesh && result) ReMeshChunks(position.Int3());
 
             return result;
         }
 
         public int ChunkCount() => _chunks.Count;
 
-        public bool IsChunkLoaded(int3 position) => _chunks.ContainsKey(key: position);
+        public bool IsChunkLoaded(int3 position) => _chunks.ContainsKey(position);
 
         #endregion
 
-        internal bool ShouldReMesh(int3 position) => _reMeshChunks.Contains(item: position);
-        internal bool ShouldReCollide(int3 position) => _reCollideChunks.Contains(item: position);
-        
-        internal void RemoveChunk(int3 position) => _chunks.Remove(key: position);
+        internal bool ShouldReMesh(int3 position) => _reMeshChunks.Contains(position);
+        internal bool ShouldReCollide(int3 position) => _reCollideChunks.Contains(position);
+
+        internal void RemoveChunk(int3 position) => _chunks.Remove(position);
 
         internal void Dispose()
         {
@@ -113,7 +110,7 @@ namespace Runtime.Engine.Components
 
             foreach (int3 position in _queue)
             {
-                _queue.UpdatePriority(item: position, priority: -(position - focus).SqrMagnitude());
+                _queue.UpdatePriority(position, -(position - focus).SqrMagnitude());
             }
         }
 
@@ -124,19 +121,19 @@ namespace Runtime.Engine.Components
                 int3 position = pair.Key;
                 Chunk chunk = pair.Value;
 
-                if (_chunks.ContainsKey(key: chunk.Position))
+                if (_chunks.ContainsKey(chunk.Position))
                 {
-                    throw new InvalidOperationException(message: $"Chunk {position} already exists");
+                    throw new InvalidOperationException($"Chunk {position} already exists");
                 }
 
                 if (_queue.Count >= _chunkStoreSize)
                 {
-                    _chunks.Remove(key: _queue.Dequeue());
+                    _chunks.Remove(_queue.Dequeue());
                     // if dirty save chunk
                 }
 
-                _chunks.Add(key: position, value: chunk);
-                _queue.Enqueue(item: position, priority: -(position - _focus).SqrMagnitude());
+                _chunks.Add(position, chunk);
+                _queue.Enqueue(position, -(position - _focus).SqrMagnitude());
             }
         }
 
@@ -147,44 +144,39 @@ namespace Runtime.Engine.Components
             foreach (int3 position in positions)
             {
                 for (int x = -1; x <= 1; x++)
+                for (int z = -1; z <= 1; z++)
+                for (int y = -1; y <= 1; y++)
                 {
-                    for (int z = -1; z <= 1; z++)
+                    int3 pos = position + _chunkSize.MemberMultiply(x, y, z);
+
+                    if (!_chunks.TryGetValue(pos, out Chunk chunk))
                     {
-                        for (int y = -1; y <= 1; y++)
-                        {
-                            int3 pos = position + _chunkSize.MemberMultiply(x: x, y: y, z: z);
-
-                            if (!_chunks.ContainsKey(key: pos))
-                            {
-                                // Anytime this exception is thrown, mesh building completely stops
-                                throw new InvalidOperationException(message: $"Chunk {pos} has not been generated");
-                            }
-
-                            if (!_accessorMap.ContainsKey(key: pos))
-                                _accessorMap.Add(key: pos, item: _chunks[key: pos]);
-                        }
+                        // Anytime this exception is thrown, mesh building completely stops
+                        throw new InvalidOperationException($"Chunk {pos} has not been generated");
                     }
+
+                    if (!_accessorMap.ContainsKey(pos)) _accessorMap.Add(pos, chunk);
                 }
             }
 
-            return new ChunkAccessor(chunks: _accessorMap.AsReadOnly(), chunkSize: _chunkSize);
+            return new ChunkAccessor(_accessorMap.AsReadOnly(), _chunkSize);
         }
 
         internal bool ReMeshedChunk(int3 position)
         {
-            if (!_reMeshChunks.Contains(item: position)) return false;
+            if (!_reMeshChunks.Contains(position)) return false;
 
-            _reMeshChunks.Remove(item: position);
-            _reCollideChunks.Add(item: position);
+            _reMeshChunks.Remove(position);
+            _reCollideChunks.Add(position);
 
             return true;
         }
 
         internal bool ReCollideChunk(int3 position)
         {
-            if (!_reCollideChunks.Contains(item: position)) return false;
+            if (!_reCollideChunks.Contains(position)) return false;
 
-            _reCollideChunks.Remove(item: position);
+            _reCollideChunks.Remove(position);
 
             return true;
         }
@@ -193,7 +185,7 @@ namespace Runtime.Engine.Components
         {
             foreach (int3 dir in VoxelUtils.Directions)
             {
-                _reMeshChunks.Add(item: VoxelUtils.GetChunkCoords(Position: blockPosition + dir));
+                _reMeshChunks.Add(VoxelUtils.GetChunkCoords(blockPosition + dir));
             }
         }
     }

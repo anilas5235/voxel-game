@@ -8,13 +8,14 @@ using Runtime.Engine.Settings;
 using Runtime.Engine.Utils.Provider;
 using UnityEngine;
 
-namespace Runtime.Engine {
-
-    public class VoxelEngineProvider : Provider<VoxelEngineProvider> {
-
+namespace Runtime.Engine
+{
+    public class VoxelEngineProvider : Provider<VoxelEngineProvider>
+    {
         public VoxelEngineSettings Settings { get; set; }
 
-        internal virtual NoiseProfile NoiseProfile() => new (new NoiseProfile.Settings {
+        internal NoiseProfile NoiseProfile() => new(new NoiseProfile.Settings
+        {
             Height = Settings.Noise.Height,
             WaterLevel = Settings.Noise.WaterLevel,
             Seed = Settings.Noise.Seed,
@@ -24,33 +25,31 @@ namespace Runtime.Engine {
             Octaves = Settings.Noise.Octaves,
         });
 
-        internal virtual ChunkManager ChunkManager() => new(Settings);
+        internal ChunkManager ChunkManager() => new(Settings);
 
-        internal virtual ChunkPool ChunkPool(Transform transform) => new (transform, Settings);
+        internal ChunkPool ChunkPool(Transform transform) => new(transform, Settings);
 
-        internal virtual VoxelEngineScheduler VoxelEngineScheduler(
+        internal VoxelEngineScheduler VoxelEngineScheduler(
             MeshBuildScheduler meshBuildScheduler,
-            ChunkScheduler ChunkScheduler,
+            ChunkScheduler chunkScheduler,
             ColliderBuildScheduler colliderBuildScheduler,
-            ChunkManager ChunkManager,
+            ChunkManager chunkManager,
             ChunkPool chunkPool
-        ) => new(Settings, meshBuildScheduler, ChunkScheduler, colliderBuildScheduler, ChunkManager, chunkPool);
+        ) => new(Settings, meshBuildScheduler, chunkScheduler, colliderBuildScheduler, chunkManager, chunkPool);
 
-        internal virtual ChunkScheduler ChunkDataScheduler(
-            ChunkManager ChunkManager,
+        internal ChunkScheduler ChunkDataScheduler(
+            ChunkManager chunkManager,
             NoiseProfile noiseProfile
-        ) => new(Settings, ChunkManager, noiseProfile);
+        ) => new(Settings, chunkManager, noiseProfile);
 
-        internal virtual MeshBuildScheduler MeshBuildScheduler(
-            ChunkManager ChunkManager,
+        internal MeshBuildScheduler MeshBuildScheduler(
+            ChunkManager chunkManager,
             ChunkPool chunkPool
-        ) => new(Settings, ChunkManager, chunkPool);
+        ) => new(Settings, chunkManager, chunkPool);
 
-        internal virtual ColliderBuildScheduler ColliderBuildScheduler(
+        internal ColliderBuildScheduler ColliderBuildScheduler(
             ChunkManager chunkManager,
             ChunkPool chunkPool
         ) => new(chunkManager, chunkPool);
-
     }
-
 }

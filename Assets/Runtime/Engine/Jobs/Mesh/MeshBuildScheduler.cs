@@ -59,13 +59,13 @@ namespace Runtime.Engine.Jobs.Mesh {
 
             _chunkAccessor = _chunkManager.GetAccessor(jobs);
             
-            foreach (var j in jobs) {
+            foreach (int3 j in jobs) {
                 _jobs.Add(j);
             }
             
             _meshDataArray = UnityEngine.Mesh.AllocateWritableMeshData(_jobs.Length);
 
-            var job = new MeshBuildJob {
+            MeshBuildJob job = new MeshBuildJob {
                 Accessor = _chunkAccessor,
                 ChunkSize = _chunkSize,
                 Jobs = _jobs,
@@ -80,10 +80,10 @@ namespace Runtime.Engine.Jobs.Mesh {
         internal void Complete() {
             _handle.Complete();
 
-            var meshes = new UnityEngine.Mesh[_jobs.Length];
+            UnityEngine.Mesh[] meshes = new UnityEngine.Mesh[_jobs.Length];
 
-            for (var index = 0; index < _jobs.Length; index++) {
-                var position = _jobs[index];
+            for (int index = 0; index < _jobs.Length; index++) {
+                int3 position = _jobs[index];
 
                 if (_chunkManager.ReMeshedChunk(position)) {
                     meshes[_results[position]] = _chunkPool.Get(position).Mesh;
@@ -98,7 +98,7 @@ namespace Runtime.Engine.Jobs.Mesh {
                 MeshUpdateFlags.DontRecalculateBounds
             );
             
-            for (var index = 0; index < meshes.Length; index++) {
+            for (int index = 0; index < meshes.Length; index++) {
                 meshes[index].RecalculateBounds();
             }
             

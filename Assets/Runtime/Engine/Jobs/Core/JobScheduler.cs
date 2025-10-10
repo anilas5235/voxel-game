@@ -24,7 +24,7 @@ namespace Runtime.Engine.Jobs.Core {
         
         protected void StopRecord() {
             _watch.Stop();
-            var ms = _watch.ElapsedMilliseconds;
+            long ms = _watch.ElapsedMilliseconds;
             
             if (_timings.Count <= _records) _timings.Enqueue(ms);
             else {

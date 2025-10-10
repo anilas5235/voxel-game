@@ -45,11 +45,12 @@ namespace Runtime.Engine.Jobs.Chunk {
 
             IsReady = false;
             
-            foreach (var j in jobs) {
+            foreach (int3 j in jobs) {
                 _jobs.Add(j);
             }
             
-            var job = new ChunkJob {
+            ChunkJob job = new()
+            {
                 Jobs = _jobs,
                 ChunkSize = _chunkSize,
                 NoiseProfile = _noiseProfile,

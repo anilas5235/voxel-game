@@ -5,15 +5,14 @@ namespace Runtime.Engine.Settings {
 
     [Serializable]
     public class SchedulerSettings {
-
-        [HideInInspector]
-        public int MeshingBatchSize;
+        [Tooltip("Number of chunks to process per update for meshing")]
+        public int MeshingBatchSize = 4;
         
-        [HideInInspector]
-        public int StreamingBatchSize;
+        [Tooltip("Number of chunks to process per update for streaming")]
+        public int StreamingBatchSize = 8;
 
-        [HideInInspector] 
-        public int ColliderBatchSize;
+        [Tooltip("Number of chunks to process per update for collider generation")]
+        public int ColliderBatchSize = 4;
 
         [Tooltip("Framerate at which the scheduler updates")]
         public int TickRate = 4;
