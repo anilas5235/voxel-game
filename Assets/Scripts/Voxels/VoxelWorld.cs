@@ -1,10 +1,13 @@
 ﻿using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using UnityEngine;
 using Utils;
 using Voxels.Chunk;
 using Voxels.Generation;
+using Voxels.Data;
 
 namespace Voxels
 {
@@ -16,6 +19,13 @@ namespace Voxels
         public const int HalfChunkHeight = ChunkHeight / 2;
         public const int VoxelsPerChunk = ChunkSize * ChunkSize * ChunkHeight;
 
+        [Header("World")]
+        [Tooltip("If empty a random seed will be generated on start. Can be any string; it will be hashed into a numeric seed.")]
+        public string worldSeed;
+
+        // Numeric seed used internally for deterministic RNGs. Not exposed in the inspector anymore.
+        private long worldSeedNumeric;
+
         public int waterThreshold = 50;
         public float noiseScale = 0.03f;
         public GameObject chunkPrefab;
@@ -24,11 +34,28 @@ namespace Voxels
         private readonly List<Vector2Int> _chunksToUnload = new();
         private readonly HashSet<Vector2Int> _chunksToUpdate = new();
 
+        // Queue that background generator threads will push completed chunk positions into.
+        private readonly ConcurrentQueue<Vector2Int> _completedChunks = new();
+
         public WorldData WorldData { get; private set; }
 
         protected override void Awake()
         {
             base.Awake();
+
+            if (string.IsNullOrEmpty(worldSeed))
+            {
+                worldSeed = System.Guid.NewGuid().ToString();
+            }
+
+            // Derive a stable numeric seed from the string using a simple hash.
+            unchecked
+            {
+                long hash = 23;
+                foreach (char c in worldSeed) hash = hash * 31 + c;
+                worldSeedNumeric = hash;
+            }
+
             WorldData = new WorldData
             {
                 ChunkData = new Dictionary<Vector2Int, ChunkData>(),
@@ -77,6 +104,12 @@ namespace Voxels
         {
             while (true)
             {
+                // Pull completed background-generated chunks and schedule them for mesh update on main thread.
+                while (_completedChunks.TryDequeue(out Vector2Int completed))
+                {
+                    if (!_chunksToUpdate.Contains(completed)) _chunksToUpdate.Add(completed);
+                }
+
                 UpdateChunkStep();
                 yield return new WaitForSecondsRealtime(.05f);
             }
@@ -121,11 +154,52 @@ namespace Voxels
                 if (data == null)
                 {
                     data = new ChunkData(this, chunkPos);
-                    WorldGeneration.GenerateVoxels(data, noiseScale, waterThreshold);
+                    // Add the chunk data to the dictionary before starting background generation so other systems can query existence.
                     WorldData.ChunkData.Add(chunkPos, data);
+
+                    // Gather voxel ids on main thread to pass to background generator
+                    var ids = new WorldGeneration.GeneratorConfig
+                    {
+                        Stone = SafeGetId("std:Stone"),
+                        Dirt = SafeGetId("std:Dirt"),
+                        Grass = SafeGetId("std:Grass"),
+                        Bedrock = SafeGetId("std:Bedrock"),
+                        Water = SafeGetId("std:Water"),
+                        Sand = SafeGetId("std:Sand"),
+                        Sandstone = SafeGetId("std:Sandstone"),
+                        Log = SafeGetId("std:Log"),
+                        Leaves = SafeGetId("std:Leaves"),
+                        OakLog = SafeGetId("std:OakLog"),
+                        OakLeaves = SafeGetId("std:OakLeaves"),
+                        BirchLog = SafeGetId("std:BirchLog"),
+                        BirchLeaves = SafeGetId("std:BirchLeaves"),
+                        Cactus = SafeGetId("std:Cactus"),
+                        Coal = SafeGetId("std:CoalOre"),
+                        Iron = SafeGetId("std:IronOre"),
+                        Gold = SafeGetId("std:GoldOre"),
+                        Diamond = SafeGetId("std:DiamondOre"),
+                        Boat = SafeGetId("std:Boat"),
+                        TallGrass = SafeGetId("std:TallGrass"),
+                        Mushroom = SafeGetId("std:Mushroom"),
+                        StoneBrick = SafeGetId("std:StoneBrick"),
+                        Snow = SafeGetId("std:Snow")
+                    };
+
+                    // Start background generation. When done, the background task will enqueue the chunk position into _completedChunks.
+                    Vector2Int pos = chunkPos;
+                    ChunkData localData = data;
+                    long seed = worldSeedNumeric;
+                    float ns = noiseScale;
+                    int water = waterThreshold;
+
+                    Task.Run(() =>
+                    {
+                        Voxels.Generation.WorldGeneration.GenerateVoxels(localData, ns, water, seed, ids);
+                        _completedChunks.Enqueue(pos);
+                    });
                 }
 
-                _chunksToUpdate.Add(chunkPos);
+                // Do not add to _chunksToUpdate here; the background generator will enqueue when finished.
             }
 
             _chunksToLoad.Clear();
@@ -212,6 +286,32 @@ namespace Voxels
         public void UpdateChunkMesh(Vector2Int chunkPosition)
         {
             _chunksToUpdate.Add(chunkPosition);
+        }
+
+        // Exposed safely so generation code in other classes can query voxel ids with a safe fallback.
+        public static int SafeGetId(string name)
+        {
+            try
+            {
+                return Voxels.Data.VoxelRegistry.GetId(name);
+            }
+            catch (System.Exception)
+            {
+                return 0;
+            }
+        }
+
+        // When the inspector string changes, update the internal numeric seed.
+        private void OnValidate()
+        {
+            if (string.IsNullOrEmpty(worldSeed)) return;
+
+            unchecked
+            {
+                long hash = 23;
+                foreach (char c in worldSeed) hash = hash * 31 + c;
+                worldSeedNumeric = hash;
+            }
         }
     }
 
