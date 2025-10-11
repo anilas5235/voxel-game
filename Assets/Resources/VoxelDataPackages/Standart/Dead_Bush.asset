@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7f45a94d2e634c16a6e55fc59e032951, type: 3}
+  m_Name: Dead_Bush
+  m_EditorClassIdentifier: 
+  textureMode: 2
+  top: {fileID: 0}
+  bottom: {fileID: 0}
+  front: {fileID: 2800000, guid: bc9cc911d53e487489c632d188f2e9a8, type: 3}
+  back: {fileID: 2800000, guid: bc9cc911d53e487489c632d188f2e9a8, type: 3}
+  right: {fileID: 2800000, guid: bc9cc911d53e487489c632d188f2e9a8, type: 3}
+  left: {fileID: 2800000, guid: bc9cc911d53e487489c632d188f2e9a8, type: 3}
+  side: {fileID: 0}
+  all: {fileID: 0}
+  collision: 0
+  transparent: 1
