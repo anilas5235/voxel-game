@@ -14,6 +14,20 @@ namespace Runtime.Engine.Jobs
 {
     public class VoxelEngineScheduler
     {
+        private enum JobType
+        {
+            Data,
+            Mesh,
+            Collider
+        }
+
+        private enum SchedulerSteps
+        {
+            UpdateQueues,
+            JobUpdate,
+            CollectResults,
+        }
+
         private readonly ChunkScheduler _chunkScheduler;
         private readonly MeshBuildScheduler _meshBuildScheduler;
         private readonly ColliderBuildScheduler _colliderBuildScheduler;
@@ -30,7 +44,9 @@ namespace Runtime.Engine.Jobs
         private readonly HashSet<int3> _colliderSet;
 
         private readonly VoxelEngineSettings _settings;
-        private JobType _currentJobType;
+
+        private SchedulerSteps _currentStep;
+        private readonly JobType[] _currentJobTypes = { JobType.Data, JobType.Mesh, JobType.Collider };
 
         internal VoxelEngineScheduler(
             VoxelEngineSettings settings,
@@ -57,6 +73,30 @@ namespace Runtime.Engine.Jobs
             _colliderSet = new HashSet<int3>();
 
             _settings = settings;
+        }
+
+        internal void ScheduleUpdate(int3 focus)
+        {
+            switch (_currentStep)
+            {
+                case SchedulerSteps.UpdateQueues:
+                    UpdatedQueues(focus, _currentJobTypes[(int)_currentStep]);
+                    _currentJobTypes[(int)_currentStep] = NextJobType(_currentJobTypes[(int)_currentStep]);
+                    _currentStep = SchedulerSteps.JobUpdate;
+                    break;
+                case SchedulerSteps.JobUpdate:
+                    JobUpdate(_currentJobTypes[(int)_currentStep]);
+                    _currentJobTypes[(int)_currentStep] = NextJobType(_currentJobTypes[(int)_currentStep]);
+                    _currentStep = SchedulerSteps.CollectResults;
+                    break;
+                case SchedulerSteps.CollectResults:
+                    SchedulerCollectResults(_currentJobTypes[(int)_currentStep]);
+                    _currentJobTypes[(int)_currentStep] = NextJobType(_currentJobTypes[(int)_currentStep]);
+                    _currentStep = SchedulerSteps.UpdateQueues;
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
         }
 
         internal void FocusUpdate(int3 focus)
@@ -87,19 +127,6 @@ namespace Runtime.Engine.Jobs
             }
         }
 
-        internal void ScheduleUpdate(int3 focus)
-        {
-            JobType lastJobType = LastJobType(_currentJobType);
-            SchedulerCollectResults(LastJobType(lastJobType));
-
-            JobUpdate(lastJobType);
-
-            UpdatedQueues(focus, _currentJobType);
-
-            _currentJobType = NextJobType(_currentJobType);
-        }
-
-        // At max 3 Queues are updated in total (ViewQueue, DataQueue, ColliderQueue)
         private void UpdatedQueues(int3 focus, JobType jobType)
         {
             int3 chunkSize = _settings.Chunk.ChunkSize;
@@ -161,13 +188,6 @@ namespace Runtime.Engine.Jobs
                     _dataQueue.Enqueue(pos, (pos - focus).SqrMagnitude());
                 }
             }
-        }
-
-        private enum JobType
-        {
-            Data,
-            Mesh,
-            Collider
         }
 
         private void JobUpdate(JobType jobType)

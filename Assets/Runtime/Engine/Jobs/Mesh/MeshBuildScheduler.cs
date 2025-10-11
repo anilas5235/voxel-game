@@ -1,13 +1,16 @@
 using System.Collections.Generic;
+using System.Diagnostics;
 using Runtime.Engine.Components;
 using Runtime.Engine.Data;
 using Runtime.Engine.Jobs.Core;
 using Runtime.Engine.Settings;
 using Runtime.Engine.Utils.Extensions;
+using Runtime.Engine.Utils.Logger;
 using Runtime.Engine.Voxels.Data;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
+using UnityEngine;
 using UnityEngine.Rendering;
 
 namespace Runtime.Engine.Jobs.Mesh
@@ -18,7 +21,7 @@ namespace Runtime.Engine.Jobs.Mesh
         private readonly ChunkPool _chunkPool;
         private readonly VoxelRegistry _voxelRegistry;
 
-        private int3 _chunkSize;
+        private readonly int3 _chunkSize;
         private JobHandle _handle;
 
         private NativeList<int3> _jobs;
@@ -26,6 +29,8 @@ namespace Runtime.Engine.Jobs.Mesh
         private NativeParallelHashMap<int3, int> _results;
         private UnityEngine.Mesh.MeshDataArray _meshDataArray;
         private NativeArray<VertexAttributeDescriptor> _vertexParams;
+
+        private Stopwatch _watch;
 
         public MeshBuildScheduler(
             VoxelEngineSettings settings,
@@ -44,11 +49,11 @@ namespace Runtime.Engine.Jobs.Mesh
 
             // Int interpolation cause issues
             _vertexParams[0] =
-                new VertexAttributeDescriptor(VertexAttribute.Position, VertexAttributeFormat.Float32, 3);
-            _vertexParams[1] = new VertexAttributeDescriptor(VertexAttribute.Normal, VertexAttributeFormat.Float32, 3);
+                new VertexAttributeDescriptor(VertexAttribute.Position);
+            _vertexParams[1] = new VertexAttributeDescriptor(VertexAttribute.Normal);
             _vertexParams[2] = new VertexAttributeDescriptor(VertexAttribute.Color, VertexAttributeFormat.Float32, 4);
             _vertexParams[3] =
-                new VertexAttributeDescriptor(VertexAttribute.TexCoord0, VertexAttributeFormat.Float32, 3);
+                new VertexAttributeDescriptor(VertexAttribute.TexCoord0);
             _vertexParams[4] =
                 new VertexAttributeDescriptor(VertexAttribute.TexCoord1, VertexAttributeFormat.Float32, 2);
             _vertexParams[5] =
@@ -57,6 +62,7 @@ namespace Runtime.Engine.Jobs.Mesh
             _results = new NativeParallelHashMap<int3, int>(settings.Chunk.DrawDistance.CubedSize(),
                 Allocator.Persistent);
             _jobs = new NativeList<int3>(Allocator.Persistent);
+            _watch = new Stopwatch();
         }
 
         internal bool IsReady = true;
@@ -93,6 +99,7 @@ namespace Runtime.Engine.Jobs.Mesh
 
         internal void Complete()
         {
+            var start = Time.realtimeSinceStartupAsDouble;
             _handle.Complete();
 
             UnityEngine.Mesh[] meshes = new UnityEngine.Mesh[_jobs.Length];
@@ -100,7 +107,6 @@ namespace Runtime.Engine.Jobs.Mesh
             for (int index = 0; index < _jobs.Length; index++)
             {
                 int3 position = _jobs[index];
-
                 if (_chunkManager.ReMeshedChunk(position))
                 {
                     meshes[_results[position]] = _chunkPool.Get(position).Mesh;
@@ -114,19 +120,27 @@ namespace Runtime.Engine.Jobs.Mesh
             UnityEngine.Mesh.ApplyAndDisposeWritableMeshData(
                 _meshDataArray,
                 meshes,
-                MeshUpdateFlags.DontRecalculateBounds
+                MeshUpdateFlags.DontRecalculateBounds | MeshUpdateFlags.DontValidateIndices |
+                MeshUpdateFlags.DontResetBoneBounds
             );
 
-            for (int index = 0; index < meshes.Length; index++)
+            foreach (UnityEngine.Mesh m in meshes)
             {
-                meshes[index].RecalculateBounds();
+                m.RecalculateBounds();
+            }
+
+            double totalTime = (Time.realtimeSinceStartupAsDouble - start) * 1000;
+            if (totalTime >= 0.8)
+            {
+                VoxelEngineLogger.Info<MeshBuildScheduler>(
+                    $"Built {_jobs.Length} meshes, Collected Results in <color=red>{totalTime:0.000}</color>ms"
+                );
             }
 
             _results.Clear();
             _jobs.Clear();
 
             IsReady = true;
-
             StopRecord();
         }
 

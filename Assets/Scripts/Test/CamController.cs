@@ -14,7 +14,7 @@ namespace Test
         [Range(1f, 100f)] public float moveSpeed = 5f;
         [Range(1f, 100f)] public float lookSpeed = 10f;
         private Camera _camera;
-        public Rigidbody rigidbody;
+        public Rigidbody rigidbodyCam;
 
         private void OnEnable()
         {
@@ -60,7 +60,7 @@ namespace Test
 
         private void FixedUpdate()
         {
-            rigidbody.angularVelocity = Vector3.zero;
+            rigidbodyCam.angularVelocity = Vector3.zero;
             // Handle vertical movement with E (up) and Q (down) keys
             _verticalInput = 0f;
             if (Keyboard.current.spaceKey.isPressed) _verticalInput += 1f;
@@ -81,7 +81,7 @@ namespace Test
             // Add vertical movement
             moveDirection.y = _verticalInput;
             // Apply movement using Rigidbody for collision
-            rigidbody.linearVelocity = moveDirection.normalized * (moveSpeed * speedModifier);
+            rigidbodyCam.linearVelocity = moveDirection.normalized * (moveSpeed * speedModifier);
         }
     }
 }

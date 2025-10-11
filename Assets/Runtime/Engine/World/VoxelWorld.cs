@@ -41,8 +41,6 @@ namespace Runtime.Engine.World
 
         private bool _isFocused;
 
-        private byte _updateFrame = 1;
-
         private static VoxelEngineProvider Provider() => new();
 
         #region Unity
@@ -69,25 +67,15 @@ namespace Runtime.Engine.World
 
         private void Update()
         {
-            // Schedule every 'x' frames (throttling)
-            if (_updateFrame % Settings.Scheduler.TickRate == 0)
+            int3 newFocusChunkCoord = _isFocused ? VoxelUtils.GetChunkCoords(focus.position) : int3.zero;
+
+            if (!(newFocusChunkCoord == FocusChunkCoord).AndReduce())
             {
-                int3 newFocusChunkCoord = _isFocused ? VoxelUtils.GetChunkCoords(focus.position) : int3.zero;
-
-                if (!(newFocusChunkCoord == FocusChunkCoord).AndReduce())
-                {
-                    FocusChunkCoord = newFocusChunkCoord;
-                    Scheduler.FocusUpdate(FocusChunkCoord);
-                }
-
-                Scheduler.ScheduleUpdate(FocusChunkCoord);
-
-                _updateFrame = 1;
+                FocusChunkCoord = newFocusChunkCoord;
+                Scheduler.FocusUpdate(FocusChunkCoord);
             }
-            else
-            {
-                _updateFrame++;
-            }
+
+            Scheduler.ScheduleUpdate(FocusChunkCoord);
         }
 
         protected override void OnDestroy()

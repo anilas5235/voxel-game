@@ -4,9 +4,11 @@ using Runtime.Engine.Jobs.Core;
 using Runtime.Engine.Noise;
 using Runtime.Engine.Settings;
 using Runtime.Engine.Utils.Extensions;
+using Runtime.Engine.Utils.Logger;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
+using UnityEngine;
 
 namespace Runtime.Engine.Jobs.Chunk {
 
@@ -61,10 +63,20 @@ namespace Runtime.Engine.Jobs.Chunk {
         }
 
         internal void Complete() {
+            double start = Time.realtimeSinceStartupAsDouble;
             _handle.Complete();
             
             _chunkStore.AddChunks(_results);
-
+            
+            double totalTime = (Time.realtimeSinceStartupAsDouble - start) * 1000;
+            
+            if (totalTime >= 0.8)
+            {
+                VoxelEngineLogger.Info<ChunkScheduler>(
+                    $"Built {_jobs.Length} ChunkData, Collected Results in <color=red>{totalTime:0.000}</color>ms"
+                );
+            }
+            
             _jobs.Clear();
             _results.Clear();
             

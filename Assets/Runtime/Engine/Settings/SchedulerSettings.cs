@@ -13,10 +13,6 @@ namespace Runtime.Engine.Settings {
 
         [Tooltip("Number of chunks to process per update for collider generation")]
         public int ColliderBatchSize = 4;
-
-        [Tooltip("Framerate at which the scheduler updates")]
-        public int TickRate = 4;
-
     }
 
 }
