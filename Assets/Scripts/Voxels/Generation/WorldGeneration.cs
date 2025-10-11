@@ -248,7 +248,7 @@ namespace Voxels.Generation
                 }
 
                 // After vertical fill, carve caves using 3D noise (pass groundY so we avoid carving near-surface)
-                CarveCavesInColumn(data, x, z, worms, caveNoise, groundY);
+                CarveCavesInColumn(data, x, z, worms, caveNoise, groundY, idWater);
 
                 // Place ores exposed in cave walls and stone
                 PlaceOresInColumn(data, x, z, idStone, idCoal, idIron, idGold, idDiamond, rng);
@@ -423,8 +423,20 @@ namespace Voxels.Generation
             return worms;
         }
 
-        private static void CarveCavesInColumn(ChunkData data, int cx, int cz, List<Worm> worms, float[,,] caveNoise, int groundY)
+        private static void CarveCavesInColumn(ChunkData data, int cx, int cz, List<Worm> worms, float[,,] caveNoise, int groundY, int waterId)
         {
+            // If the surface of this column is water, skip carving caves here to avoid underwater caves.
+            try
+            {
+                int surfaceId = data.GetVoxel(new UnityEngine.Vector3Int(cx, groundY, cz));
+                if (surfaceId == waterId) return;
+            }
+            catch
+            {
+                // If any error reading voxel, fall back to safe behavior and skip carving
+                return;
+            }
+
             int worldX0 = data.WorldPosition.x;
             int worldZ0 = data.WorldPosition.z;
 
@@ -544,6 +556,43 @@ namespace Voxels.Generation
             uint hash = (uint)((data.ChunkPosition.x * 73856093) ^ (data.ChunkPosition.y * 19349663) ^ (x * 83492791) ^ (z * 961748941));
             Unity.Mathematics.Random local = new Unity.Mathematics.Random(hash == 0 ? 1u : hash);
 
+            // Detect if this column is adjacent to water (simple beach test)
+            bool adjacentToWater = false;
+            var neighs2D = new (int dx, int dz)[] { (1,0), (-1,0), (0,1), (0,-1) };
+            foreach (var n in neighs2D)
+            {
+                int nx = x + n.dx;
+                int nz = z + n.dz;
+                if (nx < 0 || nx >= ChunkSize || nz < 0 || nz >= ChunkSize) continue;
+                int nv = data.GetVoxel(new UnityEngine.Vector3Int(nx, y, nz));
+                if (nv == config.Water) { adjacentToWater = true; break; }
+            }
+
+            // General rule: if the surface block is grass, occasionally place a tree on it
+            // (skip this rule in Forest/Jungle since those biomes already place trees frequently)
+            try
+            {
+                 int surfaceId = data.GetVoxel(new UnityEngine.Vector3Int(x, y, z));
+                 if (surfaceId == config.Grass && biome != Biome.Forest && biome != Biome.Jungle)
+                 {
+-                    // ~8% chance to place a small/medium tree on grass
+-                    if (local.NextFloat(0, 1) < 0.08f)
++                    // ~1% chance to place a small/medium tree on grass (reduced to 1/8 of previous)
++                    if (local.NextFloat(0, 1) < 0.01f)
+                     {
+                         if (local.NextInt(0, 100) < 80)
+                             PlaceTree(data, x, y + 1, z, 5, local, config.OakLog, config.OakLeaves, config);
+                         else
+                             PlaceTree(data, x, y + 1, z, 5, local, config.BirchLog, config.BirchLeaves, config);
+                         return;
+                     }
+                 }
+             }
+             catch
+             {
+                 // If reading fails for any reason, continue with existing rules
+             }
+
             if (biome == Biome.Forest)
             {
                 // Much more frequent trees in forests
@@ -559,6 +608,13 @@ namespace Voxels.Generation
             }
             else if (biome == Biome.Plains)
             {
+                // Beach palms: if adjacent to water, small chance to place a palm instead of plain vegetation
+                if (adjacentToWater && local.NextFloat(0, 1) < 0.12f)
+                {
+                    PlacePalm(data, x, y + 1, z, local, config.OakLog, config.OakLeaves, config);
+                    return;
+                }
+
                 if (local.NextFloat(0, 1) < 0.05f)
                 {
                     // Tall grass - represented by small block if defined
@@ -578,9 +634,16 @@ namespace Voxels.Generation
             {
                 if (local.NextFloat(0, 1) < 0.02f)
                 {
-                    // cactus
-                    int cactus = config.Cactus;
-                    if (cactus != 0) PlaceColumn(data, x, y + 1, z, cactus, local.NextInt(1, 4));
+                    // Prefer palms in deserts, occasionally cactus
+                    if (adjacentToWater || local.NextFloat(0,1) < 0.5f)
+                    {
+                        PlacePalm(data, x, y + 1, z, local, config.OakLog, config.OakLeaves, config);
+                    }
+                    else
+                    {
+                        int cactus = config.Cactus;
+                        if (cactus != 0) PlaceColumn(data, x, y + 1, z, cactus, local.NextInt(1, 4));
+                    }
                 }
             }
             else if (biome == Biome.Jungle)
@@ -645,6 +708,30 @@ namespace Voxels.Generation
                 if (y + i >= ChunkHeight - 1) break;
                 data.SetVoxel(new UnityEngine.Vector3Int(x, y + i, z), blockId);
             }
+        }
+
+        private static void PlacePalm(ChunkData data, int x, int y, int z, Unity.Mathematics.Random rng, int idLog, int idLeaves, GeneratorConfig config)
+        {
+            // Fallback to generic IDs
+            if (idLog == 0) idLog = config.Log;
+            if (idLeaves == 0) idLeaves = config.Leaves;
+            if (idLog == 0 || idLeaves == 0) return;
+
+            int height = rng.NextInt(4, 7);
+            // trunk
+            for (int i = 0; i < height; i++) SetIfInBounds(data, x, y + i, z, idLog);
+
+            int top = y + height;
+            // simple fronds: cross and diagonals
+            var offsets = new (int ox, int oz)[] { (1,0), (2,0), (-1,0), (-2,0), (0,1), (0,2), (0,-1), (0,-2), (1,1), (-1,1), (1,-1), (-1,-1) };
+            foreach (var o in offsets)
+            {
+                SetIfInBounds(data, x + o.ox, top, z + o.oz, idLeaves);
+                // a little sagging below
+                SetIfInBounds(data, x + o.ox, top - 1, z + o.oz, idLeaves);
+            }
+            // top center leaf
+            SetIfInBounds(data, x, top, z, idLeaves);
         }
     }
 }

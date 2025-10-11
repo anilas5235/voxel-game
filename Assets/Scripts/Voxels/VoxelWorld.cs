@@ -29,6 +29,12 @@ namespace Voxels
         public int waterThreshold = 50;
         public float noiseScale = 0.03f;
         public GameObject chunkPrefab;
+        [Header("Debug")]
+        [Tooltip("When enabled the world generator will print placement logs (can be noisy).")]
+        public bool verboseGeneration = false;
+
+        // Static flag read by WorldGeneration to emit debug logs during generation
+        public static bool VerboseGeneration = false;
 
         private readonly List<Vector2Int> _chunksToLoad = new();
         private readonly List<Vector2Int> _chunksToUnload = new();
@@ -42,6 +48,9 @@ namespace Voxels
         protected override void Awake()
         {
             base.Awake();
+
+            // propagate inspector flag to static field so generation code can check it
+            VerboseGeneration = verboseGeneration;
 
             if (string.IsNullOrEmpty(worldSeed))
             {
@@ -63,6 +72,35 @@ namespace Voxels
                 ChunkSize = ChunkSize,
                 ChunkHeight = ChunkHeight
             };
+
+            // Startup fallback: if core voxel IDs are not registered yet, auto-register any packages in Resources/VoxelDataPackages.
+            try
+            {
+                int testGrass = SafeGetId("std:Grass");
+                if (testGrass == 0)
+                {
+                    var packages = Resources.LoadAll<VoxelDataPackage>("VoxelDataPackages");
+                    if (packages != null && packages.Length > 0)
+                    {
+                        foreach (var package in packages)
+                        {
+                            string prefix = package.packagePrefix;
+                            if (string.IsNullOrEmpty(prefix)) prefix = "UserPackage";
+                            foreach (var def in package.voxelTextures)
+                            {
+                                if (!def) continue;
+                                Voxels.Data.VoxelRegistry.Register(prefix, def);
+                            }
+                        }
+
+                        Debug.Log("VoxelWorld: Auto-registered VoxelDataPackages during Awake.");
+                    }
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning("VoxelWorld: Failed to auto-register VoxelDataPackages in Awake: " + ex.Message);
+            }
         }
 
         private void Start()
@@ -163,27 +201,82 @@ namespace Voxels
                         Stone = SafeGetId("std:Stone"),
                         Dirt = SafeGetId("std:Dirt"),
                         Grass = SafeGetId("std:Grass"),
-                        Bedrock = SafeGetId("std:Bedrock"),
+                        Bedrock = SafeGetId("std:Stone_Grey"),
                         Water = SafeGetId("std:Water"),
                         Sand = SafeGetId("std:Sand"),
-                        Sandstone = SafeGetId("std:Sandstone"),
-                        Log = SafeGetId("std:Log"),
+                        Sandstone = SafeGetId("std:Sandy_Stone"),
+                        Log = SafeGetId("std:Oak_Log"),
                         Leaves = SafeGetId("std:Leaves"),
-                        OakLog = SafeGetId("std:OakLog"),
-                        OakLeaves = SafeGetId("std:OakLeaves"),
-                        BirchLog = SafeGetId("std:BirchLog"),
-                        BirchLeaves = SafeGetId("std:BirchLeaves"),
+                        OakLog = SafeGetId("std:Oak_Log"),
+                        OakLeaves = SafeGetId("std:Leaves"),
+                        BirchLog = SafeGetId("std:Birch_Log"),
+                        BirchLeaves = SafeGetId("std:Leaves_Orange"),
                         Cactus = SafeGetId("std:Cactus"),
-                        Coal = SafeGetId("std:CoalOre"),
-                        Iron = SafeGetId("std:IronOre"),
-                        Gold = SafeGetId("std:GoldOre"),
-                        Diamond = SafeGetId("std:DiamondOre"),
-                        Boat = SafeGetId("std:Boat"),
-                        TallGrass = SafeGetId("std:TallGrass"),
-                        Mushroom = SafeGetId("std:Mushroom"),
-                        StoneBrick = SafeGetId("std:StoneBrick"),
+                        Coal = SafeGetId("std:Coal_Ore"),
+                        Iron = SafeGetId("std:Iron_Ore_Brown"),
+                        Gold = SafeGetId("std:Gold_Ore"),
+                        Diamond = SafeGetId("std:Diamond_Ore"),
+                        StoneBrick = SafeGetId("std:Bricks_Grey"),
                         Snow = SafeGetId("std:Snow")
                     };
+
+                    // Diagnostic: if critical IDs are zero it's very likely the VoxelRegistry wasn't initialized
+                    if (ids.Log == 0 || ids.Leaves == 0 || ids.Grass == 0 || ids.Water == 0)
+                    {
+                        Debug.LogWarning("VoxelWorld: One or more core voxel IDs are zero (Log/Leaves/Grass/Water). " +
+                            "This usually means VoxelDataImporter didn't run or no VoxelDataPackage was found in Resources/VoxelDataPackages. " +
+                            "Add a GameObject with VoxelDataImporter in your startup scene or ensure packages exist.");
+
+                        // Attempt automatic runtime registration of any VoxelDataPackages found in Resources as a fallback
+                        try
+                        {
+                            var packages = Resources.LoadAll<VoxelDataPackage>("VoxelDataPackages");
+                            if (packages != null && packages.Length > 0)
+                            {
+                                foreach (var package in packages)
+                                {
+                                    string prefix = package.packagePrefix;
+                                    if (string.IsNullOrEmpty(prefix)) prefix = "UserPackage";
+                                    foreach (var def in package.voxelTextures)
+                                    {
+                                        if (!def) continue;
+                                        Voxels.Data.VoxelRegistry.Register(prefix, def);
+                                    }
+                                }
+
+                                // Recompute ids after registration
+                                ids = new WorldGeneration.GeneratorConfig
+                                {
+                                    Stone = SafeGetId("std:Stone"),
+                        Dirt = SafeGetId("std:Dirt"),
+                        Grass = SafeGetId("std:Grass"),
+                        Bedrock = SafeGetId("std:Stone_Grey"),
+                        Water = SafeGetId("std:Water"),
+                        Sand = SafeGetId("std:Sand"),
+                        Sandstone = SafeGetId("std:Sandy_Stone"),
+                        Log = SafeGetId("std:Oak_Log"),
+                        Leaves = SafeGetId("std:Leaves"),
+                        OakLog = SafeGetId("std:Oak_Log"),
+                        OakLeaves = SafeGetId("std:Leaves"),
+                        BirchLog = SafeGetId("std:Birch_Log"),
+                        BirchLeaves = SafeGetId("std:Leaves_Orange"),
+                        Cactus = SafeGetId("std:Cactus"),
+                        Coal = SafeGetId("std:Coal_Ore"),
+                        Iron = SafeGetId("std:Iron_Ore_Brown"),
+                        Gold = SafeGetId("std:Gold_Ore"),
+                        Diamond = SafeGetId("std:Diamond_Ore"),
+                        StoneBrick = SafeGetId("std:Bricks_Grey"),
+                        Snow = SafeGetId("std:Snow")
+                                };
+
+                                Debug.Log("VoxelWorld: Auto-registered VoxelDataPackages at runtime and refreshed voxel IDs.");
+                            }
+                        }
+                        catch (System.Exception ex)
+                        {
+                            Debug.LogWarning("VoxelWorld: Auto-registration of VoxelFBoatDataPackages failed: " + ex.Message);
+                        }
+                    }
 
                     // Start background generation. When done, the background task will enqueue the chunk position into _completedChunks.
                     Vector2Int pos = chunkPos;
