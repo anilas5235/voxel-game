@@ -575,10 +575,8 @@ namespace Voxels.Generation
                  int surfaceId = data.GetVoxel(new UnityEngine.Vector3Int(x, y, z));
                  if (surfaceId == config.Grass && biome != Biome.Forest && biome != Biome.Jungle)
                  {
--                    // ~8% chance to place a small/medium tree on grass
--                    if (local.NextFloat(0, 1) < 0.08f)
-+                    // ~1% chance to place a small/medium tree on grass (reduced to 1/8 of previous)
-+                    if (local.NextFloat(0, 1) < 0.01f)
+                    // ~1% chance to place a small/medium tree on grass (reduced to 1/8 of previous)
+                    if (local.NextFloat(0, 1) < 0.01f)
                      {
                          if (local.NextInt(0, 100) < 80)
                              PlaceTree(data, x, y + 1, z, 5, local, config.OakLog, config.OakLeaves, config);
