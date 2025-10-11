@@ -8,8 +8,7 @@ namespace Runtime.Engine.Voxels.Data
     {
         public Material voxelMaterial;
 
-        [SerializeField] private VoxelRegistry voxelRegistry = new();
-        public VoxelRegistry VoxelRegistry => voxelRegistry;
+        public VoxelRegistry VoxelRegistry { get; } = new();
 
         protected override void Awake()
         {
@@ -63,12 +62,6 @@ namespace Runtime.Engine.Voxels.Data
             }
 
             VoxelRegistry.FinalizeRegistry();
-        }
-
-        protected override void OnDestroy()
-        {
-            base.OnDestroy();
-            VoxelRegistry.Dispose();
         }
     }
 }

@@ -146,7 +146,7 @@ namespace Runtime.Engine.Voxels.Data
 
         public void Dispose()
         {
-            if (_voxelGenData.Voxels.IsCreated) _voxelGenData.Voxels.Dispose();
+            _voxelGenData.Voxels.Dispose();
             if (_textureArray) UnityEngine.Object.Destroy(_textureArray);
         }
     }
