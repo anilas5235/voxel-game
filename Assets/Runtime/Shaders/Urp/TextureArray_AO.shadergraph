@@ -1188,10 +1188,10 @@
         "m_Expanded": true,
         "m_Position": {
             "serializedVersion": "2",
-            "x": -1929.9998779296875,
-            "y": -580.0,
-            "width": 208.0,
-            "height": 313.0000305175781
+            "x": -1916.9998779296875,
+            "y": -552.9999389648438,
+            "width": 145.0,
+            "height": 127.99996948242188
         }
     },
     "m_Slots": [
@@ -1205,7 +1205,7 @@
         "coordinates"
     ],
     "m_Precision": 0,
-    "m_PreviewExpanded": true,
+    "m_PreviewExpanded": false,
     "m_DismissedVersion": 0,
     "m_PreviewMode": 0,
     "m_CustomColors": {
@@ -1811,8 +1811,8 @@
     "m_ObjectId": "66e942f5dd914bcea4a7efe014306449",
     "m_Title": "AO Mixing",
     "m_Position": {
-        "x": -661.9998779296875,
-        "y": -285.9999694824219
+        "x": -662.0,
+        "y": -286.0
     }
 }
 
@@ -1822,8 +1822,8 @@
     "m_ObjectId": "672617605c7f454390959ee07d320e02",
     "m_Title": "AO Interpolation",
     "m_Position": {
-        "x": -2311.0,
-        "y": -106.00000762939453
+        "x": -2311.000244140625,
+        "y": -106.0
     }
 }
 
@@ -1848,8 +1848,8 @@
     "m_ObjectId": "727388a9bfa6460b9465eb9e415dd6a6",
     "m_Title": "AO_Computation",
     "m_Position": {
-        "x": -659.0,
-        "y": -752.0
+        "x": -659.0001220703125,
+        "y": -752.0000610351563
     }
 }
 
@@ -2298,8 +2298,8 @@
     "m_ObjectId": "9e5e0742c1d04f10a22ffa10d01e089a",
     "m_Title": "Teture Array",
     "m_Position": {
-        "x": -1955.0,
-        "y": -662.0
+        "x": -1941.9998779296875,
+        "y": -661.9999389648438
     }
 }
 

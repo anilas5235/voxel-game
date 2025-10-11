@@ -6,26 +6,16 @@ namespace Runtime.Engine.Voxels.Data
 {
     public enum Direction
     {
-        Forward = 0, // z+ direction
-        Right = 1, // +x direction
-        Backward = 2, // -z direction
-        Left = 3, // -x direction
-        Up = 4, // +y direction
-        Down = 5 // -y direction
+        Up = 0, // +y direction
+        Down = 1, // -y direction
+        Forward = 2, // z+ direction
+        Backward = 3, // -z direction
+        Right = 4, // +x direction
+        Left = 5, // -x direction
     }
 
     public static class DirectionUtils
     {
-        public static readonly Direction[] TraversalOrder =
-        {
-            Direction.Backward,
-            Direction.Down,
-            Direction.Forward,
-            Direction.Left,
-            Direction.Right,
-            Direction.Up
-        };
-
         public static Vector3Int GetVector(this Direction direction)
         {
             return direction switch
@@ -40,7 +30,7 @@ namespace Runtime.Engine.Voxels.Data
                 _ => throw new ArgumentOutOfRangeException(nameof(direction), direction, null)
             };
         }
-        
+
         public static int3 GetInt3(this Direction direction)
         {
             return direction switch
@@ -54,14 +44,6 @@ namespace Runtime.Engine.Voxels.Data
 
                 _ => throw new ArgumentOutOfRangeException(nameof(direction), direction, null)
             };
-        }
-
-        /// <summary>
-        ///     Determines if a face is vertical (not up or down).
-        /// </summary>
-        public static bool IsVertical(this Direction direction)
-        {
-            return direction is not (Direction.Up or Direction.Down);
         }
 
         public static Direction GetOpposite(this Direction direction)

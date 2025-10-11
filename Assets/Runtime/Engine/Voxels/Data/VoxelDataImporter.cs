@@ -7,7 +7,9 @@ namespace Runtime.Engine.Voxels.Data
     public class VoxelDataImporter : Singleton<VoxelDataImporter>
     {
         public Material voxelMaterial;
-        public VoxelRegistry VoxelRegistry { get; } = new();
+
+        [SerializeField] private VoxelRegistry voxelRegistry = new();
+        public VoxelRegistry VoxelRegistry => voxelRegistry;
 
         protected override void Awake()
         {

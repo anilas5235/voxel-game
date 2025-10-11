@@ -61,7 +61,7 @@ namespace Runtime.Engine.Voxels.Data
         {
             return _idToVoxel[id];
         }
-        
+
         public void FinalizeRegistry()
         {
             PrepareTextureArray();
@@ -99,10 +99,10 @@ namespace Runtime.Engine.Voxels.Data
                     Transparent = type.Transparent,
                     TexUp = type.TexIds[0],
                     TexDown = type.TexIds[1],
-                    TexLeft = type.TexIds[2],
-                    TexRight = type.TexIds[3],
-                    TexFront = type.TexIds[4],
-                    TexBack = type.TexIds[5]
+                    TexFront = type.TexIds[2],
+                    TexBack = type.TexIds[3],
+                    TexLeft = type.TexIds[4],
+                    TexRight = type.TexIds[5],
                 };
             }
         }
@@ -154,13 +154,13 @@ namespace Runtime.Engine.Voxels.Data
     [BurstCompile]
     public struct VoxelGenData : IDisposable
     {
-        [NativeDisableParallelForRestriction]
-        public NativeArray<VoxelInfo> Voxels;
-        
-        public int GetTextureId(ushort voxelId, int3 normal)
+        [NativeDisableParallelForRestriction] public NativeArray<VoxelInfo> Voxels;
+
+        public int GetTextureId(ushort voxelId, Direction dir)
         {
-            int vId = voxelId;
-            return vId >= Voxels.Length ? int.MaxValue : Voxels[vId].GetTextureId(normal);
+            return voxelId >= Voxels.Length
+                ? int.MaxValue
+                : Voxels[voxelId].GetTextureId(dir);
         }
 
         public void Dispose()
@@ -181,7 +181,7 @@ namespace Runtime.Engine.Voxels.Data
         public int TexRight;
         public int TexFront;
         public int TexBack;
-        
+
         [BurstCompile]
         public int GetTextureId(Direction dir)
         {
@@ -194,26 +194,6 @@ namespace Runtime.Engine.Voxels.Data
                 Direction.Forward => TexFront,
                 Direction.Backward => TexBack,
                 _ => -1
-            };
-        }
-
-        public int GetTextureId(int3 normal)
-        {
-            return normal.y switch
-            {
-                > 0 => TexUp,
-                < 0 => TexDown,
-                _ => normal.x switch
-                {
-                    > 0 => TexRight,
-                    < 0 => TexLeft,
-                    _ => normal.z switch
-                    {
-                        > 0 => TexFront,
-                        < 0 => TexBack,
-                        _ => -1
-                    }
-                }
             };
         }
     }

@@ -1,22 +1,24 @@
-﻿using Unity.Burst;
+﻿using System;
+using Runtime.Engine.Voxels.Data;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
 
-namespace Runtime.Engine.Utils.Extensions {
-
+namespace Runtime.Engine.Utils.Extensions
+{
     [GenerateTestsForBurstCompatibility]
-    public static class BurstMathExtensions {
-
+    public static class BurstMathExtensions
+    {
         [BurstCompile]
         public static int CubedSize(this int num) => (2 * num + 1) * (2 * num + 1) * (2 * num + 1);
-        
+
         [BurstCompile]
         public static int CubedSize(this int3 num) => (2 * num.x + 1) * (2 * num.y + 1) * (2 * num.z + 1);
-        
+
         [BurstCompile]
         public static int YCubedSize(this int num, int y) => (2 * num + 1) * (2 * num + 1) * (2 * y + 1);
-        
+
         [BurstCompile]
         public static int Flatten(this int3 vec, int x, int y, int z) =>
             y * vec.x * vec.z +
@@ -31,7 +33,7 @@ namespace Runtime.Engine.Utils.Extensions {
 
         [BurstCompile]
         public static bool OrReduce(this bool3 val) => val.x || val.y || val.z;
-        
+
         [BurstCompile]
         public static bool AndReduce(this bool3 val) => val.x && val.y && val.z;
 
@@ -40,28 +42,36 @@ namespace Runtime.Engine.Utils.Extensions {
 
         [BurstCompile]
         public static Vector3Int GetVector3Int(this int3 vec) => new(vec.x, vec.y, vec.z);
-        
+
         [BurstCompile]
         public static Vector3 GetVector3(this int3 vec) => new(vec.x, vec.y, vec.z);
-
     }
 
-    public static class MathExtension {
-
+    public static class MathExtension
+    {
         public static int SqrMagnitude(this int3 vec) => vec.x * vec.x + vec.y * vec.y + vec.z * vec.z;
 
         public static int3 MemberMultiply(this int3 a, int3 b) => new(a.x * b.x, a.y * b.y, a.z * b.z);
-        
-        public static int3 MemberMultiply(this int3 a, int x, int y, int z) => new(a.x * x, a.y * y, a.z * z);
 
+        public static int3 MemberMultiply(this int3 a, int x, int y, int z) => new(a.x * x, a.y * y, a.z * z);
     }
 
-    public static class VectorExtension {
-
+    public static class VectorExtension
+    {
         public static int3 Int3(this Vector3Int vec) => new(vec.x, vec.y, vec.z);
-        
+
         public static int3 Int3(this Vector3 vec) => Vector3Int.FloorToInt(vec).Int3();
 
+        public static Direction ToDirection(this int3 vec)
+        {
+            if (vec.x < vec.y && vec.z < vec.y) return Direction.Up;
+            if (vec.x > vec.y && vec.z > vec.y) return Direction.Down;
+            if (vec.y < vec.x && vec.z < vec.x) return Direction.Right;
+            if (vec.y > vec.x && vec.z > vec.x) return Direction.Left;
+            if (vec.x < vec.z && vec.y < vec.z) return Direction.Forward;
+            if (vec.x > vec.z && vec.y > vec.z) return Direction.Backward;
+
+            throw new Exception("Invalid direction vector");
+        }
     }
-    
 }

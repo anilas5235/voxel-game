@@ -203,7 +203,7 @@ namespace Runtime.Engine.Mesher {
 
             // Main UV
             float3 uv1, uv2, uv3, uv4;
-            int uvz = voxelGenData.GetTextureId(mask.VoxelId, normal);
+            int uvz = voxelGenData.GetTextureId(mask.VoxelId, normal.ToDirection());
 
             if (normal.x is 1 or -1) {
                 uv1 = new float3(0, 0, uvz);
