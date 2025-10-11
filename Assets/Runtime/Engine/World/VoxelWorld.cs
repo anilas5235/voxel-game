@@ -8,6 +8,7 @@ using Runtime.Engine.Noise;
 using Runtime.Engine.Settings;
 using Runtime.Engine.Utils;
 using Runtime.Engine.Utils.Extensions;
+using Runtime.Engine.Voxels.Data;
 using Unity.Mathematics;
 using UnityEngine;
 using Utils;
@@ -118,7 +119,8 @@ namespace Runtime.Engine.World
 
             _meshBuildScheduler = VoxelEngineProvider.Current.MeshBuildScheduler(
                 ChunkManager,
-                _chunkPool
+                _chunkPool,
+                VoxelDataImporter.Instance.VoxelRegistry
             );
 
             _chunkScheduler = VoxelEngineProvider.Current.ChunkDataScheduler(

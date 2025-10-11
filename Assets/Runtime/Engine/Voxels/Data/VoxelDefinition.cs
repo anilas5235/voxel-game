@@ -1,7 +1,6 @@
 ﻿using UnityEngine;
-using Voxels.MeshGeneration;
 
-namespace Voxels.Data
+namespace Runtime.Engine.Voxels.Data
 {
     [CreateAssetMenu(fileName = "VoxelDefinition", menuName = "Data/Voxel Data")]
     public class VoxelDefinition : ScriptableObject

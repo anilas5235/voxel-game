@@ -2,7 +2,7 @@
 using Unity.Mathematics;
 using UnityEngine;
 
-namespace Voxels.MeshGeneration
+namespace Runtime.Engine.Voxels.Data
 {
     public enum Direction
     {

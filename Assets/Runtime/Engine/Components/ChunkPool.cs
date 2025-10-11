@@ -5,9 +5,9 @@ using Runtime.Engine.Settings;
 using Runtime.Engine.ThirdParty.Priority_Queue;
 using Runtime.Engine.Utils.Extensions;
 using Unity.Mathematics;
-using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Pool;
+using Object = UnityEngine.Object;
 
 namespace Runtime.Engine.Components
 {
@@ -35,7 +35,7 @@ namespace Runtime.Engine.Components
             _pool = new ObjectPool<ChunkBehaviour>( // pool size = x^2 + 1
                 () =>
                 {
-                    GameObject go = UnityEngine.Object.Instantiate(settings.Chunk.ChunkPrefab, transform);
+                    GameObject go = Object.Instantiate(settings.Chunk.ChunkPrefab, transform);
 
                     go.SetActive(false);
 

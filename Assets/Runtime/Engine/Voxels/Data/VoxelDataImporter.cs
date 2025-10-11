@@ -1,14 +1,17 @@
 ﻿using UnityEngine;
+using Utils;
 
-namespace Voxels.Data
+namespace Runtime.Engine.Voxels.Data
 {
     [DefaultExecutionOrder(-1000)]
-    public class VoxelDataImporter : MonoBehaviour
+    public class VoxelDataImporter : Singleton<VoxelDataImporter>
     {
         public Material voxelMaterial;
+        public VoxelRegistry VoxelRegistry { get; } = new();
 
-        private void Awake()
+        protected override void Awake()
         {
+            base.Awake();
             VoxelDataPackage[] voxelDataPackages = Resources.LoadAll<VoxelDataPackage>("VoxelDataPackages");
             if (voxelDataPackages == null || voxelDataPackages.Length == 0)
             {
@@ -37,7 +40,7 @@ namespace Voxels.Data
             }
         }
 
-        private static void RegisterPackage(VoxelDataPackage package)
+        private void RegisterPackage(VoxelDataPackage package)
         {
             string prefix = package.packagePrefix;
             if (string.IsNullOrEmpty(prefix))
@@ -56,6 +59,14 @@ namespace Voxels.Data
 
                 VoxelRegistry.Register(prefix, definition);
             }
+
+            VoxelRegistry.FinalizeRegistry();
+        }
+
+        protected override void OnDestroy()
+        {
+            base.OnDestroy();
+            VoxelRegistry.Dispose();
         }
     }
 }

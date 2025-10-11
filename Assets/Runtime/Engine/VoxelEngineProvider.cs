@@ -6,6 +6,7 @@ using Runtime.Engine.Jobs.Mesh;
 using Runtime.Engine.Noise;
 using Runtime.Engine.Settings;
 using Runtime.Engine.Utils.Provider;
+using Runtime.Engine.Voxels.Data;
 using UnityEngine;
 
 namespace Runtime.Engine
@@ -44,8 +45,9 @@ namespace Runtime.Engine
 
         internal MeshBuildScheduler MeshBuildScheduler(
             ChunkManager chunkManager,
-            ChunkPool chunkPool
-        ) => new(Settings, chunkManager, chunkPool);
+            ChunkPool chunkPool,
+            VoxelRegistry voxelRegistry
+        ) => new(Settings, chunkManager, chunkPool, voxelRegistry);
 
         internal ColliderBuildScheduler ColliderBuildScheduler(
             ChunkManager chunkManager,

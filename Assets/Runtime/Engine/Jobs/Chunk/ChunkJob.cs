@@ -29,7 +29,7 @@ namespace Runtime.Engine.Jobs.Chunk {
             Data.Chunk data = new(position, ChunkSize);
             
             NoiseValue noise = NoiseProfile.GetNoise(position);
-            int currentBlock = GetBlock(ref noise);
+            ushort currentBlock = GetBlock(ref noise);
             
             int count = 0;
         
@@ -39,13 +39,13 @@ namespace Runtime.Engine.Jobs.Chunk {
                     for (int x = 0; x < ChunkSize.x; x++) {
                         noise = NoiseProfile.GetNoise(position + new int3(x, y, z));
                         
-                        int block = GetBlock(ref noise);
+                        ushort voxelId = GetBlock(ref noise);
         
-                        if (block == currentBlock) {
+                        if (voxelId == currentBlock) {
                             count++;
                         } else {
                             data.AddBlocks(currentBlock, count);
-                            currentBlock = block;
+                            currentBlock = voxelId;
                             count = 1;
                         }
                     }
@@ -57,14 +57,14 @@ namespace Runtime.Engine.Jobs.Chunk {
             return data;
         }
         
-        private static int GetBlock(ref NoiseValue noise) {
+        private static ushort GetBlock(ref NoiseValue noise) {
             int y = noise.Position.y;
 
-            if (y > noise.Height) return y > noise.WaterLevel ? (int) Block.AIR : (int) Block.WATER;
-            if (y == noise.Height) return (int) Block.GRASS;
-            if (y <= noise.Height - 1 && y >= noise.Height - 3) return (int)Block.DIRT;
+            if (y > noise.Height) return (ushort)(y > noise.WaterLevel ? Block.Air :  Block.Water);
+            if (y == noise.Height) return (int) Block.Grass;
+            if (y <= noise.Height - 1 && y >= noise.Height - 3) return (int)Block.Dirt;
 
-            return (int) Block.STONE;
+            return (int) Block.Stone;
         }
 
     }

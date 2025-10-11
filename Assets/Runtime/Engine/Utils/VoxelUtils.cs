@@ -37,7 +37,7 @@ namespace Runtime.Engine.Utils {
             return new int3(Position.x - chunk_coords.x, Position.y - chunk_coords.y, Position.z - chunk_coords.z);
         }
 
-        public static int GetBlockId(Block block) => (int) block;
+        public static ushort GetBlockId(Block block) => (ushort) block;
 
         public static readonly int3[] Directions = {
             new(1, 0, 0),

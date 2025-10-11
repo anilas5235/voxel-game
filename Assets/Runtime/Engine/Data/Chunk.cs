@@ -12,46 +12,46 @@ namespace Runtime.Engine.Data {
         public int3 Position { get; }
         public bool Dirty { get; private set; }
         
-        private int3 ChunkSize;
-        private UnsafeIntervalList Data;
+        private readonly int3 _chunkSize;
+        private UnsafeIntervalList _data;
 
         public Chunk(int3 position, int3 chunkSize) {
             Dirty = false;
             Position = position;
-            ChunkSize = chunkSize;
-            Data = new UnsafeIntervalList(128, Allocator.Persistent);
+            _chunkSize = chunkSize;
+            _data = new UnsafeIntervalList(128, Allocator.Persistent);
         }
 
-        public void AddBlocks(int block, int count) {
-            Data.AddInterval(block, count);
+        public void AddBlocks(ushort voxelId, int count) {
+            _data.AddInterval(voxelId, count);
         }
 
-        public bool SetBlock(int x, int y, int z, int block) {
-            bool result = Data.Set(ChunkSize.Flatten(x,y,z), block);
+        public bool SetBlock(int x, int y, int z, ushort block) {
+            bool result = _data.Set(_chunkSize.Flatten(x,y,z), block);
             if (result) Dirty = true;
             return result;
         }
         
-        public bool SetBlock(int3 pos, int block) {
-            bool result= Data.Set(ChunkSize.Flatten(pos), block);
+        public bool SetBlock(int3 pos, ushort block) {
+            bool result= _data.Set(_chunkSize.Flatten(pos), block);
             if (result) Dirty = true;
             return result;
         }
 
-        public int GetBlock(int x, int y, int z) {
-            return Data.Get(ChunkSize.Flatten(x, y, z));
+        public ushort GetBlock(int x, int y, int z) {
+            return _data.Get(_chunkSize.Flatten(x, y, z));
         }
 
-        public int GetBlock(int3 pos) {
-            return Data.Get(ChunkSize.Flatten(pos.x, pos.y, pos.z));
+        public ushort GetBlock(int3 pos) {
+            return _data.Get(_chunkSize.Flatten(pos.x, pos.y, pos.z));
         }
 
         public void Dispose() {
-            Data.Dispose();
+            _data.Dispose();
         }
 
         public override string ToString() {
-            return $"Pos : {Position}, Dirty : {Dirty}, Data : {Data.ToString()}";
+            return $"Pos : {Position}, Dirty : {Dirty}, Data : {_data.ToString()}";
         }
 
     }

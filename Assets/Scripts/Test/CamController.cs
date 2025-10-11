@@ -1,7 +1,5 @@
-﻿using System;
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.InputSystem;
-using Voxels;
 
 namespace Test
 {
@@ -36,6 +34,7 @@ namespace Test
         {
             _lookInput = value.Get<Vector2>();
         }
+
         private void Update()
         {
             // Handle vertical movement with E (up) and Q (down) keys

@@ -1,16 +1,15 @@
-﻿namespace Runtime.Engine.Data {
-
-    public enum Block {
-
-        AIR,
-        STONE,
-        DIRT,
-        GRASS,
-        WATER,
-        SAND,
-        WOOD,
-        LEAFS,
-        ERROR,
+﻿namespace Runtime.Engine.Data
+{
+    public enum Block : ushort
+    {
+        Air,
+        Stone,
+        Dirt,
+        Grass,
+        Water,
+        Sand,
+        Wood,
+        Leafs,
+        Error,
     }
-
 }
