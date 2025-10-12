@@ -83,7 +83,6 @@ namespace Runtime.Engine.World
             base.OnDestroy();
             Scheduler.Dispose();
             ChunkManager.Dispose();
-            VoxelDataImporter.Instance.VoxelRegistry.Dispose();
         }
 
         #endregion

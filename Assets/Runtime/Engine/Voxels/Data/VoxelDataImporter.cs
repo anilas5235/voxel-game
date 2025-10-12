@@ -6,8 +6,10 @@ namespace Runtime.Engine.Voxels.Data
     [DefaultExecutionOrder(-1000)]
     public class VoxelDataImporter : Singleton<VoxelDataImporter>
     {
-        public Material voxelMaterial;
-
+        public Material voxelSolidMaterial;
+        public Material voxelTransparentMaterial;
+        public Material voxelFoliageMaterial;
+        public Material voxelLiquidMaterial;
         public VoxelRegistry VoxelRegistry { get; } = new();
 
         protected override void Awake()
@@ -22,23 +24,15 @@ namespace Runtime.Engine.Voxels.Data
 
             foreach (VoxelDataPackage package in voxelDataPackages) RegisterPackage(package);
 
-            UpdateMaterial();
+            UpdateMaterials();
         }
 
-        private void UpdateMaterial()
+        private void UpdateMaterials()
         {
-            if (voxelMaterial)
-            {
-                Texture2DArray texArray = VoxelRegistry.GetTextureArray();
-                if (texArray)
-                    voxelMaterial.SetTexture("_Textures", texArray);
-                else
-                    Debug.LogWarning("Texture array is null, cannot assign to material.");
-            }
-            else
-            {
-                Debug.LogWarning("Voxel material is null, cannot assign texture array.");
-            }
+            VoxelRegistry.ApplyToMaterial(voxelSolidMaterial, VoxelType.Solid);
+            VoxelRegistry.ApplyToMaterial(voxelTransparentMaterial, VoxelType.Transparent);
+            VoxelRegistry.ApplyToMaterial(voxelFoliageMaterial, VoxelType.Foliage);
+            VoxelRegistry.ApplyToMaterial(voxelLiquidMaterial, VoxelType.Liquid);
         }
 
         private void RegisterPackage(VoxelDataPackage package)
@@ -62,6 +56,12 @@ namespace Runtime.Engine.Voxels.Data
             }
 
             VoxelRegistry.FinalizeRegistry();
+        }
+
+        protected override void OnDestroy()
+        {
+            base.OnDestroy();
+            VoxelRegistry.Dispose();
         }
     }
 }

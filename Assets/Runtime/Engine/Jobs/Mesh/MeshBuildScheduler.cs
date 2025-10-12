@@ -90,7 +90,7 @@ namespace Runtime.Engine.Jobs.Mesh
                 Jobs = _jobs,
                 VertexParams = _vertexParams,
                 MeshDataArray = _meshDataArray,
-                VoxelGenData = _voxelRegistry.GetVoxelGenData(),
+                VoxelEngineRenderGenData = _voxelRegistry.GetVoxelGenData(),
                 Results = _results.AsParallelWriter()
             };
 

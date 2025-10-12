@@ -20,7 +20,7 @@ namespace Runtime.Engine.Jobs.Mesh
 
         [WriteOnly] public NativeParallelHashMap<int3, int>.ParallelWriter Results;
 
-        [ReadOnly] public VoxelGenData VoxelGenData;
+        [ReadOnly] public VoxelEngineRenderGenData VoxelEngineRenderGenData;
 
         public UnityEngine.Mesh.MeshDataArray MeshDataArray;
 
@@ -29,7 +29,7 @@ namespace Runtime.Engine.Jobs.Mesh
             UnityEngine.Mesh.MeshData mesh = MeshDataArray[index];
             int3 position = Jobs[index];
 
-            MeshBuffer meshBuffer = GreedyMesher.GenerateMesh(Accessor, position, ChunkSize, VoxelGenData);
+            MeshBuffer meshBuffer = GreedyMesher.GenerateMesh(Accessor, position, ChunkSize, VoxelEngineRenderGenData);
 
             // Vertex Buffer
             int vertexCount = meshBuffer.VertexBuffer.Length;

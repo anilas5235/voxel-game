@@ -51,7 +51,7 @@ namespace Runtime.Engine.Mesher {
 
         [BurstCompile]
         internal static MeshBuffer GenerateMesh(
-            ChunkAccessor accessor, int3 pos, int3 size, VoxelGenData voxelGenData
+            ChunkAccessor accessor, int3 pos, int3 size, VoxelEngineRenderGenData voxelEngineRenderGenData
         ) {
             MeshBuffer mesh = new()
             {
@@ -151,7 +151,7 @@ namespace Runtime.Engine.Mesher {
                                     chunkItr + deltaAxis1,
                                     chunkItr + deltaAxis2,
                                     chunkItr + deltaAxis1 + deltaAxis2,
-                                    voxelGenData
+                                    voxelEngineRenderGenData
                                 );
 
                                 // reset delta's
@@ -184,10 +184,10 @@ namespace Runtime.Engine.Mesher {
         private static int CreateQuad(
             MeshBuffer mesh, int vertexCount, Mask mask, int3 directionMask, 
             int width, int height, int3 v1, int3 v2, int3 v3, int3 v4,
-            VoxelGenData voxelGenData
+            VoxelEngineRenderGenData voxelEngineRenderGenData
         ) {
             return mask.MeshIndex switch {
-                0 => CreateQuadMesh0(mesh, vertexCount, mask, directionMask, width, height, v1, v2, v3, v4, voxelGenData),
+                0 => CreateQuadMesh0(mesh, vertexCount, mask, directionMask, width, height, v1, v2, v3, v4, voxelEngineRenderGenData),
                 1 => CreateQuadMesh1(mesh, vertexCount, mask, directionMask, width, height, v1, v2, v3, v4),
                 _ => 0
             };
@@ -197,13 +197,13 @@ namespace Runtime.Engine.Mesher {
         private static int CreateQuadMesh0(
             MeshBuffer mesh, int vertexCount, Mask mask, int3 directionMask, 
             int width, int height, float3 v1, float3 v2, float3 v3, float3 v4,
-            VoxelGenData voxelGenData
+            VoxelEngineRenderGenData voxelEngineRenderGenData
         ) {
             int3 normal = directionMask * mask.Normal;
 
             // Main UV
             float3 uv1, uv2, uv3, uv4;
-            int uvz = voxelGenData.GetTextureId(mask.VoxelId, normal.ToDirection());
+            int uvz = voxelEngineRenderGenData.GetTextureId(mask.VoxelId, normal.ToDirection());
 
             if (normal.x is 1 or -1) {
                 uv1 = new float3(0, 0, uvz);

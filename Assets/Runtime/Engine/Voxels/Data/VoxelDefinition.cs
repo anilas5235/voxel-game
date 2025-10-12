@@ -13,6 +13,7 @@ namespace Runtime.Engine.Voxels.Data
         }
 
         [SerializeField] private VoxelTexMode textureMode = VoxelTexMode.AllSame;
+        public VoxelType voxelType;
 
         public Texture2D top;
         public Texture2D bottom;

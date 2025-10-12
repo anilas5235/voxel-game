@@ -1,55 +1,89 @@
 ﻿using System;
 using System.Collections.Generic;
-using Unity.Burst;
 using Unity.Collections;
-using Unity.Mathematics;
 using UnityEngine;
 
 namespace Runtime.Engine.Voxels.Data
 {
     public class VoxelRegistry : IDisposable
     {
-        private const int TextureSize = 128; // Assuming all textures are 128x128
-        private readonly Dictionary<string, ushort> _nameToId = new() { { "air", 0 } };
-        private readonly List<VoxelType> _idToVoxel = new() { null };
+        private static readonly int Textures = Shader.PropertyToID("_Textures");
+        internal const int TextureSize = 128; // Assuming all textures are 128x128
+        private readonly Dictionary<string, ushort> _nameToId = new();
+        private readonly Dictionary<ushort, string> _idToName = new();
 
-        private readonly Dictionary<Texture2D, int> _textureToId = new();
-        private VoxelGenData _voxelGenData;
-        private Texture2DArray _textureArray;
+        private readonly Dictionary<ushort, VoxelRenderDef> _idToVoxel = new(100);
+
+        private VoxelEngineRenderGenData _voxelEngineRenderGenData;
+
+        private readonly TexRegistry _solidTexRegistry = new();
+        private readonly TexRegistry _transparentTexRegistry = new();
+        private readonly TexRegistry _foliageTexRegistry = new();
+
+
+        private bool _initialized;
+
+        private void Initialize()
+        {
+            if (_initialized) return;
+            _initialized = true;
+            Register("air", new VoxelRenderDef
+            {
+                Collision = false,
+                Transparent = true,
+                TexUp = -1,
+                TexDown = -1,
+                TexFront = -1,
+                TexBack = -1,
+                TexLeft = -1,
+                TexRight = -1
+            });
+            _voxelEngineRenderGenData = new VoxelEngineRenderGenData();
+        }
 
         public void Register(string packagePrefix, VoxelDefinition definition)
         {
-            VoxelType type = new()
+            VoxelRenderDef type = new()
             {
-                Id = (ushort)_idToVoxel.Count,
-                Name = packagePrefix + ":" + definition.name,
+                VoxelType = definition.voxelType,
                 Collision = definition.collision,
                 Transparent = definition.transparent,
-                TexIds = RegisterTextures(definition)
+                TexUp = RegisterTexture(definition, Direction.Up),
+                TexDown = RegisterTexture(definition, Direction.Down),
+                TexFront = RegisterTexture(definition, Direction.Forward),
+                TexBack = RegisterTexture(definition, Direction.Backward),
+                TexLeft = RegisterTexture(definition, Direction.Left),
+                TexRight = RegisterTexture(definition, Direction.Right)
             };
 
-            _idToVoxel.Add(type);
-            _nameToId[type.Name] = type.Id;
+            Register(packagePrefix + ":" + definition.name, type);
         }
 
-        private int[] RegisterTextures(VoxelDefinition definition)
+        private void Register(string name, VoxelRenderDef renderDef)
         {
-            int[] textureIds = { -1, -1, -1, -1, -1, -1 };
-            for (int i = 0; i < textureIds.Length; i++)
+            Initialize();
+            if (_nameToId.ContainsKey(name))
             {
-                Texture2D tex = definition.GetTexture((Direction)i);
-                if (!tex) continue;
-
-                if (!_textureToId.TryGetValue(tex, out int textureId))
-                {
-                    textureId = _textureToId.Count;
-                    _textureToId[tex] = textureId;
-                }
-
-                textureIds[i] = textureId;
+                Debug.LogWarning($"Voxel with name {name} is already registered.");
+                return;
             }
 
-            return textureIds;
+            ushort id = (ushort)_idToVoxel.Count;
+            _idToVoxel.Add(id, renderDef);
+            _nameToId.Add(name, id);
+            _idToName.Add(id, name);
+        }
+
+        private int RegisterTexture(VoxelDefinition definition, Direction dir)
+        {
+            Texture2D tex = definition.GetTexture(dir);
+            return definition.voxelType switch
+            {
+                VoxelType.Solid => _solidTexRegistry.RegisterTexture(tex),
+                VoxelType.Transparent => _transparentTexRegistry.RegisterTexture(tex),
+                VoxelType.Foliage => _foliageTexRegistry.RegisterTexture(tex),
+                _ => -1
+            };
         }
 
         public ushort GetId(string name)
@@ -57,9 +91,9 @@ namespace Runtime.Engine.Voxels.Data
             return _nameToId[name];
         }
 
-        public VoxelType Get(ushort id)
+        public string GetName(ushort id)
         {
-            return _idToVoxel[id];
+            return _idToName[id];
         }
 
         public void FinalizeRegistry()
@@ -70,131 +104,58 @@ namespace Runtime.Engine.Voxels.Data
 
         private void PrepareVoxelGenData()
         {
-            if (_voxelGenData.Voxels.IsCreated) _voxelGenData.Voxels.Dispose();
-            _voxelGenData.Voxels = new NativeArray<VoxelInfo>(_idToVoxel.Count, Allocator.Persistent);
+            if (_voxelEngineRenderGenData.VoxelRenderDefs.IsCreated)
+                _voxelEngineRenderGenData.VoxelRenderDefs.Dispose();
+            _voxelEngineRenderGenData.VoxelRenderDefs =
+                new NativeArray<VoxelRenderDef>(_idToVoxel.Count, Allocator.Persistent);
             for (int i = 0; i < _idToVoxel.Count; i++)
             {
-                VoxelType type = _idToVoxel[i];
-                if (type == null)
-                {
-                    _voxelGenData.Voxels[i] = new VoxelInfo
-                    {
-                        Id = 0,
-                        Collision = false,
-                        Transparent = true,
-                        TexUp = -1,
-                        TexDown = -1,
-                        TexLeft = -1,
-                        TexRight = -1,
-                        TexFront = -1,
-                        TexBack = -1
-                    };
-                    continue;
-                }
-
-                _voxelGenData.Voxels[i] = new VoxelInfo
-                {
-                    Id = type.Id,
-                    Collision = type.Collision,
-                    Transparent = type.Transparent,
-                    TexUp = type.TexIds[0],
-                    TexDown = type.TexIds[1],
-                    TexFront = type.TexIds[2],
-                    TexBack = type.TexIds[3],
-                    TexLeft = type.TexIds[4],
-                    TexRight = type.TexIds[5],
-                };
+                _voxelEngineRenderGenData.VoxelRenderDefs[i] = _idToVoxel[(ushort)i];
             }
         }
 
-        public VoxelGenData GetVoxelGenData()
+        public VoxelEngineRenderGenData GetVoxelGenData()
         {
-            return _voxelGenData;
+            return _voxelEngineRenderGenData;
         }
 
         private void PrepareTextureArray()
         {
-            if (_textureToId.Count == 0) return;
+            _solidTexRegistry.PrepareTextureArray();
+            _transparentTexRegistry.PrepareTextureArray();
+            _foliageTexRegistry.PrepareTextureArray();
+        }
 
-            Texture2DArray textureArray = new(
-                TextureSize,
-                TextureSize,
-                _textureToId.Count,
-                TextureFormat.DXT1,
-                false
-            )
+        public Texture2DArray GetTextureArray(VoxelType voxelType)
+        {
+            return voxelType switch
             {
-                filterMode = FilterMode.Point,
-                wrapMode = TextureWrapMode.Repeat
+                VoxelType.Solid => _solidTexRegistry.TextureArray,
+                VoxelType.Transparent => _transparentTexRegistry.TextureArray,
+                VoxelType.Foliage => _foliageTexRegistry.TextureArray,
+                _ => null
             };
-            // Copy each texture into the texture array
-            int index = 0;
-            foreach (KeyValuePair<Texture2D, int> kvp in _textureToId)
+        }
+
+        public void Dispose()
+        {
+            _voxelEngineRenderGenData.VoxelRenderDefs.Dispose();
+        }
+
+        public void ApplyToMaterial(Material voxelSolidMaterial, VoxelType solid)
+        {
+            if (voxelSolidMaterial)
             {
-                Graphics.CopyTexture(kvp.Key, 0, 0, textureArray, index, 0);
-                index++;
+                Texture2DArray texArray = GetTextureArray(solid);
+                if (texArray)
+                    voxelSolidMaterial.SetTexture(Textures, texArray);
+                else
+                    Debug.LogWarning("Texture array is null, cannot assign to material.");
             }
-
-            textureArray.Apply();
-            _textureArray = textureArray;
-        }
-
-        public Texture2DArray GetTextureArray()
-        {
-            return _textureArray;
-        }
-
-        public void Dispose()
-        {
-            _voxelGenData.Voxels.Dispose();
-            if (_textureArray) UnityEngine.Object.Destroy(_textureArray);
-        }
-    }
-
-    [BurstCompile]
-    public struct VoxelGenData : IDisposable
-    {
-        [NativeDisableParallelForRestriction] public NativeArray<VoxelInfo> Voxels;
-
-        public int GetTextureId(ushort voxelId, Direction dir)
-        {
-            return voxelId >= Voxels.Length
-                ? int.MaxValue
-                : Voxels[voxelId].GetTextureId(dir);
-        }
-
-        public void Dispose()
-        {
-            Voxels.Dispose();
-        }
-    }
-
-    [BurstCompile]
-    public struct VoxelInfo
-    {
-        public ushort Id;
-        public bool Collision;
-        public bool Transparent;
-        public int TexUp;
-        public int TexDown;
-        public int TexLeft;
-        public int TexRight;
-        public int TexFront;
-        public int TexBack;
-
-        [BurstCompile]
-        public int GetTextureId(Direction dir)
-        {
-            return dir switch
+            else
             {
-                Direction.Up => TexUp,
-                Direction.Down => TexDown,
-                Direction.Left => TexLeft,
-                Direction.Right => TexRight,
-                Direction.Forward => TexFront,
-                Direction.Backward => TexBack,
-                _ => -1
-            };
+                Debug.LogWarning("Voxel material is null, cannot assign texture array.");
+            }
         }
     }
 }
