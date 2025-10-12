@@ -1,13 +1,15 @@
 ﻿using Unity.Burst;
+using Unity.Mathematics;
 
 namespace Runtime.Engine.Voxels.Data
 {
     [BurstCompile]
     public struct VoxelRenderDef
     {
+        public byte MeshIndex;
         public VoxelType VoxelType;
+        public float4 OverrideColor;
         public bool Collision;
-        public bool Transparent;
         public int TexUp;
         public int TexDown;
         public int TexLeft;

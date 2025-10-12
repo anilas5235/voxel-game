@@ -13,8 +13,14 @@ namespace Runtime.Engine.Voxels.Editor
 
             serializedObject.Update();
 
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("voxelType"));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("meshIndex"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("textureMode"));
+
+            if (voxelDef.meshIndex == MeshIndex.Transparent)
+            {
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("voxelType"));
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("overrideColor"));
+            }
 
             switch (voxelDef.TextureMode)
             {
@@ -42,8 +48,6 @@ namespace Runtime.Engine.Voxels.Editor
             }
 
             EditorGUILayout.PropertyField(serializedObject.FindProperty("collision"));
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("transparent"));
-
             serializedObject.ApplyModifiedProperties();
         }
     }

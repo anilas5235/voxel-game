@@ -18,5 +18,15 @@ namespace Runtime.Engine.Voxels.Data
         {
             VoxelRenderDefs.Dispose();
         }
+
+        public byte GetMeshIndex(ushort voxelId)
+        {
+            return VoxelRenderDefs[voxelId].MeshIndex;
+        }
+
+        public VoxelRenderDef GetRenderDef(ushort maskVoxelId)
+        {
+            return VoxelRenderDefs[maskVoxelId];
+        }
     }
 }

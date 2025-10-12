@@ -8,8 +8,6 @@ namespace Runtime.Engine.Voxels.Data
     {
         public Material voxelSolidMaterial;
         public Material voxelTransparentMaterial;
-        public Material voxelFoliageMaterial;
-        public Material voxelLiquidMaterial;
         public VoxelRegistry VoxelRegistry { get; } = new();
 
         protected override void Awake()
@@ -29,10 +27,8 @@ namespace Runtime.Engine.Voxels.Data
 
         private void UpdateMaterials()
         {
-            VoxelRegistry.ApplyToMaterial(voxelSolidMaterial, VoxelType.Solid);
-            VoxelRegistry.ApplyToMaterial(voxelTransparentMaterial, VoxelType.Transparent);
-            VoxelRegistry.ApplyToMaterial(voxelFoliageMaterial, VoxelType.Foliage);
-            VoxelRegistry.ApplyToMaterial(voxelLiquidMaterial, VoxelType.Liquid);
+            VoxelRegistry.ApplyToMaterial(voxelSolidMaterial, MeshIndex.Solid);
+            VoxelRegistry.ApplyToMaterial(voxelTransparentMaterial, MeshIndex.Transparent);
         }
 
         private void RegisterPackage(VoxelDataPackage package)

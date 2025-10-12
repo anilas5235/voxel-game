@@ -40,8 +40,11 @@ namespace Runtime.Engine.Jobs.Mesh
             // Index Buffer
             int index0Count = meshBuffer.IndexBuffer0.Length;
             int index1Count = meshBuffer.IndexBuffer1.Length;
+            int index2Count = meshBuffer.IndexBuffer2.Length;
+            int index3Count = meshBuffer.IndexBuffer3.Length;
 
-            mesh.SetIndexBufferParams(index0Count + index1Count, IndexFormat.UInt32);
+
+            mesh.SetIndexBufferParams(index0Count + index1Count + index2Count + index3Count, IndexFormat.UInt32);
 
             NativeArray<int> indexBuffer = mesh.GetIndexData<int>();
 
@@ -54,9 +57,11 @@ namespace Runtime.Engine.Jobs.Mesh
 
             SubMeshDescriptor descriptor0 = new(0, index0Count);
             SubMeshDescriptor descriptor1 = new(index0Count, index1Count);
+            
+            const MeshUpdateFlags flags = MeshUpdateFlags.DontRecalculateBounds | MeshUpdateFlags.DontValidateIndices | MeshUpdateFlags.DontResetBoneBounds;
 
-            mesh.SetSubMesh(0, descriptor0, MeshUpdateFlags.DontRecalculateBounds);
-            mesh.SetSubMesh(1, descriptor1, MeshUpdateFlags.DontRecalculateBounds);
+            mesh.SetSubMesh(0, descriptor0, flags);
+            mesh.SetSubMesh(1, descriptor1, flags);
 
             Results.TryAdd(position, index);
 

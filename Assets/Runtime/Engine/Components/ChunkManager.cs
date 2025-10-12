@@ -59,7 +59,7 @@ namespace Runtime.Engine.Components
         /// <summary>
         /// Set a voxelId at a position
         /// </summary>
-        /// <param name="voxelId">Block Type</param>
+        /// <param name="voxelId">Block VoxelType</param>
         /// <param name="position">World Position</param>
         /// <param name="remesh">Regenerate Mesh and Collider ?</param>
         /// <returns>Operation Success</returns>

@@ -30,8 +30,6 @@ namespace Runtime.Engine.Jobs.Mesh
         private UnityEngine.Mesh.MeshDataArray _meshDataArray;
         private NativeArray<VertexAttributeDescriptor> _vertexParams;
 
-        private Stopwatch _watch;
-
         public MeshBuildScheduler(
             VoxelEngineSettings settings,
             ChunkManager chunkManager,
@@ -45,24 +43,20 @@ namespace Runtime.Engine.Jobs.Mesh
 
             _chunkSize = settings.Chunk.ChunkSize;
 
-            _vertexParams = new NativeArray<VertexAttributeDescriptor>(6, Allocator.Persistent);
-
-            // Int interpolation cause issues
-            _vertexParams[0] =
-                new VertexAttributeDescriptor(VertexAttribute.Position);
-            _vertexParams[1] = new VertexAttributeDescriptor(VertexAttribute.Normal);
-            _vertexParams[2] = new VertexAttributeDescriptor(VertexAttribute.Color, VertexAttributeFormat.Float32, 4);
-            _vertexParams[3] =
-                new VertexAttributeDescriptor(VertexAttribute.TexCoord0);
-            _vertexParams[4] =
-                new VertexAttributeDescriptor(VertexAttribute.TexCoord1, VertexAttributeFormat.Float32, 2);
-            _vertexParams[5] =
-                new VertexAttributeDescriptor(VertexAttribute.TexCoord2, VertexAttributeFormat.Float32, 4);
+            _vertexParams = new NativeArray<VertexAttributeDescriptor>(6, Allocator.Persistent)
+            {
+                // Int interpolation cause issues
+                [0] = new VertexAttributeDescriptor(VertexAttribute.Position),
+                [1] = new VertexAttributeDescriptor(VertexAttribute.Normal),
+                [2] = new VertexAttributeDescriptor(VertexAttribute.Color, VertexAttributeFormat.Float32, 4),
+                [3] = new VertexAttributeDescriptor(VertexAttribute.TexCoord0),
+                [4] = new VertexAttributeDescriptor(VertexAttribute.TexCoord1, VertexAttributeFormat.Float32, 2),
+                [5] = new VertexAttributeDescriptor(VertexAttribute.TexCoord2, VertexAttributeFormat.Float32, 4)
+            };
 
             _results = new NativeParallelHashMap<int3, int>(settings.Chunk.DrawDistance.CubedSize(),
                 Allocator.Persistent);
             _jobs = new NativeList<int3>(Allocator.Persistent);
-            _watch = new Stopwatch();
         }
 
         internal bool IsReady = true;
@@ -99,7 +93,7 @@ namespace Runtime.Engine.Jobs.Mesh
 
         internal void Complete()
         {
-            var start = Time.realtimeSinceStartupAsDouble;
+            double start = Time.realtimeSinceStartupAsDouble;
             _handle.Complete();
 
             UnityEngine.Mesh[] meshes = new UnityEngine.Mesh[_jobs.Length];

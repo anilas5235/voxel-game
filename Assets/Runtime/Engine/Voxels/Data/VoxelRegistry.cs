@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Unity.Collections;
+using Unity.Mathematics;
 using UnityEngine;
 
 namespace Runtime.Engine.Voxels.Data
@@ -18,8 +19,6 @@ namespace Runtime.Engine.Voxels.Data
 
         private readonly TexRegistry _solidTexRegistry = new();
         private readonly TexRegistry _transparentTexRegistry = new();
-        private readonly TexRegistry _foliageTexRegistry = new();
-
 
         private bool _initialized;
 
@@ -29,8 +28,8 @@ namespace Runtime.Engine.Voxels.Data
             _initialized = true;
             Register("air", new VoxelRenderDef
             {
+                MeshIndex = byte.MaxValue,
                 Collision = false,
-                Transparent = true,
                 TexUp = -1,
                 TexDown = -1,
                 TexFront = -1,
@@ -45,9 +44,10 @@ namespace Runtime.Engine.Voxels.Data
         {
             VoxelRenderDef type = new()
             {
+                MeshIndex = (byte)definition.meshIndex,
                 VoxelType = definition.voxelType,
+                OverrideColor = ConvertColor(definition.overrideColor),
                 Collision = definition.collision,
-                Transparent = definition.transparent,
                 TexUp = RegisterTexture(definition, Direction.Up),
                 TexDown = RegisterTexture(definition, Direction.Down),
                 TexFront = RegisterTexture(definition, Direction.Forward),
@@ -57,6 +57,11 @@ namespace Runtime.Engine.Voxels.Data
             };
 
             Register(packagePrefix + ":" + definition.name, type);
+        }
+        
+        private static float4 ConvertColor(Color color)
+        {
+            return new float4(color.r, color.g, color.b, color.a);
         }
 
         private void Register(string name, VoxelRenderDef renderDef)
@@ -77,11 +82,10 @@ namespace Runtime.Engine.Voxels.Data
         private int RegisterTexture(VoxelDefinition definition, Direction dir)
         {
             Texture2D tex = definition.GetTexture(dir);
-            return definition.voxelType switch
+            return definition.meshIndex switch
             {
-                VoxelType.Solid => _solidTexRegistry.RegisterTexture(tex),
-                VoxelType.Transparent => _transparentTexRegistry.RegisterTexture(tex),
-                VoxelType.Foliage => _foliageTexRegistry.RegisterTexture(tex),
+                MeshIndex.Solid => _solidTexRegistry.RegisterTexture(tex),
+                MeshIndex.Transparent => _transparentTexRegistry.RegisterTexture(tex),
                 _ => -1
             };
         }
@@ -123,16 +127,14 @@ namespace Runtime.Engine.Voxels.Data
         {
             _solidTexRegistry.PrepareTextureArray();
             _transparentTexRegistry.PrepareTextureArray();
-            _foliageTexRegistry.PrepareTextureArray();
         }
 
-        public Texture2DArray GetTextureArray(VoxelType voxelType)
+        private Texture2DArray GetTextureArray(MeshIndex meshIndex)
         {
-            return voxelType switch
+            return meshIndex switch
             {
-                VoxelType.Solid => _solidTexRegistry.TextureArray,
-                VoxelType.Transparent => _transparentTexRegistry.TextureArray,
-                VoxelType.Foliage => _foliageTexRegistry.TextureArray,
+                MeshIndex.Solid => _solidTexRegistry.TextureArray,
+                MeshIndex.Transparent => _transparentTexRegistry.TextureArray,
                 _ => null
             };
         }
@@ -142,13 +144,13 @@ namespace Runtime.Engine.Voxels.Data
             _voxelEngineRenderGenData.VoxelRenderDefs.Dispose();
         }
 
-        public void ApplyToMaterial(Material voxelSolidMaterial, VoxelType solid)
+        public void ApplyToMaterial(Material material, MeshIndex solid)
         {
-            if (voxelSolidMaterial)
+            if (material)
             {
                 Texture2DArray texArray = GetTextureArray(solid);
                 if (texArray)
-                    voxelSolidMaterial.SetTexture(Textures, texArray);
+                    material.SetTexture(Textures, texArray);
                 else
                     Debug.LogWarning("Texture array is null, cannot assign to material.");
             }
