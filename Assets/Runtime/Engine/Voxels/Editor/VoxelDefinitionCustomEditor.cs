@@ -2,7 +2,7 @@
 using Runtime.Engine.Voxels.Data;
 using UnityEditor;
 
-namespace Voxels.Editor
+namespace Runtime.Engine.Voxels.Editor
 {
     [CustomEditor(typeof(VoxelDefinition))]
     public class VoxelDefinitionCustomEditor : UnityEditor.Editor
@@ -13,6 +13,7 @@ namespace Voxels.Editor
 
             serializedObject.Update();
 
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("voxelType"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("textureMode"));
 
             switch (voxelDef.TextureMode)
