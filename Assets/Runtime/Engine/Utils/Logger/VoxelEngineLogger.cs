@@ -4,7 +4,7 @@ namespace Runtime.Engine.Utils.Logger {
 
     public static class VoxelEngineLogger {
 
-        private static string _LogTag = $"<color=#{ColorUtility.ToHtmlStringRGB(GetColor("Voxel"))}>[Voxel]</color> ";
+        private static string _logTag = $"<color=#{ColorUtility.ToHtmlStringRGB(GetColor("Voxel"))}>[Voxel]</color> ";
         
         /// <summary>
         /// Creates a tag with unique color for given type
@@ -19,7 +19,7 @@ namespace Runtime.Engine.Utils.Logger {
         /// <param name="name">tag value</param>
         /// <returns>tag color formatted string</returns>
         public static string GetTag(string name) {
-            return $"{_LogTag}<color=#{ColorUtility.ToHtmlStringRGB(GetColor(name))}>{name}</color>";
+            return $"{_logTag}<color=#{ColorUtility.ToHtmlStringRGB(GetColor(name))}>{name}</color>";
         }
         
         /// <summary>
@@ -60,7 +60,7 @@ namespace Runtime.Engine.Utils.Logger {
         private static float NormalizeHue(float hue) => Mathf.Lerp(0.7f, 1.6f, hue) % 1;
         
         private static Color GetColor(string name) {
-            var hue = ((float) name.GetHashCode() % 10000 / 10000 + 1) / 2;
+            float hue = ((float) name.GetHashCode() % 10000 / 10000 + 1) / 2;
             return Color.HSVToRGB(NormalizeHue(hue), 1f, 1f);
         }
 

@@ -43,9 +43,9 @@ namespace Runtime.Engine.Mesher {
         [BurstCompile]
         private static byte GetMeshIndex(int block) {
             return block switch {
-                (int) Block.Air => 2,
-                (int) Block.Water => 1,
-                _ => 0
+                0 => 2, // Air
+                4 => 1, // Water
+                _ => 0 // Solid
             };
         }
 
@@ -86,8 +86,8 @@ namespace Runtime.Engine.Mesher {
                     // Compute the mask
                     for (chunkItr[axis2] = 0; chunkItr[axis2] < axis2Limit; ++chunkItr[axis2]) {
                         for (chunkItr[axis1] = 0; chunkItr[axis1] < axis1Limit; ++chunkItr[axis1]) {
-                            ushort currentVoxel = accessor.GetBlockInChunk(pos, chunkItr);
-                            ushort compareVoxel = accessor.GetBlockInChunk(pos, chunkItr + directionMask);
+                            ushort currentVoxel = accessor.GetVoxelInChunk(pos, chunkItr);
+                            ushort compareVoxel = accessor.GetVoxelInChunk(pos, chunkItr + directionMask);
 
                             byte currentMeshIndex = GetMeshIndex(currentVoxel);
                             byte compareMeshIndex = GetMeshIndex(compareVoxel);
@@ -475,15 +475,15 @@ namespace Runtime.Engine.Mesher {
             rtc[axis1] += 1;
             rtc[axis2] += 1;
 
-            int lo = GetMeshIndex(accessor.GetBlockInChunk(pos, l)) == 0 ? 1 : 0;
-            int ro = GetMeshIndex(accessor.GetBlockInChunk(pos, r)) == 0 ? 1 : 0;
-            int bo = GetMeshIndex(accessor.GetBlockInChunk(pos, b)) == 0 ? 1 : 0;
-            int to = GetMeshIndex(accessor.GetBlockInChunk(pos, T)) == 0 ? 1 : 0;
+            int lo = GetMeshIndex(accessor.GetVoxelInChunk(pos, l)) == 0 ? 1 : 0;
+            int ro = GetMeshIndex(accessor.GetVoxelInChunk(pos, r)) == 0 ? 1 : 0;
+            int bo = GetMeshIndex(accessor.GetVoxelInChunk(pos, b)) == 0 ? 1 : 0;
+            int to = GetMeshIndex(accessor.GetVoxelInChunk(pos, T)) == 0 ? 1 : 0;
 
-            int lbco = GetMeshIndex(accessor.GetBlockInChunk(pos, lbc)) == 0 ? 1 : 0;
-            int rbco = GetMeshIndex(accessor.GetBlockInChunk(pos, rbc)) == 0 ? 1 : 0;
-            int ltco = GetMeshIndex(accessor.GetBlockInChunk(pos, ltc)) == 0 ? 1 : 0;
-            int rtco = GetMeshIndex(accessor.GetBlockInChunk(pos, rtc)) == 0 ? 1 : 0;
+            int lbco = GetMeshIndex(accessor.GetVoxelInChunk(pos, lbc)) == 0 ? 1 : 0;
+            int rbco = GetMeshIndex(accessor.GetVoxelInChunk(pos, rbc)) == 0 ? 1 : 0;
+            int ltco = GetMeshIndex(accessor.GetVoxelInChunk(pos, ltc)) == 0 ? 1 : 0;
+            int rtco = GetMeshIndex(accessor.GetVoxelInChunk(pos, rtc)) == 0 ? 1 : 0;
 
             return new int4(
                 ComputeAO(lo, bo, lbco),

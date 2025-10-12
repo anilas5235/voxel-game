@@ -2,18 +2,18 @@
 
 namespace Runtime.Engine.Utils.Provider {
 
-    public abstract class Provider<P> where P : Provider<P>, new() {
+    public abstract class Provider<TP> where TP : Provider<TP>, new() {
 
-        public static P Current { get; private set; }
+        public static TP Current { get; private set; }
         
-        public static void Initialize(P provider, Action<P> Initializer) {
+        public static void Initialize(TP provider, Action<TP> initializer) {
             Current = provider;
-            Initializer(Current);
+            initializer(Current);
         }
         
-        public static void Initialize(Action<P> Initializer) {
-            Current = new P();
-            Initializer(Current);
+        public static void Initialize(Action<TP> initializer) {
+            Current = new TP();
+            initializer(Current);
         }
 
     }

@@ -22,27 +22,27 @@ namespace Runtime.Engine.Data {
             _data = new UnsafeIntervalList(128, Allocator.Persistent);
         }
 
-        public void AddBlocks(ushort voxelId, int count) {
+        public void AddVoxels(ushort voxelId, int count) {
             _data.AddInterval(voxelId, count);
         }
 
-        public bool SetBlock(int x, int y, int z, ushort block) {
+        public bool SetVoxel(int x, int y, int z, ushort block) {
             bool result = _data.Set(_chunkSize.Flatten(x,y,z), block);
             if (result) Dirty = true;
             return result;
         }
         
-        public bool SetBlock(int3 pos, ushort block) {
+        public bool SetVoxel(int3 pos, ushort block) {
             bool result= _data.Set(_chunkSize.Flatten(pos), block);
             if (result) Dirty = true;
             return result;
         }
 
-        public ushort GetBlock(int x, int y, int z) {
+        public ushort GetVoxel(int x, int y, int z) {
             return _data.Get(_chunkSize.Flatten(x, y, z));
         }
 
-        public ushort GetBlock(int3 pos) {
+        public ushort GetVoxel(int3 pos) {
             return _data.Get(_chunkSize.Flatten(pos.x, pos.y, pos.z));
         }
 

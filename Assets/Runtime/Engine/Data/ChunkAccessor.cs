@@ -15,7 +15,7 @@ namespace Runtime.Engine.Data {
             _chunkSize = chunkSize;
         }
 
-        internal ushort GetBlockInChunk(int3 chunkPos, int3 blockPos) {
+        internal ushort GetVoxelInChunk(int3 chunkPos, int3 blockPos) {
             int3 key = int3.zero;
 
             for (int index = 0; index < 3; index++) {
@@ -27,7 +27,7 @@ namespace Runtime.Engine.Data {
 
             key *= _chunkSize;
 
-            return TryGetChunk(chunkPos + key, out Chunk chunk) ? chunk.GetBlock(blockPos) : (ushort)0;
+            return TryGetChunk(chunkPos + key, out Chunk chunk) ? chunk.GetVoxel(blockPos) : (ushort)0;
         }
 
         internal bool TryGetChunk(int3 pos, out Chunk chunk) => _chunks.TryGetValue(pos, out chunk);

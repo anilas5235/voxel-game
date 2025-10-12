@@ -45,28 +45,28 @@ namespace Runtime.Engine.Components
 
         #region API
 
-        internal int GetBlock(Vector3Int position)
+        internal int GetVoxel(Vector3Int position)
         {
             int3 chunkPos = VoxelUtils.GetChunkCoords(position);
-            int3 blockPos = VoxelUtils.GetBlockIndex(position);
+            int3 blockPos = VoxelUtils.GetVoxelIndex(position);
 
-            if (_chunks.TryGetValue(chunkPos, out Chunk chunk)) return chunk.GetBlock(blockPos);
+            if (_chunks.TryGetValue(chunkPos, out Chunk chunk)) return chunk.GetVoxel(blockPos);
             
             VoxelEngineLogger.Warn<ChunkManager>($"Chunk : {chunkPos} not loaded");
             return 0;
         }
 
         /// <summary>
-        /// Set a block at a position
+        /// Set a voxelId at a position
         /// </summary>
-        /// <param name="block">Block Type</param>
+        /// <param name="voxelId">Block Type</param>
         /// <param name="position">World Position</param>
         /// <param name="remesh">Regenerate Mesh and Collider ?</param>
         /// <returns>Operation Success</returns>
-        internal bool SetBlock(Block block, Vector3Int position, bool remesh = true)
+        internal bool SetVoxel(ushort voxelId, Vector3Int position, bool remesh = true)
         {
             int3 chunkPos = VoxelUtils.GetChunkCoords(position);
-            int3 blockPos = VoxelUtils.GetBlockIndex(position);
+            int3 blockPos = VoxelUtils.GetVoxelIndex(position);
 
             if (!_chunks.TryGetValue(chunkPos, out Chunk chunk))
             {
@@ -74,7 +74,7 @@ namespace Runtime.Engine.Components
                 return false;
             }
 
-            bool result = chunk.SetBlock(blockPos, VoxelUtils.GetBlockId(block));
+            bool result = chunk.SetVoxel(blockPos, voxelId);
 
             _chunks[chunkPos] = chunk;
 
