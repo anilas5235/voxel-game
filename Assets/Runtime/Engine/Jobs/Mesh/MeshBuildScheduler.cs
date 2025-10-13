@@ -43,15 +43,14 @@ namespace Runtime.Engine.Jobs.Mesh
 
             _chunkSize = settings.Chunk.ChunkSize;
 
-            _vertexParams = new NativeArray<VertexAttributeDescriptor>(6, Allocator.Persistent)
+            _vertexParams = new NativeArray<VertexAttributeDescriptor>(5, Allocator.Persistent)
             {
                 // Int interpolation cause issues
                 [0] = new VertexAttributeDescriptor(VertexAttribute.Position),
                 [1] = new VertexAttributeDescriptor(VertexAttribute.Normal),
-                [2] = new VertexAttributeDescriptor(VertexAttribute.Color, VertexAttributeFormat.Float32, 4),
-                [3] = new VertexAttributeDescriptor(VertexAttribute.TexCoord0),
-                [4] = new VertexAttributeDescriptor(VertexAttribute.TexCoord1, VertexAttributeFormat.Float32, 2),
-                [5] = new VertexAttributeDescriptor(VertexAttribute.TexCoord2, VertexAttributeFormat.Float32, 4)
+                [2] = new VertexAttributeDescriptor(VertexAttribute.TexCoord0),
+                [3] = new VertexAttributeDescriptor(VertexAttribute.TexCoord1, VertexAttributeFormat.Float32, 2),
+                [4] = new VertexAttributeDescriptor(VertexAttribute.TexCoord2, VertexAttributeFormat.Float32, 4)
             };
 
             _results = new NativeParallelHashMap<int3, int>(settings.Chunk.DrawDistance.CubedSize(),

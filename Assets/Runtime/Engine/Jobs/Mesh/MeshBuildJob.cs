@@ -40,11 +40,9 @@ namespace Runtime.Engine.Jobs.Mesh
             // Index Buffer
             int index0Count = meshBuffer.IndexBuffer0.Length;
             int index1Count = meshBuffer.IndexBuffer1.Length;
-            int index2Count = meshBuffer.IndexBuffer2.Length;
-            int index3Count = meshBuffer.IndexBuffer3.Length;
 
 
-            mesh.SetIndexBufferParams(index0Count + index1Count + index2Count + index3Count, IndexFormat.UInt32);
+            mesh.SetIndexBufferParams(index0Count + index1Count, IndexFormat.UInt32);
 
             NativeArray<int> indexBuffer = mesh.GetIndexData<int>();
 

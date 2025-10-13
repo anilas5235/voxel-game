@@ -2,32 +2,35 @@
 using Unity.Collections;
 using Unity.Mathematics;
 
-namespace Runtime.Engine.Data {
-
+namespace Runtime.Engine.Data
+{
     [BurstCompile]
-    internal struct ChunkAccessor {
-        
+    internal struct ChunkAccessor
+    {
         private readonly NativeParallelHashMap<int3, Chunk>.ReadOnly _chunks;
         private int3 _chunkSize;
 
-        internal ChunkAccessor(NativeParallelHashMap<int3, Chunk>.ReadOnly chunks, int3 chunkSize) {
+        internal ChunkAccessor(NativeParallelHashMap<int3, Chunk>.ReadOnly chunks, int3 chunkSize)
+        {
             _chunks = chunks;
             _chunkSize = chunkSize;
         }
 
-        internal ushort GetVoxelInChunk(int3 chunkPos, int3 blockPos) {
+        internal ushort GetVoxelInChunk(int3 chunkPos, int3 voxelPos)
+        {
             int3 key = int3.zero;
 
-            for (int index = 0; index < 3; index++) {
-                if (blockPos[index] >= 0 && blockPos[index] < _chunkSize[index]) continue;
+            for (int index = 0; index < 3; index++)
+            {
+                if (voxelPos[index] >= 0 && voxelPos[index] < _chunkSize[index]) continue;
 
-                key[index] += blockPos[index] % (_chunkSize[index] - 1);
-                blockPos[index] -= key[index] * _chunkSize[index];
+                key[index] += voxelPos[index] % (_chunkSize[index] - 1);
+                voxelPos[index] -= key[index] * _chunkSize[index];
             }
 
             key *= _chunkSize;
 
-            return TryGetChunk(chunkPos + key, out Chunk chunk) ? chunk.GetVoxel(blockPos) : (ushort)0;
+            return TryGetChunk(chunkPos + key, out Chunk chunk) ? chunk.GetVoxel(voxelPos) : (ushort)0;
         }
 
         internal bool TryGetChunk(int3 pos, out Chunk chunk) => _chunks.TryGetValue(pos, out chunk);
@@ -35,46 +38,50 @@ namespace Runtime.Engine.Data {
         internal bool ContainsChunk(int3 coord) => _chunks.ContainsKey(coord);
 
         #region Try Neighbours
-        
-        internal bool TryGetNeighborPx(int3 pos, out Chunk chunk) {
-            int3 px = pos + new int3(1,0,0) * _chunkSize;
+
+        internal bool TryGetNeighborPx(int3 pos, out Chunk chunk)
+        {
+            int3 px = pos + new int3(1, 0, 0) * _chunkSize;
 
             return _chunks.TryGetValue(px, out chunk);
         }
 
-        internal bool TryGetNeighborPy(int3 pos, out Chunk chunk) {
-            int3 py = pos + new int3(0,1,0) * _chunkSize;
+        internal bool TryGetNeighborPy(int3 pos, out Chunk chunk)
+        {
+            int3 py = pos + new int3(0, 1, 0) * _chunkSize;
 
             return _chunks.TryGetValue(py, out chunk);
         }
 
-        internal bool TryGetNeighborPz(int3 pos, out Chunk chunk) {
+        internal bool TryGetNeighborPz(int3 pos, out Chunk chunk)
+        {
             int3 pz = pos + new int3(0, 0, 1) * _chunkSize;
 
             return _chunks.TryGetValue(pz, out chunk);
         }
 
-        internal bool TryGetNeighborNx(int3 pos, out Chunk chunk) {
-            int3 nx = pos + new int3(-1,0,0) * _chunkSize;
+        internal bool TryGetNeighborNx(int3 pos, out Chunk chunk)
+        {
+            int3 nx = pos + new int3(-1, 0, 0) * _chunkSize;
 
             return _chunks.TryGetValue(nx, out chunk);
         }
 
-        internal bool TryGetNeighborNy(int3 pos, out Chunk chunk) {
-            int3 ny = pos + new int3(0,-1,0) * _chunkSize;
+        internal bool TryGetNeighborNy(int3 pos, out Chunk chunk)
+        {
+            int3 ny = pos + new int3(0, -1, 0) * _chunkSize;
 
             return _chunks.TryGetValue(ny, out chunk);
         }
 
-        
-        internal bool TryGetNeighborNz(int3 pos, out Chunk chunk) {
+
+        internal bool TryGetNeighborNz(int3 pos, out Chunk chunk)
+        {
             int3 nz = pos + new int3(0, 0, -1) * _chunkSize;
 
             return _chunks.TryGetValue(nz, out chunk);
         }
-        
+
         #endregion
-
     }
-
 }
