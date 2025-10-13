@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using Runtime.Engine.Utils.Logger;
 using UnityEngine;
 
@@ -37,7 +38,7 @@ namespace Runtime.Engine.Voxels.Data
                 TextureSize,
                 TextureSize,
                 _textureToId.Count,
-                TextureFormat.DXT1,
+                _textureToId.First().Key.format,
                 false
             )
             {

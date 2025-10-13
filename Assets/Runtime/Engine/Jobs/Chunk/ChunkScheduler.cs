@@ -57,6 +57,7 @@ namespace Runtime.Engine.Jobs.Chunk {
                 ChunkSize = _chunkSize,
                 NoiseProfile = _noiseProfile,
                 Results = _results.AsParallelWriter(),
+                RandomSeed = (uint)UnityEngine.Random.Range(1, int.MaxValue)
             };
             
             _handle = job.Schedule(_jobs.Length, 1);

@@ -50,7 +50,7 @@ namespace Runtime.Engine.Mesher
 
         [BurstCompile]
         internal static MeshBuffer GenerateMesh(
-            ChunkAccessor accessor, int3 pos, int3 size, VoxelEngineRenderGenData renderGenData
+            ChunkAccessor accessor, int3 chunkPos, int3 size, VoxelEngineRenderGenData renderGenData
         )
         {
             MeshBuffer mesh = new()
@@ -58,8 +58,6 @@ namespace Runtime.Engine.Mesher
                 VertexBuffer = new NativeList<Vertex>(Allocator.Temp),
                 IndexBuffer0 = new NativeList<int>(Allocator.Temp),
                 IndexBuffer1 = new NativeList<int>(Allocator.Temp),
-                IndexBuffer2 = new NativeList<int>(Allocator.Temp),
-                IndexBuffer3 = new NativeList<int>(Allocator.Temp)
             };
 
             int vertexCount = 0;
@@ -80,131 +78,124 @@ namespace Runtime.Engine.Mesher
                 int3 directionMask = int3.zero;
                 directionMask[direction] = 1;
 
-                // Optimize Allocation
                 NativeArray<Mask> normalMask = new(axis1Limit * axis2Limit, Allocator.Temp);
 
                 for (chunkItr[direction] = -1; chunkItr[direction] < mainAxisLimit;)
                 {
-                    int n = 0;
-
-                    // Compute the mask
-                    for (chunkItr[axis2] = 0; chunkItr[axis2] < axis2Limit; ++chunkItr[axis2])
-                    {
-                        for (chunkItr[axis1] = 0; chunkItr[axis1] < axis1Limit; ++chunkItr[axis1])
-                        {
-                            ushort currentVoxel = accessor.GetVoxelInChunk(pos, chunkItr);
-                            ushort compareVoxel = accessor.GetVoxelInChunk(pos, chunkItr + directionMask);
-
-                            byte currentMeshIndex = GetMeshIndex(currentVoxel, renderGenData);
-                            byte compareMeshIndex = GetMeshIndex(compareVoxel, renderGenData);
-
-                            if (currentMeshIndex == compareMeshIndex)
-                            {
-                                normalMask[n++] =
-                                    default; // Air with Air or Water with Water or Solid with Solid, no face in this case
-                            }
-                            else if (currentMeshIndex < compareMeshIndex)
-                            {
-                                normalMask[n++] = new Mask(currentVoxel, currentMeshIndex, 1,
-                                    ComputeAOMask(accessor, renderGenData, pos, chunkItr + directionMask, axis1,
-                                        axis2));
-                            }
-                            else
-                            {
-                                normalMask[n++] = new Mask(compareVoxel, compareMeshIndex, -1,
-                                    ComputeAOMask(accessor, renderGenData, pos, chunkItr, axis1, axis2));
-                            }
-                        }
-                    }
-
+                    ComputeNormalMask(accessor, chunkPos, chunkItr, directionMask, axis1, axis2, axis1Limit, axis2Limit, renderGenData, normalMask);
                     ++chunkItr[direction];
-                    n = 0;
-
+                    int n = 0;
                     for (int j = 0; j < axis2Limit; j++)
                     {
                         for (int i = 0; i < axis1Limit;)
                         {
                             if (normalMask[n].Normal != 0)
                             {
-                                // Create Quad
                                 Mask currentMask = normalMask[n];
                                 chunkItr[axis1] = i;
                                 chunkItr[axis2] = j;
-
-                                // Compute the width of this quad and store it in w                        
-                                // This is done by searching along the current axis until mask[n + w] is false
-                                int width;
-
-                                for (width = 1;
-                                     i + width < axis1Limit && CompareMask(normalMask[n + width], currentMask);
-                                     width++)
-                                {
-                                }
-
-                                // Compute the height of this quad and store it in h                        
-                                // This is done by checking if every block next to this row (range 0 to w) is also part of the mask.
-                                // For example, if w is 5 we currently have a quad of dimensions 1 x 5. To reduce triangle count,
-                                // greedy meshing will attempt to expand this quad out to CHUNK_SIZE x 5, but will stop if it reaches a hole in the mask
-
-                                int height;
-                                bool done = false;
-
-                                for (height = 1; j + height < axis2Limit; height++)
-                                {
-                                    // Check each block next to this quad
-                                    for (int k = 0; k < width; ++k)
-                                    {
-                                        if (CompareMask(normalMask[n + k + height * axis1Limit], currentMask)) continue;
-
-                                        done = true;
-
-                                        break; // If there's a hole in the mask, exit
-                                    }
-
-                                    if (done) break;
-                                }
-
-                                // set delta's
+                                int width = FindQuadWidth(normalMask, n, currentMask, axis1Limit, axis1, axis2, i, axis1Limit);
+                                int height = FindQuadHeight(normalMask, n, currentMask, axis1Limit, axis2Limit, width, j);
                                 deltaAxis1[axis1] = width;
                                 deltaAxis2[axis2] = height;
-
-                                // create quad
-                                vertexCount += CreateQuad(
-                                    mesh, renderGenData.GetRenderDef(currentMask.VoxelId),
-                                    vertexCount, currentMask, directionMask, width, height,
-                                    chunkItr,
-                                    chunkItr + deltaAxis1,
-                                    chunkItr + deltaAxis2,
-                                    chunkItr + deltaAxis1 + deltaAxis2
-                                );
-
-                                // reset delta's
+                                vertexCount += CreateAndAddQuad(mesh, renderGenData, currentMask, directionMask, width, height, chunkItr, deltaAxis1, deltaAxis2, vertexCount);
+                                ClearMaskRegion(normalMask, n, width, height, axis1Limit);
                                 deltaAxis1 = int3.zero;
                                 deltaAxis2 = int3.zero;
-
-                                // Clear this part of the mask, so we don't add duplicate faces
-                                for (int l = 0; l < height; ++l)
-                                for (int k = 0; k < width; ++k)
-                                    normalMask[n + k + l * axis1Limit] = default;
-
-                                // update loop vars
                                 i += width;
                                 n += width;
                             }
                             else
                             {
-                                // nothing to do
                                 i++;
                                 n++;
                             }
                         }
                     }
                 }
-
                 normalMask.Dispose();
             }
-
             return mesh;
+        }
+
+        [BurstCompile]
+        private static void ComputeNormalMask(ChunkAccessor accessor, int3 chunkPos, int3 chunkItr, int3 directionMask, int axis1, int axis2, int axis1Limit, int axis2Limit, VoxelEngineRenderGenData renderGenData, NativeArray<Mask> normalMask)
+        {
+            int n = 0;
+            for (chunkItr[axis2] = 0; chunkItr[axis2] < axis2Limit; ++chunkItr[axis2])
+            {
+                for (chunkItr[axis1] = 0; chunkItr[axis1] < axis1Limit; ++chunkItr[axis1])
+                {
+                    ushort currentVoxel = accessor.GetVoxelInChunk(chunkPos, chunkItr);
+                    ushort compareVoxel = accessor.GetVoxelInChunk(chunkPos, chunkItr + directionMask);
+                    byte currentMeshIndex = GetMeshIndex(currentVoxel, renderGenData);
+                    byte compareMeshIndex = GetMeshIndex(compareVoxel, renderGenData);
+                    // Always draw faces between different voxels, even if both are transparent
+                    if (currentMeshIndex == compareMeshIndex && currentMeshIndex != 1)
+                    {
+                        normalMask[n++] = default;
+                    }
+                    else if (currentMeshIndex < compareMeshIndex)
+                    {
+                        normalMask[n++] = new Mask(currentVoxel, currentMeshIndex, 1,
+                            ComputeAOMask(accessor, renderGenData, chunkPos, chunkItr + directionMask, axis1, axis2));
+                    }
+                    else
+                    {
+                        normalMask[n++] = new Mask(compareVoxel, compareMeshIndex, -1,
+                            ComputeAOMask(accessor, renderGenData, chunkPos, chunkItr, axis1, axis2));
+                    }
+                }
+            }
+        }
+
+        [BurstCompile]
+        private static int FindQuadWidth(NativeArray<Mask> normalMask, int n, Mask currentMask, int axis1Limit, int axis1, int axis2, int i, int axis1LimitMax)
+        {
+            int width;
+            for (width = 1; i + width < axis1LimitMax && CompareMask(normalMask[n + width], currentMask); width++)
+            {
+            }
+            return width;
+        }
+
+        [BurstCompile]
+        private static int FindQuadHeight(NativeArray<Mask> normalMask, int n, Mask currentMask, int axis1Limit, int axis2Limit, int width, int j)
+        {
+            int height;
+            bool done = false;
+            for (height = 1; j + height < axis2Limit; height++)
+            {
+                for (int k = 0; k < width; ++k)
+                {
+                    if (CompareMask(normalMask[n + k + height * axis1Limit], currentMask)) continue;
+                    done = true;
+                    break;
+                }
+                if (done) break;
+            }
+            return height;
+        }
+
+        [BurstCompile]
+        private static int CreateAndAddQuad(MeshBuffer mesh, VoxelEngineRenderGenData renderGenData, Mask currentMask, int3 directionMask, int width, int height, int3 chunkItr, int3 deltaAxis1, int3 deltaAxis2, int vertexCount)
+        {
+            return CreateQuad(
+                mesh, renderGenData.GetRenderDef(currentMask.VoxelId),
+                vertexCount, currentMask, directionMask, width, height,
+                chunkItr,
+                chunkItr + deltaAxis1,
+                chunkItr + deltaAxis2,
+                chunkItr + deltaAxis1 + deltaAxis2
+            );
+        }
+
+        [BurstCompile]
+        private static void ClearMaskRegion(NativeArray<Mask> normalMask, int n, int width, int height, int axis1Limit)
+        {
+            for (int l = 0; l < height; ++l)
+            for (int k = 0; k < width; ++k)
+                normalMask[n + k + l * axis1Limit] = default;
         }
 
         [BurstCompile]
@@ -332,7 +323,6 @@ namespace Runtime.Engine.Mesher
 
             // Main UV
             float3 uv1, uv2, uv3, uv4;
-
             if (normal.x is 1 or -1)
             {
                 uv1 = new float3(0, 0, uvz);
@@ -360,10 +350,21 @@ namespace Runtime.Engine.Mesher
                         v3.y -= 0.25f;
                         v4.y -= 0.25f;
                     }
-
                     break;
                 case VoxelType.Flora:
-                    break;
+                    if(normal.y != 1) break;
+                    // Draw two crossed quads for grass
+                    float3 center = (v1 + v4) * 0.5f;
+                    float3 size = new(width, height, width); // Use width for X/Z, height for Y
+                    float3 offsetX = new(size.x * 0.5f, 0, 0);
+                    float3 offsetZ = new(0, 0, size.z * 0.5f);
+                    float3 offsetY = new(0, size.y, 0);
+
+                    // First quad (XZ diagonal)
+                    AddFloraQuad(mesh, info, vertexCount, center - offsetX, center + offsetX + offsetY, center - offsetX + offsetY, center + offsetX);
+                    // Second quad (ZX diagonal)
+                    AddFloraQuad(mesh, info, vertexCount + 4, center - offsetZ, center + offsetZ + offsetY, center - offsetZ + offsetY, center + offsetZ);
+                    return 8;
                 default:
                     throw new ArgumentOutOfRangeException();
             }
@@ -439,6 +440,54 @@ namespace Runtime.Engine.Mesher
             return 4;
         }
 
+        private static void AddFloraQuad(MeshBuffer mesh, VoxelRenderDef info, int vertexCount, float3 v1, float3 v2, float3 v3, float3 v4)
+        {
+            int uvz = info.TexUp;
+            Vertex vertex1 = new()
+            {
+                Position = v1,
+                Normal = new float3(0, 1, 0),
+                UV0 = new float3(0, 0, uvz),
+                UV1 = new float2(0, 0),
+                UV2 = info.OverrideColor
+            };
+            Vertex vertex2 = new()
+            {
+                Position = v2,
+                Normal = new float3(0, 1, 0),
+                UV0 = new float3(1, 1, uvz),
+                UV1 = new float2(0, 1),
+                UV2 = info.OverrideColor
+            };
+            Vertex vertex3 = new()
+            {
+                Position = v3,
+                Normal = new float3(0, 1, 0),
+                UV0 = new float3(0, 1, uvz),
+                UV1 = new float2(1, 0),
+                UV2 = info.OverrideColor
+            };
+            Vertex vertex4 = new()
+            {
+                Position = v4,
+                Normal = new float3(0, 1, 0),
+                UV0 = new float3(1, 0, uvz),
+                UV1 = new float2(1, 1),
+                UV2 = info.OverrideColor
+            };
+            mesh.VertexBuffer.Add(vertex1);
+            mesh.VertexBuffer.Add(vertex2);
+            mesh.VertexBuffer.Add(vertex3);
+            mesh.VertexBuffer.Add(vertex4);
+            NativeList<int> indexBuffer = mesh.IndexBuffer1;
+            indexBuffer.Add(vertexCount);
+            indexBuffer.Add(vertexCount + 1);
+            indexBuffer.Add(vertexCount + 2);
+            indexBuffer.Add(vertexCount + 2);
+            indexBuffer.Add(vertexCount + 1);
+            indexBuffer.Add(vertexCount + 3);
+        }
+
         [BurstCompile]
         private static int4 ComputeAOMask(ChunkAccessor accessor, VoxelEngineRenderGenData renderGenData, int3 pos,
             int3 coord, int axis1, int axis2)
@@ -497,3 +546,4 @@ namespace Runtime.Engine.Mesher
         }
     }
 }
+

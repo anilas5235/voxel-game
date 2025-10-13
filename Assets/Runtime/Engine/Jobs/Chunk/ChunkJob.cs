@@ -17,50 +17,55 @@ namespace Runtime.Engine.Jobs.Chunk
 
         [WriteOnly] public NativeParallelHashMap<int3, Data.Chunk>.ParallelWriter Results;
 
+        [ReadOnly] public uint RandomSeed;
+
         public void Execute(int index)
         {
             int3 position = Jobs[index];
-
-            Data.Chunk chunk = GenerateChunkData(position);
-
+            // Seed random per job
+            Random random = new(RandomSeed + (uint)index);
+            Data.Chunk chunk = GenerateChunkData(position, ref random);
             Results.TryAdd(position, chunk);
         }
 
-        private Data.Chunk GenerateChunkData(int3 position)
+        private Data.Chunk GenerateChunkData(int3 position, ref Random random)
         {
             Data.Chunk data = new(position, ChunkSize);
 
             NoiseValue noise = NoiseProfile.GetNoise(position);
-            ushort currentBlock = GetVoxel(ref noise);
+            ushort currentVoxelId = GetVoxel(ref noise);
+            ushort lastVoxelId = 0;
 
             int count = 0;
 
             // Loop order should be same as flatten order for AddVoxels to work properly
+            for (int x = 0; x < ChunkSize.x; x++)
+            for (int z = 0; z < ChunkSize.z; z++)
             for (int y = 0; y < ChunkSize.y; y++)
             {
-                for (int z = 0; z < ChunkSize.z; z++)
+                noise = NoiseProfile.GetNoise(position + new int3(x, y, z));
+                ushort voxelId = GetVoxel(ref noise);
+
+                // 50% chance to generate grass (id:5) on grassblock (id:3)
+                if (voxelId == 0 && lastVoxelId == 3 && random.NextFloat() < 0.5f)
                 {
-                    for (int x = 0; x < ChunkSize.x; x++)
-                    {
-                        noise = NoiseProfile.GetNoise(position + new int3(x, y, z));
+                    voxelId = 5;
+                }
 
-                        ushort voxelId = GetVoxel(ref noise);
-
-                        if (voxelId == currentBlock)
-                        {
-                            count++;
-                        }
-                        else
-                        {
-                            data.AddVoxels(currentBlock, count);
-                            currentBlock = voxelId;
-                            count = 1;
-                        }
-                    }
+                if (voxelId == currentVoxelId)
+                {
+                    count++;
+                }
+                else
+                {
+                    data.AddVoxels(currentVoxelId, count);
+                    lastVoxelId = currentVoxelId;
+                    currentVoxelId = voxelId;
+                    count = 1;
                 }
             }
 
-            data.AddVoxels(currentBlock, count); // Finale interval
+            data.AddVoxels(currentVoxelId, count); // Finale interval
 
             return data;
         }

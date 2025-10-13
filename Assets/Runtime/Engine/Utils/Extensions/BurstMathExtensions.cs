@@ -21,15 +21,15 @@ namespace Runtime.Engine.Utils.Extensions
 
         [BurstCompile]
         public static int Flatten(this int3 vec, int x, int y, int z) =>
-            y * vec.x * vec.z +
-            z * vec.x +
-            x;
+            x * vec.y * vec.z +
+            z * vec.y +
+            y;
 
         [BurstCompile]
         public static int Flatten(this int3 vec, int3 pos) =>
-            pos.y * vec.x * vec.z +
-            pos.z * vec.x +
-            pos.x;
+            pos.x * vec.y * vec.z +
+            pos.z * vec.y +
+            pos.y;
 
         [BurstCompile]
         public static bool OrReduce(this bool3 val) => val.x || val.y || val.z;
