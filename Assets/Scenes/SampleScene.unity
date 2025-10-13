@@ -465,7 +465,7 @@ Rigidbody:
   serializedVersion: 4
   m_Mass: 1
   m_Drag: 0
-  m_AngularDrag: 0.05
+  m_AngularDrag: 0
   m_CenterOfMass: {x: 0, y: 0, z: 0}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
   m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -479,7 +479,7 @@ Rigidbody:
   m_ImplicitTensor: 1
   m_UseGravity: 0
   m_IsKinematic: 0
-  m_Interpolate: 0
+  m_Interpolate: 1
   m_Constraints: 112
   m_CollisionDetection: 0
 --- !u!4 &455605766
@@ -515,7 +515,7 @@ BoxCollider:
   m_LayerOverridePriority: 0
   m_IsTrigger: 0
   m_ProvidesContacts: 0
-  m_Enabled: 1
+  m_Enabled: 0
   serializedVersion: 3
   m_Size: {x: 0.8, y: 2, z: 0.8}
   m_Center: {x: 0, y: 0, z: 0}
@@ -678,8 +678,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   voxelSolidMaterial: {fileID: 2100000, guid: b6215133664aff74dad83d56615f47d0, type: 2}
   voxelTransparentMaterial: {fileID: 2100000, guid: e8e8dbf7c2062df49bf757b4e9d3a636, type: 2}
-  voxelFoliageMaterial: {fileID: 2100000, guid: 190910cd800491a4fa4413e496889515, type: 2}
-  voxelLiquidMaterial: {fileID: 0}
 --- !u!4 &1291856481
 Transform:
   m_ObjectHideFlags: 0

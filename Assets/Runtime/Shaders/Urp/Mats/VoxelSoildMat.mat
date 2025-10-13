@@ -100,7 +100,7 @@ Material:
     m_Ints: []
     m_Floats:
     - _AOIntensity: 1
-    - _AOPower: 1
+    - _AOPower: 2
     - _AddPrecomputedVelocity: 0
     - _AlphaClip: 0
     - _AlphaToMask: 0

@@ -170,13 +170,12 @@ namespace Runtime.Engine.Mesher
 
                                 // create quad
                                 vertexCount += CreateQuad(
-                                    mesh, vertexCount, currentMask, directionMask,
-                                    width, height,
+                                    mesh, renderGenData.GetRenderDef(currentMask.VoxelId),
+                                    vertexCount, currentMask, directionMask, width, height,
                                     chunkItr,
                                     chunkItr + deltaAxis1,
                                     chunkItr + deltaAxis2,
-                                    chunkItr + deltaAxis1 + deltaAxis2,
-                                    renderGenData
+                                    chunkItr + deltaAxis1 + deltaAxis2
                                 );
 
                                 // reset delta's
@@ -210,33 +209,29 @@ namespace Runtime.Engine.Mesher
 
         [BurstCompile]
         private static int CreateQuad(
-            MeshBuffer mesh, int vertexCount, Mask mask, int3 directionMask,
-            int width, int height, int3 v1, int3 v2, int3 v3, int3 v4,
-            VoxelEngineRenderGenData renderGenData
+            MeshBuffer mesh, VoxelRenderDef info, int vertexCount, Mask mask, int3 directionMask,
+            int width, int height, int3 v1, int3 v2, int3 v3, int3 v4
         )
         {
             return mask.MeshIndex switch
             {
-                0 => CreateQuadMesh0(mesh, vertexCount, mask, directionMask, width, height, v1, v2, v3, v4,
-                    renderGenData),
-                1 => CreateQuadMesh1(mesh, renderGenData, vertexCount, mask, directionMask, width, height, v1, v2, v3,
-                    v4),
+                0 => CreateQuadMesh0(mesh, info, vertexCount, mask, directionMask, width, height, v1, v2, v3, v4),
+                1 => CreateQuadMesh1(mesh, info, vertexCount, mask, directionMask, width, height, v1, v2, v3, v4),
                 _ => 0
             };
         }
 
         [BurstCompile]
         private static int CreateQuadMesh0(
-            MeshBuffer mesh, int vertexCount, Mask mask, int3 directionMask,
-            int width, int height, float3 v1, float3 v2, float3 v3, float3 v4,
-            VoxelEngineRenderGenData voxelEngineRenderGenData
+            MeshBuffer mesh, VoxelRenderDef info, int vertexCount, Mask mask, int3 directionMask,
+            int width, int height, float3 v1, float3 v2, float3 v3, float3 v4
         )
         {
             int3 normal = directionMask * mask.Normal;
 
             // Main UV
             float3 uv1, uv2, uv3, uv4;
-            int uvz = voxelEngineRenderGenData.GetTextureId(mask.VoxelId, normal.ToDirection());
+            int uvz = info.GetTextureId(normal.ToDirection());
 
             if (normal.x is 1 or -1)
             {
@@ -328,11 +323,10 @@ namespace Runtime.Engine.Mesher
 
         [BurstCompile]
         private static int CreateQuadMesh1(
-            MeshBuffer mesh, VoxelEngineRenderGenData renderGenData, int vertexCount, Mask mask, int3 directionMask,
+            MeshBuffer mesh, VoxelRenderDef info, int vertexCount, Mask mask, int3 directionMask,
             int width, int height, float3 v1, float3 v2, float3 v3, float3 v4
         )
         {
-            VoxelRenderDef info = renderGenData.GetRenderDef(mask.VoxelId);
             int3 normal = directionMask * mask.Normal;
             int uvz = info.GetTextureId(normal.ToDirection());
 
@@ -366,13 +360,14 @@ namespace Runtime.Engine.Mesher
                         v3.y -= 0.25f;
                         v4.y -= 0.25f;
                     }
+
                     break;
                 case VoxelType.Flora:
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
             }
-            
+
             // 1 Bottom Left
             Vertex vertex1 = new()
             {
@@ -441,81 +436,7 @@ namespace Runtime.Engine.Mesher
                 indexBuffer.Add(vertexCount + 2 + mask.Normal); // 3 1
             }
 
-            if ((normal != new int3(0, 1, 0)).AndReduce()) return 4;
-
-            normal *= -1;
-
-            // 1 Bottom Left
-            Vertex vertex5 = new()
-            {
-                Position = v1,
-                Normal = normal,
-                UV0 = uv1,
-                UV1 = new float2(0, 0),
-                UV2 = mask.AO
-            };
-
-            // 2 Top Left
-            Vertex vertex6 = new()
-            {
-                Position = v2,
-                Normal = normal,
-                UV0 = uv2,
-                UV1 = new float2(0, 1),
-                UV2 = mask.AO
-            };
-
-            // 3 Bottom Right
-            Vertex vertex7 = new()
-            {
-                Position = v3,
-                Normal = normal,
-                UV0 = uv3,
-                UV1 = new float2(1, 0),
-                UV2 = mask.AO
-            };
-
-            // 4 Top Right
-            Vertex vertex8 = new()
-            {
-                Position = v4,
-                Normal = normal,
-                UV0 = uv4,
-                UV1 = new float2(1, 1),
-                UV2 = mask.AO
-            };
-
-            mesh.VertexBuffer.Add(vertex5);
-            mesh.VertexBuffer.Add(vertex6);
-            mesh.VertexBuffer.Add(vertex7);
-            mesh.VertexBuffer.Add(vertex8);
-
-            vertexCount += 4;
-
-            if (mask.AO[0] + mask.AO[3] > mask.AO[1] + mask.AO[2])
-            {
-                // + -
-                indexBuffer.Add(vertexCount + 2 + mask.Normal); // 3 1
-                indexBuffer.Add(vertexCount + 2 - mask.Normal); // 1 3
-                indexBuffer.Add(vertexCount); // 0 0
-
-                indexBuffer.Add(vertexCount + 1 - mask.Normal); // 0 2
-                indexBuffer.Add(vertexCount + 1 + mask.Normal); // 2 0
-                indexBuffer.Add(vertexCount + 3); // 3 3
-            }
-            else
-            {
-                // + -
-                indexBuffer.Add(vertexCount + 1 - mask.Normal); // 0 2
-                indexBuffer.Add(vertexCount + 1 + mask.Normal); // 2 0
-                indexBuffer.Add(vertexCount + 1); // 1 1
-
-                indexBuffer.Add(vertexCount + 2 + mask.Normal); // 3 1
-                indexBuffer.Add(vertexCount + 2 - mask.Normal); // 1 3
-                indexBuffer.Add(vertexCount + 2); // 2 2
-            }
-
-            return 8;
+            return 4;
         }
 
         [BurstCompile]

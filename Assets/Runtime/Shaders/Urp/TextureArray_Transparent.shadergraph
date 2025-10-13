@@ -749,7 +749,7 @@
     "m_ZTestMode": 4,
     "m_ZWriteControl": 0,
     "m_AlphaMode": 0,
-    "m_RenderFace": 2,
+    "m_RenderFace": 0,
     "m_AlphaClip": false,
     "m_CastShadows": true,
     "m_ReceiveShadows": true,
@@ -1374,8 +1374,8 @@
     "m_ObjectId": "9e5e0742c1d04f10a22ffa10d01e089a",
     "m_Title": "Teture Array",
     "m_Position": {
-        "x": -923.9999389648438,
-        "y": 49.000030517578128
+        "x": -923.9998779296875,
+        "y": 48.999996185302737
     }
 }
 
