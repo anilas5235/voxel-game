@@ -10,6 +10,9 @@ namespace Runtime.Engine.Mesher
     [GenerateTestsForBurstCompatibility]
     public static class GreedyMesher
     {
+        // Small UV inset to reduce atlas bleeding at tile borders (in tile UV units)
+        private const float UVEdgeInset = 0.005f;
+
         // Helper container for face UVs
         private struct UVQuad
         {
@@ -23,19 +26,24 @@ namespace Runtime.Engine.Mesher
         private static UVQuad ComputeFaceUVs(int3 normal, int width, int height, int uvz)
         {
             UVQuad uv;
+            float uMin = UVEdgeInset;
+            float vMin = UVEdgeInset;
+            float uMaxW = math.max(UVEdgeInset, width - UVEdgeInset);
+            float vMaxH = math.max(UVEdgeInset, height - UVEdgeInset);
+
             if (normal.x is 1 or -1)
             {
-                uv.Uv1 = new float3(0, 0, uvz);
-                uv.Uv2 = new float3(0, width, uvz);
-                uv.Uv3 = new float3(height, 0, uvz);
-                uv.Uv4 = new float3(height, width, uvz);
+                uv.Uv1 = new float3(vMin, uMin, uvz);      // (0,0)
+                uv.Uv2 = new float3(vMin, uMaxW, uvz);     // (0,width)
+                uv.Uv3 = new float3(vMaxH, uMin, uvz);     // (height,0)
+                uv.Uv4 = new float3(vMaxH, uMaxW, uvz);    // (height,width)
             }
             else
             {
-                uv.Uv1 = new float3(0, 0, uvz);
-                uv.Uv2 = new float3(width, 0, uvz);
-                uv.Uv3 = new float3(0, height, uvz);
-                uv.Uv4 = new float3(width, height, uvz);
+                uv.Uv1 = new float3(uMin, vMin, uvz);      // (0,0)
+                uv.Uv2 = new float3(uMaxW, vMin, uvz);     // (width,0)
+                uv.Uv3 = new float3(uMin, vMaxH, uvz);     // (0,height)
+                uv.Uv4 = new float3(uMaxW, vMaxH, uvz);    // (width,height)
             }
             return uv;
         }
@@ -451,11 +459,15 @@ namespace Runtime.Engine.Mesher
             float3 v3, float3 v4)
         {
             int uvz = info.TexUp;
+            float u0 = UVEdgeInset;
+            float v0 = UVEdgeInset;
+            float u1 = 1f - UVEdgeInset;
+            float v1U = 1f - UVEdgeInset;
             Vertex vertex1 = new()
             {
                 Position = v1,
                 Normal = new float3(0, 1, 0),
-                UV0 = new float3(0, 0, uvz),
+                UV0 = new float3(u0, v0, uvz),
                 UV1 = new float2(0, 0),
                 UV2 = info.OverrideColor
             };
@@ -463,7 +475,7 @@ namespace Runtime.Engine.Mesher
             {
                 Position = v2,
                 Normal = new float3(0, 1, 0),
-                UV0 = new float3(0, 1, uvz),
+                UV0 = new float3(u0, v1U, uvz),
                 UV1 = new float2(0, 1),
                 UV2 = info.OverrideColor
             };
@@ -471,7 +483,7 @@ namespace Runtime.Engine.Mesher
             {
                 Position = v3,
                 Normal = new float3(0, 1, 0),
-                UV0 = new float3(1, 0, uvz),
+                UV0 = new float3(u1, v0, uvz),
                 UV1 = new float2(1, 0),
                 UV2 = info.OverrideColor
             };
@@ -479,7 +491,7 @@ namespace Runtime.Engine.Mesher
             {
                 Position = v4,
                 Normal = new float3(0, 1, 0),
-                UV0 = new float3(1, 1, uvz),
+                UV0 = new float3(u1, v1U, uvz),
                 UV1 = new float2(1, 1),
                 UV2 = info.OverrideColor
             };
