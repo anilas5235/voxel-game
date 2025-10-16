@@ -1,5 +1,4 @@
-﻿using System;
-using Runtime.Engine.Data;
+﻿using Runtime.Engine.Data;
 using Runtime.Engine.Utils.Extensions;
 using Runtime.Engine.Voxels.Data;
 using Unity.Burst;
@@ -11,6 +10,86 @@ namespace Runtime.Engine.Mesher
     [GenerateTestsForBurstCompatibility]
     public static class GreedyMesher
     {
+        // Helper container for face UVs
+        private struct UVQuad
+        {
+            public float3 Uv1, Uv2, Uv3, Uv4;
+        }
+
+        [BurstCompile]
+        private static MeshLayer ToLayer(byte meshIndex) => (MeshLayer)meshIndex;
+
+        [BurstCompile]
+        private static UVQuad ComputeFaceUVs(int3 normal, int width, int height, int uvz)
+        {
+            UVQuad uv;
+            if (normal.x is 1 or -1)
+            {
+                uv.Uv1 = new float3(0, 0, uvz);
+                uv.Uv2 = new float3(0, width, uvz);
+                uv.Uv3 = new float3(height, 0, uvz);
+                uv.Uv4 = new float3(height, width, uvz);
+            }
+            else
+            {
+                uv.Uv1 = new float3(0, 0, uvz);
+                uv.Uv2 = new float3(width, 0, uvz);
+                uv.Uv3 = new float3(0, height, uvz);
+                uv.Uv4 = new float3(width, height, uvz);
+            }
+            return uv;
+        }
+
+        [BurstCompile]
+        private static void AddQuadIndices(NativeList<int> indexBuffer, int baseVertexIndex, sbyte normalSign, int4 ao)
+        {
+            // Choose diagonal based on AO to minimize artifacts
+            if (ao[0] + ao[3] > ao[1] + ao[2])
+            {
+                indexBuffer.Add(baseVertexIndex);
+                indexBuffer.Add(baseVertexIndex + 2 - normalSign);
+                indexBuffer.Add(baseVertexIndex + 2 + normalSign);
+
+                indexBuffer.Add(baseVertexIndex + 3);
+                indexBuffer.Add(baseVertexIndex + 1 + normalSign);
+                indexBuffer.Add(baseVertexIndex + 1 - normalSign);
+            }
+            else
+            {
+                indexBuffer.Add(baseVertexIndex + 1);
+                indexBuffer.Add(baseVertexIndex + 1 + normalSign);
+                indexBuffer.Add(baseVertexIndex + 1 - normalSign);
+
+                indexBuffer.Add(baseVertexIndex + 2);
+                indexBuffer.Add(baseVertexIndex + 2 - normalSign);
+                indexBuffer.Add(baseVertexIndex + 2 + normalSign);
+            }
+        }
+
+        [BurstCompile]
+        private static void LowerLiquidTopFaceIfNeeded(VoxelType voxelType, int3 normal, ref float3 v1, ref float3 v2, ref float3 v3, ref float3 v4)
+        {
+            if (voxelType == VoxelType.Liquid && normal.y == 1)
+            {
+                v1.y -= 0.25f;
+                v2.y -= 0.25f;
+                v3.y -= 0.25f;
+                v4.y -= 0.25f;
+            }
+        }
+
+        [BurstCompile]
+        private static int RenderFloraCross(MeshBuffer mesh, VoxelRenderDef info, int vertexCount, float3 v1, float3 v2, float3 v3, float3 v4, int3 normal)
+        {
+            if (normal.y != 1) return 0;
+            // First quad (XZ diagonal)
+            AddFloraQuad(mesh, info, vertexCount, v1 - new float3(0, 1, 0), v1, v4 - new float3(0, 1, 0), v4);
+            vertexCount += 4;
+            // Second quad (ZX diagonal)
+            AddFloraQuad(mesh, info, vertexCount, v3 - new float3(0, 1, 0), v3, v2 - new float3(0, 1, 0), v2);
+            return 8;
+        }
+
         [BurstCompile]
         private readonly struct Mask
         {
@@ -18,22 +97,10 @@ namespace Runtime.Engine.Mesher
 
             internal readonly byte MeshIndex;
             internal readonly sbyte Normal;
-
             internal readonly int4 AO;
-
             // Prevent greedy-merging for certain voxel faces (e.g., Flora)
-            internal readonly bool NoGreedy;
-
-            public Mask(ushort voxelId, byte meshIndex, sbyte normal, int4 ao)
-            {
-                MeshIndex = meshIndex;
-                VoxelId = voxelId;
-                Normal = normal;
-                AO = ao;
-                NoGreedy = false;
-            }
-
-            public Mask(ushort voxelId, byte meshIndex, sbyte normal, int4 ao, bool noGreedy)
+            internal readonly byte NoGreedy;
+            public Mask(ushort voxelId, byte meshIndex, sbyte normal, int4 ao, byte noGreedy)
             {
                 MeshIndex = meshIndex;
                 VoxelId = voxelId;
@@ -47,7 +114,7 @@ namespace Runtime.Engine.Mesher
         private static bool CompareMask(Mask m1, Mask m2)
         {
             // Do not merge if either side explicitly disables greedy merging
-            if (m1.NoGreedy || m2.NoGreedy) return false;
+            if (m1.NoGreedy == 1 || m2.NoGreedy == 1) return false;
             return
                 m1.MeshIndex == m2.MeshIndex &&
                 m1.VoxelId == m2.VoxelId &&
@@ -80,8 +147,8 @@ namespace Runtime.Engine.Mesher
 
             for (int direction = 0; direction < 3; direction++)
             {
-                int axis1 = (direction + 1) % 3;
-                int axis2 = (direction + 2) % 3;
+                int axis1 = (direction + 1) % 3; // U axis
+                int axis2 = (direction + 2) % 3; // V axis
 
                 int mainAxisLimit = size[direction];
                 int axis1Limit = size[axis1];
@@ -98,7 +165,8 @@ namespace Runtime.Engine.Mesher
 
                 for (chunkItr[direction] = -1; chunkItr[direction] < mainAxisLimit;)
                 {
-                    ComputeNormalMask(accessor, chunkPos, chunkItr, directionMask, axis1, axis2, axis1Limit, axis2Limit,
+                    // Build mask for current slice
+                    BuildFaceMask(accessor, chunkPos, chunkItr, directionMask, axis1, axis2, axis1Limit, axis2Limit,
                         renderGenData, normalMask);
                     ++chunkItr[direction];
                     int n = 0;
@@ -140,7 +208,7 @@ namespace Runtime.Engine.Mesher
         }
 
         [BurstCompile]
-        private static void ComputeNormalMask(ChunkAccessor accessor, int3 chunkPos, int3 chunkItr, int3 directionMask,
+        private static void BuildFaceMask(ChunkAccessor accessor, int3 chunkPos, int3 chunkItr, int3 directionMask,
             int axis1, int axis2, int axis1Limit, int axis2Limit, VoxelEngineRenderGenData renderGenData,
             NativeArray<Mask> normalMask)
         {
@@ -151,10 +219,8 @@ namespace Runtime.Engine.Mesher
                 {
                     ushort currentVoxel = accessor.GetVoxelInChunk(chunkPos, chunkItr);
                     ushort compareVoxel = accessor.GetVoxelInChunk(chunkPos, chunkItr + directionMask);
-                    VoxelRenderDef currentDef = renderGenData.GetRenderDef(currentVoxel);
-                    VoxelRenderDef compareDef = renderGenData.GetRenderDef(compareVoxel);
-                    byte currentMeshIndex = currentDef.MeshIndex;
-                    byte compareMeshIndex = compareDef.MeshIndex;
+                    byte currentMeshIndex = GetMeshIndex(currentVoxel, renderGenData);
+                    byte compareMeshIndex = GetMeshIndex(compareVoxel, renderGenData);
                     if (currentMeshIndex == compareMeshIndex)
                     {
                         normalMask[n++] = default;
@@ -162,17 +228,18 @@ namespace Runtime.Engine.Mesher
                     else
                     {
                         // Disable greedy merge if either side is Flora
-                        bool noGreedy = currentDef.VoxelType == VoxelType.Flora ||
-                                        compareDef.VoxelType == VoxelType.Flora;
+                        bool eitherIsFlora = renderGenData.GetRenderDef(currentVoxel).VoxelType == VoxelType.Flora ||
+                                             renderGenData.GetRenderDef(compareVoxel).VoxelType == VoxelType.Flora;
+                        byte noGreedy = eitherIsFlora ? (byte)1 : (byte)0;
+
                         if (currentMeshIndex < compareMeshIndex)
                         {
-                            int4 ao = ComputeAOMask(accessor, renderGenData, chunkPos, chunkItr + directionMask, axis1,
-                                axis2);
+                            var ao = ComputeAOMask(accessor, renderGenData, chunkPos, chunkItr + directionMask, axis1, axis2);
                             normalMask[n++] = new Mask(currentVoxel, currentMeshIndex, 1, ao, noGreedy);
                         }
                         else
                         {
-                            int4 ao = ComputeAOMask(accessor, renderGenData, chunkPos, chunkItr, axis1, axis2);
+                            var ao = ComputeAOMask(accessor, renderGenData, chunkPos, chunkItr, axis1, axis2);
                             normalMask[n++] = new Mask(compareVoxel, compareMeshIndex, -1, ao, noGreedy);
                         }
                     }
@@ -181,11 +248,10 @@ namespace Runtime.Engine.Mesher
         }
 
         [BurstCompile]
-        private static int FindQuadWidth(NativeArray<Mask> normalMask, int n, Mask currentMask, int i,
-            int axis1LimitMax)
+        private static int FindQuadWidth(NativeArray<Mask> normalMask, int n, Mask currentMask, int start, int max)
         {
             int width;
-            for (width = 1; i + width < axis1LimitMax && CompareMask(normalMask[n + width], currentMask); width++)
+            for (width = 1; start + width < max && CompareMask(normalMask[n + width], currentMask); width++)
             {
             }
 
@@ -241,12 +307,15 @@ namespace Runtime.Engine.Mesher
             int width, int height, int3 v1, int3 v2, int3 v3, int3 v4
         )
         {
-            return mask.MeshIndex switch
+            switch (ToLayer(mask.MeshIndex))
             {
-                0 => CreateQuadMesh0(mesh, info, vertexCount, mask, directionMask, width, height, v1, v2, v3, v4),
-                1 => CreateQuadMesh1(mesh, info, vertexCount, mask, directionMask, width, height, v1, v2, v3, v4),
-                _ => 0
-            };
+                case MeshLayer.Solid:
+                    return CreateQuadMesh0(mesh, info, vertexCount, mask, directionMask, width, height, v1, v2, v3, v4);
+                case MeshLayer.Transparent:
+                    return CreateQuadMesh1(mesh, info, vertexCount, mask, directionMask, width, height, v1, v2, v3, v4);
+                default:
+                    return 0;
+            }
         }
 
         [BurstCompile]
@@ -257,31 +326,15 @@ namespace Runtime.Engine.Mesher
         {
             int3 normal = directionMask * mask.Normal;
 
-            // Main UV
-            float3 uv1, uv2, uv3, uv4;
             int uvz = info.GetTextureId(normal.ToDirection());
-
-            if (normal.x is 1 or -1)
-            {
-                uv1 = new float3(0, 0, uvz);
-                uv2 = new float3(0, width, uvz);
-                uv3 = new float3(height, 0, uvz);
-                uv4 = new float3(height, width, uvz);
-            }
-            else
-            {
-                uv1 = new float3(0, 0, uvz);
-                uv2 = new float3(width, 0, uvz);
-                uv3 = new float3(0, height, uvz);
-                uv4 = new float3(width, height, uvz);
-            }
+            UVQuad uv = ComputeFaceUVs(normal, width, height, uvz);
 
             // 1 Bottom Left
             Vertex vertex1 = new()
             {
                 Position = v1,
                 Normal = normal,
-                UV0 = uv1,
+                UV0 = uv.Uv1,
                 UV1 = new float2(0, 0),
                 UV2 = mask.AO
             };
@@ -291,7 +344,7 @@ namespace Runtime.Engine.Mesher
             {
                 Position = v2,
                 Normal = normal,
-                UV0 = uv2,
+                UV0 = uv.Uv2,
                 UV1 = new float2(0, 1),
                 UV2 = mask.AO
             };
@@ -301,7 +354,7 @@ namespace Runtime.Engine.Mesher
             {
                 Position = v3,
                 Normal = normal,
-                UV0 = uv3,
+                UV0 = uv.Uv3,
                 UV1 = new float2(1, 0),
                 UV2 = mask.AO
             };
@@ -311,7 +364,7 @@ namespace Runtime.Engine.Mesher
             {
                 Position = v4,
                 Normal = normal,
-                UV0 = uv4,
+                UV0 = uv.Uv4,
                 UV1 = new float2(1, 1),
                 UV2 = mask.AO
             };
@@ -321,31 +374,7 @@ namespace Runtime.Engine.Mesher
             mesh.VertexBuffer.Add(vertex3);
             mesh.VertexBuffer.Add(vertex4);
 
-            NativeList<int> indexBuffer = mesh.IndexBuffer0;
-
-            if (mask.AO[0] + mask.AO[3] > mask.AO[1] + mask.AO[2])
-            {
-                // + -
-                indexBuffer.Add(vertexCount); // 0 0
-                indexBuffer.Add(vertexCount + 2 - mask.Normal); // 1 3
-                indexBuffer.Add(vertexCount + 2 + mask.Normal); // 3 1
-
-                indexBuffer.Add(vertexCount + 3); // 3 3
-                indexBuffer.Add(vertexCount + 1 + mask.Normal); // 2 0
-                indexBuffer.Add(vertexCount + 1 - mask.Normal); // 0 2
-            }
-            else
-            {
-                // + -
-                indexBuffer.Add(vertexCount + 1); // 1 1
-                indexBuffer.Add(vertexCount + 1 + mask.Normal); // 2 0
-                indexBuffer.Add(vertexCount + 1 - mask.Normal); // 0 2
-
-                indexBuffer.Add(vertexCount + 2); // 2 2
-                indexBuffer.Add(vertexCount + 2 - mask.Normal); // 1 3
-                indexBuffer.Add(vertexCount + 2 + mask.Normal); // 3 1
-            }
-
+            AddQuadIndices(mesh.IndexBuffer0, vertexCount, mask.Normal, mask.AO);
             return 4;
         }
 
@@ -358,56 +387,23 @@ namespace Runtime.Engine.Mesher
             int3 normal = directionMask * mask.Normal;
             int uvz = info.GetTextureId(normal.ToDirection());
 
-            // Main UV
-            float3 uv1, uv2, uv3, uv4;
-            if (normal.x is 1 or -1)
+            // Flora uses crossed quads, early out
+            if (info.VoxelType == VoxelType.Flora)
             {
-                uv1 = new float3(0, 0, uvz);
-                uv2 = new float3(0, width, uvz);
-                uv3 = new float3(height, 0, uvz);
-                uv4 = new float3(height, width, uvz);
-            }
-            else
-            {
-                uv1 = new float3(0, 0, uvz);
-                uv2 = new float3(width, 0, uvz);
-                uv3 = new float3(0, height, uvz);
-                uv4 = new float3(width, height, uvz);
+                return RenderFloraCross(mesh, info, vertexCount, v1, v2, v3, v4, normal);
             }
 
-            switch (info.VoxelType)
-            {
-                case VoxelType.Full:
-                    break;
-                case VoxelType.Liquid:
-                    if (normal.y == 1)
-                    {
-                        v1.y -= 0.25f;
-                        v2.y -= 0.25f;
-                        v3.y -= 0.25f;
-                        v4.y -= 0.25f;
-                    }
+            // Liquids: lower the top face a bit
+            LowerLiquidTopFaceIfNeeded(info.VoxelType, normal, ref v1, ref v2, ref v3, ref v4);
 
-                    break;
-                case VoxelType.Flora:
-                    if (normal.y != 1) return 0;
-                    // Draw two crossed quads for grass
-                    // First quad (XZ diagonal)
-                    AddFloraQuad(mesh, info, vertexCount, v1 - new float3(0, 1, 0), v1, v4 - new float3(0, 1, 0), v4);
-                    vertexCount += 4;
-                    // Second quad (ZX diagonal)
-                    AddFloraQuad(mesh, info, vertexCount, v3 - new float3(0, 1, 0), v3, v2 - new float3(0, 1, 0), v2);
-                    return 8;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
+            UVQuad uv = ComputeFaceUVs(normal, width, height, uvz);
 
             // 1 Bottom Left
             Vertex vertex1 = new()
             {
                 Position = v1,
                 Normal = normal,
-                UV0 = uv1,
+                UV0 = uv.Uv1,
                 UV1 = new float2(0, 0),
                 UV2 = info.OverrideColor
             };
@@ -417,7 +413,7 @@ namespace Runtime.Engine.Mesher
             {
                 Position = v2,
                 Normal = normal,
-                UV0 = uv2,
+                UV0 = uv.Uv2,
                 UV1 = new float2(0, 1),
                 UV2 = info.OverrideColor
             };
@@ -427,7 +423,7 @@ namespace Runtime.Engine.Mesher
             {
                 Position = v3,
                 Normal = normal,
-                UV0 = uv3,
+                UV0 = uv.Uv3,
                 UV1 = new float2(1, 0),
                 UV2 = info.OverrideColor
             };
@@ -437,7 +433,7 @@ namespace Runtime.Engine.Mesher
             {
                 Position = v4,
                 Normal = normal,
-                UV0 = uv4,
+                UV0 = uv.Uv4,
                 UV1 = new float2(1, 1),
                 UV2 = info.OverrideColor
             };
@@ -447,29 +443,7 @@ namespace Runtime.Engine.Mesher
             mesh.VertexBuffer.Add(vertex3);
             mesh.VertexBuffer.Add(vertex4);
 
-            NativeList<int> indexBuffer = mesh.IndexBuffer1;
-
-            if (mask.AO[0] + mask.AO[3] > mask.AO[1] + mask.AO[2])
-            {
-                // + -
-                indexBuffer.Add(vertexCount); // 0 0
-                indexBuffer.Add(vertexCount + 2 - mask.Normal); // 1 3
-                indexBuffer.Add(vertexCount + 2 + mask.Normal); // 3 1
-                indexBuffer.Add(vertexCount + 3); // 3 3
-                indexBuffer.Add(vertexCount + 1 + mask.Normal); // 2 0
-                indexBuffer.Add(vertexCount + 1 - mask.Normal); // 0 2
-            }
-            else
-            {
-                // + -
-                indexBuffer.Add(vertexCount + 1); // 1 1
-                indexBuffer.Add(vertexCount + 1 + mask.Normal); // 2 0
-                indexBuffer.Add(vertexCount + 1 - mask.Normal); // 0 2
-                indexBuffer.Add(vertexCount + 2); // 2 2
-                indexBuffer.Add(vertexCount + 2 - mask.Normal); // 1 3
-                indexBuffer.Add(vertexCount + 2 + mask.Normal); // 3 1
-            }
-
+            AddQuadIndices(mesh.IndexBuffer1, vertexCount, mask.Normal, mask.AO);
             return 4;
         }
 

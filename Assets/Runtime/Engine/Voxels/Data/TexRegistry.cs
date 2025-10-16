@@ -49,6 +49,7 @@ namespace Runtime.Engine.Voxels.Data
             int index = 0;
             foreach (KeyValuePair<Texture2D, int> kvp in _textureToId)
             {
+                VoxelEngineLogger.Info<TexRegistry>($"copy texture {kvp.Key.name} to texture array");
                 Graphics.CopyTexture(kvp.Key, 0, 0, textureArray, index, 0);
                 index++;
             }

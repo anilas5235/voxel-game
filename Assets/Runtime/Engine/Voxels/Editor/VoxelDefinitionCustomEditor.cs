@@ -13,10 +13,17 @@ namespace Runtime.Engine.Voxels.Editor
 
             serializedObject.Update();
 
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("meshIndex"));
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("textureMode"));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("meshLayer"));
+            if (voxelDef.voxelType != VoxelType.Flora)
+            {
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("textureMode"));
+            }
+            else
+            {
+                voxelDef.TextureMode = VoxelDefinition.VoxelTexMode.AllSame;
+            }
 
-            if (voxelDef.meshIndex == MeshIndex.Transparent)
+            if (voxelDef.meshLayer == MeshLayer.Transparent)
             {
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("voxelType"));
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("overrideColor"));
@@ -47,7 +54,15 @@ namespace Runtime.Engine.Voxels.Editor
                     throw new ArgumentOutOfRangeException();
             }
 
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("collision"));
+            if (voxelDef.voxelType != VoxelType.Flora)
+            {
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("collision"));
+            }
+            else
+            {
+                voxelDef.collision = false;
+            }
+
             serializedObject.ApplyModifiedProperties();
         }
     }

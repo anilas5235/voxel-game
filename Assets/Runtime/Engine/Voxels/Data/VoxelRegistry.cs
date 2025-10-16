@@ -44,7 +44,7 @@ namespace Runtime.Engine.Voxels.Data
         {
             VoxelRenderDef type = new()
             {
-                MeshIndex = (byte)definition.meshIndex,
+                MeshIndex = (byte)definition.meshLayer,
                 VoxelType = definition.voxelType,
                 OverrideColor = ConvertColor(definition.overrideColor),
                 Collision = definition.collision,
@@ -82,10 +82,10 @@ namespace Runtime.Engine.Voxels.Data
         private int RegisterTexture(VoxelDefinition definition, Direction dir)
         {
             Texture2D tex = definition.GetTexture(dir);
-            return definition.meshIndex switch
+            return definition.meshLayer switch
             {
-                MeshIndex.Solid => _solidTexRegistry.RegisterTexture(tex),
-                MeshIndex.Transparent => _transparentTexRegistry.RegisterTexture(tex),
+                MeshLayer.Solid => _solidTexRegistry.RegisterTexture(tex),
+                MeshLayer.Transparent => _transparentTexRegistry.RegisterTexture(tex),
                 _ => -1
             };
         }
@@ -129,12 +129,12 @@ namespace Runtime.Engine.Voxels.Data
             _transparentTexRegistry.PrepareTextureArray();
         }
 
-        private Texture2DArray GetTextureArray(MeshIndex meshIndex)
+        private Texture2DArray GetTextureArray(MeshLayer meshLayer)
         {
-            return meshIndex switch
+            return meshLayer switch
             {
-                MeshIndex.Solid => _solidTexRegistry.TextureArray,
-                MeshIndex.Transparent => _transparentTexRegistry.TextureArray,
+                MeshLayer.Solid => _solidTexRegistry.TextureArray,
+                MeshLayer.Transparent => _transparentTexRegistry.TextureArray,
                 _ => null
             };
         }
@@ -144,7 +144,7 @@ namespace Runtime.Engine.Voxels.Data
             _voxelEngineRenderGenData.VoxelRenderDefs.Dispose();
         }
 
-        public void ApplyToMaterial(Material material, MeshIndex solid)
+        public void ApplyToMaterial(Material material, MeshLayer solid)
         {
             if (material)
             {

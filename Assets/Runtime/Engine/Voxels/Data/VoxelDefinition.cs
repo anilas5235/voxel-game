@@ -13,7 +13,7 @@ namespace Runtime.Engine.Voxels.Data
         }
 
         [SerializeField] private VoxelTexMode textureMode = VoxelTexMode.AllSame;
-        public MeshIndex meshIndex;
+        public MeshLayer meshLayer;
         
         public VoxelType voxelType;
         public Color overrideColor = Color.white;
@@ -29,7 +29,7 @@ namespace Runtime.Engine.Voxels.Data
 
         public bool collision = true;
 
-        public VoxelTexMode TextureMode => textureMode;
+        public VoxelTexMode TextureMode { get => textureMode; set => textureMode = value; }
 
         public Texture2D GetTexture(Direction direction)
         {

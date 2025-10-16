@@ -27,8 +27,8 @@ namespace Runtime.Engine.Voxels.Data
 
         private void UpdateMaterials()
         {
-            VoxelRegistry.ApplyToMaterial(voxelSolidMaterial, MeshIndex.Solid);
-            VoxelRegistry.ApplyToMaterial(voxelTransparentMaterial, MeshIndex.Transparent);
+            VoxelRegistry.ApplyToMaterial(voxelSolidMaterial, MeshLayer.Solid);
+            VoxelRegistry.ApplyToMaterial(voxelTransparentMaterial, MeshLayer.Transparent);
         }
 
         private void RegisterPackage(VoxelDataPackage package)

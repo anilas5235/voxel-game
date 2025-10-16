@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Water
   m_EditorClassIdentifier: 
   textureMode: 0
-  meshIndex: 1
+  meshLayer: 1
   voxelType: 1
   overrideColor: {r: 0, g: 0.30014905, b: 0.6132076, a: 0.9098039}
   top: {fileID: 0}
