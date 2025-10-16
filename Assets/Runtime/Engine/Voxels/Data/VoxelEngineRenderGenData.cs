@@ -9,11 +9,6 @@ namespace Runtime.Engine.Voxels.Data
     {
         [NativeDisableParallelForRestriction] internal NativeArray<VoxelRenderDef> VoxelRenderDefs;
 
-        public int GetTextureId(ushort id, Direction dir)
-        {
-            return VoxelRenderDefs[id].GetTextureId(dir);
-        }
-
         public void Dispose()
         {
             VoxelRenderDefs.Dispose();

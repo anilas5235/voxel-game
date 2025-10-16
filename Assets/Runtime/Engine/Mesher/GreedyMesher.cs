@@ -18,7 +18,11 @@ namespace Runtime.Engine.Mesher
 
             internal readonly byte MeshIndex;
             internal readonly sbyte Normal;
+
             internal readonly int4 AO;
+
+            // Prevent greedy-merging for certain voxel faces (e.g., Flora)
+            internal readonly bool NoGreedy;
 
             public Mask(ushort voxelId, byte meshIndex, sbyte normal, int4 ao)
             {
@@ -26,12 +30,24 @@ namespace Runtime.Engine.Mesher
                 VoxelId = voxelId;
                 Normal = normal;
                 AO = ao;
+                NoGreedy = false;
+            }
+
+            public Mask(ushort voxelId, byte meshIndex, sbyte normal, int4 ao, bool noGreedy)
+            {
+                MeshIndex = meshIndex;
+                VoxelId = voxelId;
+                Normal = normal;
+                AO = ao;
+                NoGreedy = noGreedy;
             }
         }
 
         [BurstCompile]
         private static bool CompareMask(Mask m1, Mask m2)
         {
+            // Do not merge if either side explicitly disables greedy merging
+            if (m1.NoGreedy || m2.NoGreedy) return false;
             return
                 m1.MeshIndex == m2.MeshIndex &&
                 m1.VoxelId == m2.VoxelId &&
@@ -95,8 +111,7 @@ namespace Runtime.Engine.Mesher
                                 Mask currentMask = normalMask[n];
                                 chunkItr[axis1] = i;
                                 chunkItr[axis2] = j;
-                                int width = FindQuadWidth(normalMask, n, currentMask, axis1Limit, axis1, axis2, i,
-                                    axis1Limit);
+                                int width = FindQuadWidth(normalMask, n, currentMask, i, axis1Limit);
                                 int height = FindQuadHeight(normalMask, n, currentMask, axis1Limit, axis2Limit, width,
                                     j);
                                 deltaAxis1[axis1] = width;
@@ -136,29 +151,38 @@ namespace Runtime.Engine.Mesher
                 {
                     ushort currentVoxel = accessor.GetVoxelInChunk(chunkPos, chunkItr);
                     ushort compareVoxel = accessor.GetVoxelInChunk(chunkPos, chunkItr + directionMask);
-                    byte currentMeshIndex = GetMeshIndex(currentVoxel, renderGenData);
-                    byte compareMeshIndex = GetMeshIndex(compareVoxel, renderGenData);
+                    VoxelRenderDef currentDef = renderGenData.GetRenderDef(currentVoxel);
+                    VoxelRenderDef compareDef = renderGenData.GetRenderDef(compareVoxel);
+                    byte currentMeshIndex = currentDef.MeshIndex;
+                    byte compareMeshIndex = compareDef.MeshIndex;
                     if (currentMeshIndex == compareMeshIndex)
                     {
                         normalMask[n++] = default;
                     }
-                    else if (currentMeshIndex < compareMeshIndex)
-                    {
-                        normalMask[n++] = new Mask(currentVoxel, currentMeshIndex, 1,
-                            ComputeAOMask(accessor, renderGenData, chunkPos, chunkItr + directionMask, axis1, axis2));
-                    }
                     else
                     {
-                        normalMask[n++] = new Mask(compareVoxel, compareMeshIndex, -1,
-                            ComputeAOMask(accessor, renderGenData, chunkPos, chunkItr, axis1, axis2));
+                        // Disable greedy merge if either side is Flora
+                        bool noGreedy = currentDef.VoxelType == VoxelType.Flora ||
+                                        compareDef.VoxelType == VoxelType.Flora;
+                        if (currentMeshIndex < compareMeshIndex)
+                        {
+                            int4 ao = ComputeAOMask(accessor, renderGenData, chunkPos, chunkItr + directionMask, axis1,
+                                axis2);
+                            normalMask[n++] = new Mask(currentVoxel, currentMeshIndex, 1, ao, noGreedy);
+                        }
+                        else
+                        {
+                            int4 ao = ComputeAOMask(accessor, renderGenData, chunkPos, chunkItr, axis1, axis2);
+                            normalMask[n++] = new Mask(compareVoxel, compareMeshIndex, -1, ao, noGreedy);
+                        }
                     }
                 }
             }
         }
 
         [BurstCompile]
-        private static int FindQuadWidth(NativeArray<Mask> normalMask, int n, Mask currentMask, int axis1Limit,
-            int axis1, int axis2, int i, int axis1LimitMax)
+        private static int FindQuadWidth(NativeArray<Mask> normalMask, int n, Mask currentMask, int i,
+            int axis1LimitMax)
         {
             int width;
             for (width = 1; i + width < axis1LimitMax && CompareMask(normalMask[n + width], currentMask); width++)

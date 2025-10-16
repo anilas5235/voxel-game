@@ -23,5 +23,5 @@ MonoBehaviour:
   right: {fileID: 0}
   left: {fileID: 0}
   side: {fileID: 0}
-  all: {fileID: 2800000, guid: d882af42369fa194c92b121b40b7795a, type: 3}
+  all: {fileID: 2800000, guid: d8414ed774e06144d93d388d260b9b75, type: 3}
   collision: 0
