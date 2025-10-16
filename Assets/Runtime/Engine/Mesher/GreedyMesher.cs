@@ -82,7 +82,8 @@ namespace Runtime.Engine.Mesher
 
                 for (chunkItr[direction] = -1; chunkItr[direction] < mainAxisLimit;)
                 {
-                    ComputeNormalMask(accessor, chunkPos, chunkItr, directionMask, axis1, axis2, axis1Limit, axis2Limit, renderGenData, normalMask);
+                    ComputeNormalMask(accessor, chunkPos, chunkItr, directionMask, axis1, axis2, axis1Limit, axis2Limit,
+                        renderGenData, normalMask);
                     ++chunkItr[direction];
                     int n = 0;
                     for (int j = 0; j < axis2Limit; j++)
@@ -94,11 +95,14 @@ namespace Runtime.Engine.Mesher
                                 Mask currentMask = normalMask[n];
                                 chunkItr[axis1] = i;
                                 chunkItr[axis2] = j;
-                                int width = FindQuadWidth(normalMask, n, currentMask, axis1Limit, axis1, axis2, i, axis1Limit);
-                                int height = FindQuadHeight(normalMask, n, currentMask, axis1Limit, axis2Limit, width, j);
+                                int width = FindQuadWidth(normalMask, n, currentMask, axis1Limit, axis1, axis2, i,
+                                    axis1Limit);
+                                int height = FindQuadHeight(normalMask, n, currentMask, axis1Limit, axis2Limit, width,
+                                    j);
                                 deltaAxis1[axis1] = width;
                                 deltaAxis2[axis2] = height;
-                                vertexCount += CreateAndAddQuad(mesh, renderGenData, currentMask, directionMask, width, height, chunkItr, deltaAxis1, deltaAxis2, vertexCount);
+                                vertexCount += CreateAndAddQuad(mesh, renderGenData, currentMask, directionMask, width,
+                                    height, chunkItr, deltaAxis1, deltaAxis2, vertexCount);
                                 ClearMaskRegion(normalMask, n, width, height, axis1Limit);
                                 deltaAxis1 = int3.zero;
                                 deltaAxis2 = int3.zero;
@@ -113,13 +117,17 @@ namespace Runtime.Engine.Mesher
                         }
                     }
                 }
+
                 normalMask.Dispose();
             }
+
             return mesh;
         }
 
         [BurstCompile]
-        private static void ComputeNormalMask(ChunkAccessor accessor, int3 chunkPos, int3 chunkItr, int3 directionMask, int axis1, int axis2, int axis1Limit, int axis2Limit, VoxelEngineRenderGenData renderGenData, NativeArray<Mask> normalMask)
+        private static void ComputeNormalMask(ChunkAccessor accessor, int3 chunkPos, int3 chunkItr, int3 directionMask,
+            int axis1, int axis2, int axis1Limit, int axis2Limit, VoxelEngineRenderGenData renderGenData,
+            NativeArray<Mask> normalMask)
         {
             int n = 0;
             for (chunkItr[axis2] = 0; chunkItr[axis2] < axis2Limit; ++chunkItr[axis2])
@@ -130,8 +138,7 @@ namespace Runtime.Engine.Mesher
                     ushort compareVoxel = accessor.GetVoxelInChunk(chunkPos, chunkItr + directionMask);
                     byte currentMeshIndex = GetMeshIndex(currentVoxel, renderGenData);
                     byte compareMeshIndex = GetMeshIndex(compareVoxel, renderGenData);
-                    // Always draw faces between different voxels, even if both are transparent
-                    if (currentMeshIndex == compareMeshIndex && currentMeshIndex != 1)
+                    if (currentMeshIndex == compareMeshIndex)
                     {
                         normalMask[n++] = default;
                     }
@@ -150,17 +157,20 @@ namespace Runtime.Engine.Mesher
         }
 
         [BurstCompile]
-        private static int FindQuadWidth(NativeArray<Mask> normalMask, int n, Mask currentMask, int axis1Limit, int axis1, int axis2, int i, int axis1LimitMax)
+        private static int FindQuadWidth(NativeArray<Mask> normalMask, int n, Mask currentMask, int axis1Limit,
+            int axis1, int axis2, int i, int axis1LimitMax)
         {
             int width;
             for (width = 1; i + width < axis1LimitMax && CompareMask(normalMask[n + width], currentMask); width++)
             {
             }
+
             return width;
         }
 
         [BurstCompile]
-        private static int FindQuadHeight(NativeArray<Mask> normalMask, int n, Mask currentMask, int axis1Limit, int axis2Limit, int width, int j)
+        private static int FindQuadHeight(NativeArray<Mask> normalMask, int n, Mask currentMask, int axis1Limit,
+            int axis2Limit, int width, int j)
         {
             int height;
             bool done = false;
@@ -172,13 +182,16 @@ namespace Runtime.Engine.Mesher
                     done = true;
                     break;
                 }
+
                 if (done) break;
             }
+
             return height;
         }
 
         [BurstCompile]
-        private static int CreateAndAddQuad(MeshBuffer mesh, VoxelEngineRenderGenData renderGenData, Mask currentMask, int3 directionMask, int width, int height, int3 chunkItr, int3 deltaAxis1, int3 deltaAxis2, int vertexCount)
+        private static int CreateAndAddQuad(MeshBuffer mesh, VoxelEngineRenderGenData renderGenData, Mask currentMask,
+            int3 directionMask, int width, int height, int3 chunkItr, int3 deltaAxis1, int3 deltaAxis2, int vertexCount)
         {
             return CreateQuad(
                 mesh, renderGenData.GetRenderDef(currentMask.VoxelId),
@@ -350,20 +363,16 @@ namespace Runtime.Engine.Mesher
                         v3.y -= 0.25f;
                         v4.y -= 0.25f;
                     }
+
                     break;
                 case VoxelType.Flora:
-                    if(normal.y != 1) break;
+                    if (normal.y != 1) return 0;
                     // Draw two crossed quads for grass
-                    float3 center = (v1 + v4) * 0.5f;
-                    float3 size = new(width, height, width); // Use width for X/Z, height for Y
-                    float3 offsetX = new(size.x * 0.5f, 0, 0);
-                    float3 offsetZ = new(0, 0, size.z * 0.5f);
-                    float3 offsetY = new(0, size.y, 0);
-
                     // First quad (XZ diagonal)
-                    AddFloraQuad(mesh, info, vertexCount, center - offsetX, center + offsetX + offsetY, center - offsetX + offsetY, center + offsetX);
+                    AddFloraQuad(mesh, info, vertexCount, v1 - new float3(0, 1, 0), v1, v4 - new float3(0, 1, 0), v4);
+                    vertexCount += 4;
                     // Second quad (ZX diagonal)
-                    AddFloraQuad(mesh, info, vertexCount + 4, center - offsetZ, center + offsetZ + offsetY, center - offsetZ + offsetY, center + offsetZ);
+                    AddFloraQuad(mesh, info, vertexCount, v3 - new float3(0, 1, 0), v3, v2 - new float3(0, 1, 0), v2);
                     return 8;
                 default:
                     throw new ArgumentOutOfRangeException();
@@ -440,7 +449,8 @@ namespace Runtime.Engine.Mesher
             return 4;
         }
 
-        private static void AddFloraQuad(MeshBuffer mesh, VoxelRenderDef info, int vertexCount, float3 v1, float3 v2, float3 v3, float3 v4)
+        private static void AddFloraQuad(MeshBuffer mesh, VoxelRenderDef info, int vertexCount, float3 v1, float3 v2,
+            float3 v3, float3 v4)
         {
             int uvz = info.TexUp;
             Vertex vertex1 = new()
@@ -455,7 +465,7 @@ namespace Runtime.Engine.Mesher
             {
                 Position = v2,
                 Normal = new float3(0, 1, 0),
-                UV0 = new float3(1, 1, uvz),
+                UV0 = new float3(0, 1, uvz),
                 UV1 = new float2(0, 1),
                 UV2 = info.OverrideColor
             };
@@ -463,7 +473,7 @@ namespace Runtime.Engine.Mesher
             {
                 Position = v3,
                 Normal = new float3(0, 1, 0),
-                UV0 = new float3(0, 1, uvz),
+                UV0 = new float3(1, 0, uvz),
                 UV1 = new float2(1, 0),
                 UV2 = info.OverrideColor
             };
@@ -471,7 +481,7 @@ namespace Runtime.Engine.Mesher
             {
                 Position = v4,
                 Normal = new float3(0, 1, 0),
-                UV0 = new float3(1, 0, uvz),
+                UV0 = new float3(1, 1, uvz),
                 UV1 = new float2(1, 1),
                 UV2 = info.OverrideColor
             };
@@ -546,4 +556,3 @@ namespace Runtime.Engine.Mesher
         }
     }
 }
-

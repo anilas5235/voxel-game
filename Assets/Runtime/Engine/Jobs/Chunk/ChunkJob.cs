@@ -34,7 +34,6 @@ namespace Runtime.Engine.Jobs.Chunk
 
             NoiseValue noise = NoiseProfile.GetNoise(position);
             ushort currentVoxelId = GetVoxel(ref noise);
-            ushort lastVoxelId = 0;
 
             int count = 0;
 
@@ -47,7 +46,7 @@ namespace Runtime.Engine.Jobs.Chunk
                 ushort voxelId = GetVoxel(ref noise);
 
                 // 50% chance to generate grass (id:5) on grassblock (id:3)
-                if (voxelId == 0 && lastVoxelId == 3 && random.NextFloat() < 0.5f)
+                if (voxelId == 0 && currentVoxelId == 3 && random.NextFloat() < 0.5f)
                 {
                     voxelId = 5;
                 }
@@ -59,7 +58,6 @@ namespace Runtime.Engine.Jobs.Chunk
                 else
                 {
                     data.AddVoxels(currentVoxelId, count);
-                    lastVoxelId = currentVoxelId;
                     currentVoxelId = voxelId;
                     count = 1;
                 }

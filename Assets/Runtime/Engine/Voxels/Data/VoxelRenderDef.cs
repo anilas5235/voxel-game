@@ -18,7 +18,7 @@ namespace Runtime.Engine.Voxels.Data
         public int TexBack;
 
         [BurstCompile]
-        public int GetTextureId(Direction dir)
+        public readonly int GetTextureId(Direction dir)
         {
             return dir switch
             {
