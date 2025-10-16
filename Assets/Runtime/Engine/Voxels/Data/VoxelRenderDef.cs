@@ -6,7 +6,7 @@ namespace Runtime.Engine.Voxels.Data
     [BurstCompile]
     public struct VoxelRenderDef
     {
-        public byte MeshIndex;
+        public MeshLayer MeshLayer;
         public VoxelType VoxelType;
         public float4 OverrideColor;
         public bool Collision;

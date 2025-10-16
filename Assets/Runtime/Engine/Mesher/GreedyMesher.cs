@@ -13,38 +13,35 @@ namespace Runtime.Engine.Mesher
         // Small UV inset to reduce atlas bleeding at tile borders (in tile UV units)
         private const float UVEdgeInset = 0.005f;
 
-        // Helper container for face UVs
+        [BurstCompile]
         private struct UVQuad
         {
             public float3 Uv1, Uv2, Uv3, Uv4;
         }
 
-        [BurstCompile]
-        private static MeshLayer ToLayer(byte meshIndex) => (MeshLayer)meshIndex;
 
         [BurstCompile]
         private static UVQuad ComputeFaceUVs(int3 normal, int width, int height, int uvz)
         {
             UVQuad uv;
-            float uMin = UVEdgeInset;
-            float vMin = UVEdgeInset;
             float uMaxW = math.max(UVEdgeInset, width - UVEdgeInset);
             float vMaxH = math.max(UVEdgeInset, height - UVEdgeInset);
 
             if (normal.x is 1 or -1)
             {
-                uv.Uv1 = new float3(vMin, uMin, uvz);      // (0,0)
-                uv.Uv2 = new float3(vMin, uMaxW, uvz);     // (0,width)
-                uv.Uv3 = new float3(vMaxH, uMin, uvz);     // (height,0)
-                uv.Uv4 = new float3(vMaxH, uMaxW, uvz);    // (height,width)
+                uv.Uv1 = new float3(UVEdgeInset, UVEdgeInset, uvz); // (0,0)
+                uv.Uv2 = new float3(UVEdgeInset, uMaxW, uvz); // (0,width)
+                uv.Uv3 = new float3(vMaxH, UVEdgeInset, uvz); // (height,0)
+                uv.Uv4 = new float3(vMaxH, uMaxW, uvz); // (height,width)
             }
             else
             {
-                uv.Uv1 = new float3(uMin, vMin, uvz);      // (0,0)
-                uv.Uv2 = new float3(uMaxW, vMin, uvz);     // (width,0)
-                uv.Uv3 = new float3(uMin, vMaxH, uvz);     // (0,height)
-                uv.Uv4 = new float3(uMaxW, vMaxH, uvz);    // (width,height)
+                uv.Uv1 = new float3(UVEdgeInset, UVEdgeInset, uvz); // (0,0)
+                uv.Uv2 = new float3(uMaxW, UVEdgeInset, uvz); // (width,0)
+                uv.Uv3 = new float3(UVEdgeInset, vMaxH, uvz); // (0,height)
+                uv.Uv4 = new float3(uMaxW, vMaxH, uvz); // (width,height)
             }
+
             return uv;
         }
 
@@ -75,19 +72,20 @@ namespace Runtime.Engine.Mesher
         }
 
         [BurstCompile]
-        private static void LowerLiquidTopFaceIfNeeded(VoxelType voxelType, int3 normal, ref float3 v1, ref float3 v2, ref float3 v3, ref float3 v4)
+        private static void LowerLiquidTopFaceIfNeeded(VoxelType voxelType, int3 normal, ref float3 v1, ref float3 v2,
+            ref float3 v3, ref float3 v4)
         {
-            if (voxelType == VoxelType.Liquid && normal.y == 1)
-            {
-                v1.y -= 0.25f;
-                v2.y -= 0.25f;
-                v3.y -= 0.25f;
-                v4.y -= 0.25f;
-            }
+            if (voxelType != VoxelType.Liquid || normal.y != 1) return;
+            
+            v1.y -= 0.25f;
+            v2.y -= 0.25f;
+            v3.y -= 0.25f;
+            v4.y -= 0.25f;
         }
 
         [BurstCompile]
-        private static int RenderFloraCross(MeshBuffer mesh, VoxelRenderDef info, int vertexCount, float3 v1, float3 v2, float3 v3, float3 v4, int3 normal)
+        private static int RenderFloraCross(MeshBuffer mesh, VoxelRenderDef info, int vertexCount, float3 v1, float3 v2,
+            float3 v3, float3 v4, int3 normal)
         {
             if (normal.y != 1) return 0;
             // First quad (XZ diagonal)
@@ -103,14 +101,17 @@ namespace Runtime.Engine.Mesher
         {
             public readonly ushort VoxelId;
 
-            internal readonly byte MeshIndex;
+            internal readonly MeshLayer MeshLayer;
             internal readonly sbyte Normal;
+
             internal readonly int4 AO;
+
             // Prevent greedy-merging for certain voxel faces (e.g., Flora)
-            internal readonly byte NoGreedy;
-            public Mask(ushort voxelId, byte meshIndex, sbyte normal, int4 ao, byte noGreedy)
+            internal readonly bool NoGreedy;
+
+            public Mask(ushort voxelId, MeshLayer meshLayer, sbyte normal, int4 ao, bool noGreedy)
             {
-                MeshIndex = meshIndex;
+                MeshLayer = meshLayer;
                 VoxelId = voxelId;
                 Normal = normal;
                 AO = ao;
@@ -122,9 +123,9 @@ namespace Runtime.Engine.Mesher
         private static bool CompareMask(Mask m1, Mask m2)
         {
             // Do not merge if either side explicitly disables greedy merging
-            if (m1.NoGreedy == 1 || m2.NoGreedy == 1) return false;
+            if (m1.NoGreedy || m2.NoGreedy) return false;
             return
-                m1.MeshIndex == m2.MeshIndex &&
+                m1.MeshLayer == m2.MeshLayer &&
                 m1.VoxelId == m2.VoxelId &&
                 m1.Normal == m2.Normal &&
                 m1.AO[0] == m2.AO[0] &&
@@ -134,9 +135,9 @@ namespace Runtime.Engine.Mesher
         }
 
         [BurstCompile]
-        private static byte GetMeshIndex(ushort block, VoxelEngineRenderGenData renderGenData)
+        private static MeshLayer GetMeshLayer(ushort voxelId, VoxelEngineRenderGenData renderGenData)
         {
-            return renderGenData.GetMeshIndex(block);
+            return renderGenData.GetMeshLayer(voxelId);
         }
 
         [BurstCompile]
@@ -227,8 +228,10 @@ namespace Runtime.Engine.Mesher
                 {
                     ushort currentVoxel = accessor.GetVoxelInChunk(chunkPos, chunkItr);
                     ushort compareVoxel = accessor.GetVoxelInChunk(chunkPos, chunkItr + directionMask);
-                    byte currentMeshIndex = GetMeshIndex(currentVoxel, renderGenData);
-                    byte compareMeshIndex = GetMeshIndex(compareVoxel, renderGenData);
+                    VoxelRenderDef currentDef = renderGenData.GetRenderDef(currentVoxel);
+                    VoxelRenderDef compareDef = renderGenData.GetRenderDef(compareVoxel);
+                    MeshLayer currentMeshIndex = currentDef.MeshLayer;
+                    MeshLayer compareMeshIndex = compareDef.MeshLayer;
                     if (currentMeshIndex == compareMeshIndex)
                     {
                         normalMask[n++] = default;
@@ -236,18 +239,18 @@ namespace Runtime.Engine.Mesher
                     else
                     {
                         // Disable greedy merge if either side is Flora
-                        bool eitherIsFlora = renderGenData.GetRenderDef(currentVoxel).VoxelType == VoxelType.Flora ||
-                                             renderGenData.GetRenderDef(compareVoxel).VoxelType == VoxelType.Flora;
-                        byte noGreedy = eitherIsFlora ? (byte)1 : (byte)0;
+                        bool noGreedy = currentDef.VoxelType == VoxelType.Flora ||
+                                        compareDef.VoxelType == VoxelType.Flora;
 
                         if (currentMeshIndex < compareMeshIndex)
                         {
-                            var ao = ComputeAOMask(accessor, renderGenData, chunkPos, chunkItr + directionMask, axis1, axis2);
+                            int4 ao = ComputeAOMask(accessor, renderGenData, chunkPos, chunkItr + directionMask, axis1,
+                                axis2);
                             normalMask[n++] = new Mask(currentVoxel, currentMeshIndex, 1, ao, noGreedy);
                         }
                         else
                         {
-                            var ao = ComputeAOMask(accessor, renderGenData, chunkPos, chunkItr, axis1, axis2);
+                            int4 ao = ComputeAOMask(accessor, renderGenData, chunkPos, chunkItr, axis1, axis2);
                             normalMask[n++] = new Mask(compareVoxel, compareMeshIndex, -1, ao, noGreedy);
                         }
                     }
@@ -315,7 +318,7 @@ namespace Runtime.Engine.Mesher
             int width, int height, int3 v1, int3 v2, int3 v3, int3 v4
         )
         {
-            switch (ToLayer(mask.MeshIndex))
+            switch (mask.MeshLayer)
             {
                 case MeshLayer.Solid:
                     return CreateQuadMesh0(mesh, info, vertexCount, mask, directionMask, width, height, v1, v2, v3, v4);
@@ -536,15 +539,15 @@ namespace Runtime.Engine.Mesher
             rtc[axis1] += 1;
             rtc[axis2] += 1;
 
-            int lo = GetMeshIndex(accessor.GetVoxelInChunk(pos, l), renderGenData) == 0 ? 1 : 0;
-            int ro = GetMeshIndex(accessor.GetVoxelInChunk(pos, r), renderGenData) == 0 ? 1 : 0;
-            int bo = GetMeshIndex(accessor.GetVoxelInChunk(pos, b), renderGenData) == 0 ? 1 : 0;
-            int to = GetMeshIndex(accessor.GetVoxelInChunk(pos, T), renderGenData) == 0 ? 1 : 0;
+            int lo = GetMeshLayer(accessor.GetVoxelInChunk(pos, l), renderGenData) == 0 ? 1 : 0;
+            int ro = GetMeshLayer(accessor.GetVoxelInChunk(pos, r), renderGenData) == 0 ? 1 : 0;
+            int bo = GetMeshLayer(accessor.GetVoxelInChunk(pos, b), renderGenData) == 0 ? 1 : 0;
+            int to = GetMeshLayer(accessor.GetVoxelInChunk(pos, T), renderGenData) == 0 ? 1 : 0;
 
-            int lbco = GetMeshIndex(accessor.GetVoxelInChunk(pos, lbc), renderGenData) == 0 ? 1 : 0;
-            int rbco = GetMeshIndex(accessor.GetVoxelInChunk(pos, rbc), renderGenData) == 0 ? 1 : 0;
-            int ltco = GetMeshIndex(accessor.GetVoxelInChunk(pos, ltc), renderGenData) == 0 ? 1 : 0;
-            int rtco = GetMeshIndex(accessor.GetVoxelInChunk(pos, rtc), renderGenData) == 0 ? 1 : 0;
+            int lbco = GetMeshLayer(accessor.GetVoxelInChunk(pos, lbc), renderGenData) == 0 ? 1 : 0;
+            int rbco = GetMeshLayer(accessor.GetVoxelInChunk(pos, rbc), renderGenData) == 0 ? 1 : 0;
+            int ltco = GetMeshLayer(accessor.GetVoxelInChunk(pos, ltc), renderGenData) == 0 ? 1 : 0;
+            int rtco = GetMeshLayer(accessor.GetVoxelInChunk(pos, rtc), renderGenData) == 0 ? 1 : 0;
 
             return new int4(
                 ComputeAO(lo, bo, lbco),

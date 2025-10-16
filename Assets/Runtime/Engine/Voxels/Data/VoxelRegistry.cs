@@ -28,7 +28,7 @@ namespace Runtime.Engine.Voxels.Data
             _initialized = true;
             Register("air", new VoxelRenderDef
             {
-                MeshIndex = byte.MaxValue,
+                MeshLayer = MeshLayer.Air,
                 Collision = false,
                 TexUp = -1,
                 TexDown = -1,
@@ -44,7 +44,7 @@ namespace Runtime.Engine.Voxels.Data
         {
             VoxelRenderDef type = new()
             {
-                MeshIndex = (byte)definition.meshLayer,
+                MeshLayer = definition.meshLayer,
                 VoxelType = definition.voxelType,
                 OverrideColor = ConvertColor(definition.overrideColor),
                 Collision = definition.collision,
