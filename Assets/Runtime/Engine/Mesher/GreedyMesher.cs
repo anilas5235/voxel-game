@@ -18,6 +18,36 @@ namespace Runtime.Engine.Mesher
         private struct UVQuad
         {
             public float3 Uv1, Uv2, Uv3, Uv4;
+
+            public UVQuad(float3 uv1, float3 uv2, float3 uv3, float3 uv4)
+            {
+                Uv1 = uv1;
+                Uv2 = uv2;
+                Uv3 = uv3;
+                Uv4 = uv4;
+            }
+        }
+
+        [BurstCompile]
+        private struct VQuad
+        {
+            public float3 V1, V2, V3, V4;
+
+            public VQuad(float3 v1, float3 v2, float3 v3, float3 v4)
+            {
+                V1 = v1;
+                V2 = v2;
+                V3 = v3;
+                V4 = v4;
+            }
+
+            public void OffsetAll(float3 offset)
+            {
+                V1 += offset;
+                V2 += offset;
+                V3 += offset;
+                V4 += offset;
+            }
         }
 
 
@@ -73,23 +103,15 @@ namespace Runtime.Engine.Mesher
         }
 
         [BurstCompile]
-        private static void LowerLiquidTopFace(ref float3 v1, ref float3 v2, ref float3 v3, ref float3 v4)
-        {
-            v1.y -= 0.25f;
-            v2.y -= 0.25f;
-            v3.y -= 0.25f;
-            v4.y -= 0.25f;
-        }
-
-        [BurstCompile]
-        private static int RenderFloraCross(MeshBuffer mesh, VoxelRenderDef info, int vertexCount, float3 v1, float3 v2,
-            float3 v3, float3 v4)
+        private static int RenderFloraCross(MeshBuffer mesh, VoxelRenderDef info, int vertexCount, VQuad verts)
         {
             // First quad (XZ diagonal)
-            AddFloraQuad(mesh, info, vertexCount, v1 - new float3(0, 1, 0), v1, v4 - new float3(0, 1, 0), v4);
+            AddFloraQuad(mesh, info, vertexCount,
+                new VQuad(verts.V1 - new float3(0, 1, 0), verts.V1, verts.V4 - new float3(0, 1, 0), verts.V4));
             vertexCount += 4;
             // Second quad (ZX diagonal)
-            AddFloraQuad(mesh, info, vertexCount, v3 - new float3(0, 1, 0), v3, v2 - new float3(0, 1, 0), v2);
+            AddFloraQuad(mesh, info, vertexCount,
+                new VQuad(verts.V3 - new float3(0, 1, 0), verts.V3, verts.V2 - new float3(0, 1, 0), verts.V2));
             return 8;
         }
 
@@ -119,7 +141,6 @@ namespace Runtime.Engine.Mesher
         [BurstCompile]
         private static bool CompareMask(Mask m1, Mask m2)
         {
-            // Do not merge if either side explicitly disables greedy merging
             if (m1.NoGreedy || m2.NoGreedy) return false;
             return
                 m1.MeshLayer == m2.MeshLayer &&
@@ -190,8 +211,16 @@ namespace Runtime.Engine.Mesher
                                     j);
                                 deltaAxis1[axis1] = width;
                                 deltaAxis2[axis2] = height;
-                                vertexCount += CreateAndAddQuad(mesh, renderGenData, currentMask, directionMask, width,
-                                    height, chunkItr, deltaAxis1, deltaAxis2, vertexCount);
+                                vertexCount += CreateQuad(
+                                    mesh, renderGenData.GetRenderDef(currentMask.VoxelId),
+                                    vertexCount, currentMask, directionMask, width, height, new VQuad()
+                                    {
+                                        V1 = chunkItr,
+                                        V2 = chunkItr + deltaAxis1,
+                                        V3 = chunkItr + deltaAxis2,
+                                        V4 = chunkItr + deltaAxis1 + deltaAxis2
+                                    }
+                                );
                                 ClearMaskRegion(normalMask, n, width, height, axis1Limit);
                                 deltaAxis1 = int3.zero;
                                 deltaAxis2 = int3.zero;
@@ -235,7 +264,6 @@ namespace Runtime.Engine.Mesher
                     }
                     else
                     {
-                        // Disable greedy merge if either side is Flora
                         bool noGreedy = currentDef.VoxelType == VoxelType.Flora ||
                                         compareDef.VoxelType == VoxelType.Flora;
 
@@ -288,20 +316,6 @@ namespace Runtime.Engine.Mesher
         }
 
         [BurstCompile]
-        private static int CreateAndAddQuad(MeshBuffer mesh, VoxelEngineRenderGenData renderGenData, Mask currentMask,
-            int3 directionMask, int width, int height, int3 chunkItr, int3 deltaAxis1, int3 deltaAxis2, int vertexCount)
-        {
-            return CreateQuad(
-                mesh, renderGenData.GetRenderDef(currentMask.VoxelId),
-                vertexCount, currentMask, directionMask, width, height,
-                chunkItr,
-                chunkItr + deltaAxis1,
-                chunkItr + deltaAxis2,
-                chunkItr + deltaAxis1 + deltaAxis2
-            );
-        }
-
-        [BurstCompile]
         private static void ClearMaskRegion(NativeArray<Mask> normalMask, int n, int width, int height, int axis1Limit)
         {
             for (int l = 0; l < height; ++l)
@@ -312,15 +326,15 @@ namespace Runtime.Engine.Mesher
         [BurstCompile]
         private static int CreateQuad(
             MeshBuffer mesh, VoxelRenderDef info, int vertexCount, Mask mask, int3 directionMask,
-            int width, int height, int3 v1, int3 v2, int3 v3, int3 v4
+            int width, int height, VQuad verts
         )
         {
             switch (mask.MeshLayer)
             {
                 case MeshLayer.Solid:
-                    return CreateQuadMesh0(mesh, info, vertexCount, mask, directionMask, width, height, v1, v2, v3, v4);
+                    return CreateQuadMesh0(mesh, info, vertexCount, mask, directionMask, width, height, verts);
                 case MeshLayer.Transparent:
-                    return CreateQuadMesh1(mesh, info, vertexCount, mask, directionMask, width, height, v1, v2, v3, v4);
+                    return CreateQuadMesh1(mesh, info, vertexCount, mask, directionMask, width, height, verts);
                 default:
                     return 0;
             }
@@ -329,7 +343,7 @@ namespace Runtime.Engine.Mesher
         [BurstCompile]
         private static int CreateQuadMesh0(
             MeshBuffer mesh, VoxelRenderDef info, int vertexCount, Mask mask, int3 directionMask,
-            int width, int height, float3 v1, float3 v2, float3 v3, float3 v4
+            int width, int height, VQuad verts
         )
         {
             int3 normal = directionMask * mask.Normal;
@@ -338,44 +352,16 @@ namespace Runtime.Engine.Mesher
             UVQuad uv = ComputeFaceUVs(normal, width, height, uvz);
 
             // 1 Bottom Left
-            Vertex vertex1 = new()
-            {
-                Position = v1,
-                Normal = normal,
-                UV0 = uv.Uv1,
-                UV1 = new float2(0, 0),
-                UV2 = mask.AO
-            };
+            Vertex vertex1 = new(verts.V1, normal, uv.Uv1, new float2(0, 0), mask.AO);
 
             // 2 Top Left
-            Vertex vertex2 = new()
-            {
-                Position = v2,
-                Normal = normal,
-                UV0 = uv.Uv2,
-                UV1 = new float2(0, 1),
-                UV2 = mask.AO
-            };
+            Vertex vertex2 = new(verts.V2, normal, uv.Uv2, new float2(0, 1), mask.AO);
 
             // 3 Bottom Right
-            Vertex vertex3 = new()
-            {
-                Position = v3,
-                Normal = normal,
-                UV0 = uv.Uv3,
-                UV1 = new float2(1, 0),
-                UV2 = mask.AO
-            };
+            Vertex vertex3 = new(verts.V3, normal, uv.Uv3, new float2(1, 0), mask.AO);
 
             // 4 Top Right
-            Vertex vertex4 = new()
-            {
-                Position = v4,
-                Normal = normal,
-                UV0 = uv.Uv4,
-                UV1 = new float2(1, 1),
-                UV2 = mask.AO
-            };
+            Vertex vertex4 = new(verts.V4, normal, uv.Uv4, new float2(1, 1), mask.AO);
 
             mesh.VertexBuffer.Add(vertex1);
             mesh.VertexBuffer.Add(vertex2);
@@ -389,7 +375,7 @@ namespace Runtime.Engine.Mesher
         [BurstCompile]
         private static int CreateQuadMesh1(
             MeshBuffer mesh, VoxelRenderDef info, int vertexCount, Mask mask, int3 directionMask,
-            int width, int height, float3 v1, float3 v2, float3 v3, float3 v4
+            int width, int height, VQuad verts
         )
         {
             int3 normal = directionMask * mask.Normal;
@@ -400,12 +386,12 @@ namespace Runtime.Engine.Mesher
                     break;
                 case VoxelType.Liquid:
                     if (info.VoxelType != VoxelType.Liquid || normal.y != 1) break;
-                    LowerLiquidTopFace(ref v1, ref v2, ref v3, ref v4);
+                    verts.OffsetAll(new float3(0, -0.25f, 0));
                     break;
                 case VoxelType.Flora:
                     return normal.y != 1
                         ? 0
-                        : RenderFloraCross(mesh, info, vertexCount, v1, v2, v3, v4); // Only render flora on top faces
+                        : RenderFloraCross(mesh, info, vertexCount, verts); // Only render flora on top faces
                 default:
                     throw new ArgumentOutOfRangeException();
             }
@@ -415,16 +401,16 @@ namespace Runtime.Engine.Mesher
             float3 fNormal = normal;
 
             // 1 Bottom Left
-            Vertex vertex1 = new(v1, fNormal, uv.Uv1, new float2(0, 0), info.OverrideColor);
+            Vertex vertex1 = new(verts.V1, fNormal, uv.Uv1, new float2(0, 0), info.OverrideColor);
 
             // 2 Top Left
-            Vertex vertex2 = new(v2, fNormal, uv.Uv2, new float2(0, 1), info.OverrideColor);
+            Vertex vertex2 = new(verts.V2, fNormal, uv.Uv2, new float2(0, 1), info.OverrideColor);
 
             // 3 Bottom Right
-            Vertex vertex3 = new(v3, fNormal, uv.Uv3, new float2(1, 0), info.OverrideColor);
+            Vertex vertex3 = new(verts.V3, fNormal, uv.Uv3, new float2(1, 0), info.OverrideColor);
 
             // 4 Top Right
-            Vertex vertex4 = new(v4, fNormal, uv.Uv4, new float2(1, 1), info.OverrideColor);
+            Vertex vertex4 = new(verts.V4, fNormal, uv.Uv4, new float2(1, 1), info.OverrideColor);
 
             mesh.VertexBuffer.Add(vertex1);
             mesh.VertexBuffer.Add(vertex2);
@@ -435,19 +421,19 @@ namespace Runtime.Engine.Mesher
             return 4;
         }
 
-        private static void AddFloraQuad(MeshBuffer mesh, VoxelRenderDef info, int vertexCount, float3 v1, float3 v2,
-            float3 v3, float3 v4)
+        private static void AddFloraQuad(MeshBuffer mesh, VoxelRenderDef info, int vertexCount, VQuad verts)
         {
             int uvz = info.TexUp;
             UVQuad uv = ComputeFaceUVs(new int3(1, 1, 0), 1, 1, uvz);
             float3 normal = new(0, 1, 0);
-            Vertex vertex1 = new(v1, normal, uv.Uv1, new float2(0, 0), info.OverrideColor);
 
-            Vertex vertex2 = new(v2, normal, uv.Uv2, new float2(0, 1), info.OverrideColor);
+            Vertex vertex1 = new(verts.V1, normal, uv.Uv1, new float2(0, 0), info.OverrideColor);
 
-            Vertex vertex3 = new(v3, normal, uv.Uv3, new float2(1, 0), info.OverrideColor);
+            Vertex vertex2 = new(verts.V2, normal, uv.Uv2, new float2(0, 1), info.OverrideColor);
 
-            Vertex vertex4 = new(v4, normal, uv.Uv4, new float2(1, 1), info.OverrideColor);
+            Vertex vertex3 = new(verts.V3, normal, uv.Uv3, new float2(1, 0), info.OverrideColor);
+
+            Vertex vertex4 = new(verts.V4, normal, uv.Uv4, new float2(1, 1), info.OverrideColor);
 
             mesh.VertexBuffer.Add(vertex1);
             mesh.VertexBuffer.Add(vertex2);
