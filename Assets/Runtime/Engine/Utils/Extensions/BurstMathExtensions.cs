@@ -73,5 +73,7 @@ namespace Runtime.Engine.Utils.Extensions
 
             throw new Exception("Invalid direction vector");
         }
+        
+        public static float3 Normalized(this float3 vec) => math.normalize(vec);
     }
 }

@@ -1,4 +1,5 @@
-﻿using Runtime.Engine.Data;
+﻿using System;
+using Runtime.Engine.Data;
 using Runtime.Engine.Utils.Extensions;
 using Runtime.Engine.Voxels.Data;
 using Unity.Burst;
@@ -72,11 +73,8 @@ namespace Runtime.Engine.Mesher
         }
 
         [BurstCompile]
-        private static void LowerLiquidTopFaceIfNeeded(VoxelType voxelType, int3 normal, ref float3 v1, ref float3 v2,
-            ref float3 v3, ref float3 v4)
+        private static void LowerLiquidTopFace(ref float3 v1, ref float3 v2, ref float3 v3, ref float3 v4)
         {
-            if (voxelType != VoxelType.Liquid || normal.y != 1) return;
-            
             v1.y -= 0.25f;
             v2.y -= 0.25f;
             v3.y -= 0.25f;
@@ -85,9 +83,8 @@ namespace Runtime.Engine.Mesher
 
         [BurstCompile]
         private static int RenderFloraCross(MeshBuffer mesh, VoxelRenderDef info, int vertexCount, float3 v1, float3 v2,
-            float3 v3, float3 v4, int3 normal)
+            float3 v3, float3 v4)
         {
-            if (normal.y != 1) return 0;
             // First quad (XZ diagonal)
             AddFloraQuad(mesh, info, vertexCount, v1 - new float3(0, 1, 0), v1, v4 - new float3(0, 1, 0), v4);
             vertexCount += 4;
@@ -396,58 +393,38 @@ namespace Runtime.Engine.Mesher
         )
         {
             int3 normal = directionMask * mask.Normal;
-            int uvz = info.GetTextureId(normal.ToDirection());
 
-            // Flora uses crossed quads, early out
-            if (info.VoxelType == VoxelType.Flora)
+            switch (info.VoxelType)
             {
-                return RenderFloraCross(mesh, info, vertexCount, v1, v2, v3, v4, normal);
+                case VoxelType.Full:
+                    break;
+                case VoxelType.Liquid:
+                    if (info.VoxelType != VoxelType.Liquid || normal.y != 1) break;
+                    LowerLiquidTopFace(ref v1, ref v2, ref v3, ref v4);
+                    break;
+                case VoxelType.Flora:
+                    return normal.y != 1
+                        ? 0
+                        : RenderFloraCross(mesh, info, vertexCount, v1, v2, v3, v4); // Only render flora on top faces
+                default:
+                    throw new ArgumentOutOfRangeException();
             }
 
-            // Liquids: lower the top face a bit
-            LowerLiquidTopFaceIfNeeded(info.VoxelType, normal, ref v1, ref v2, ref v3, ref v4);
-
+            int uvz = info.GetTextureId(normal.ToDirection());
             UVQuad uv = ComputeFaceUVs(normal, width, height, uvz);
+            float3 fNormal = normal;
 
             // 1 Bottom Left
-            Vertex vertex1 = new()
-            {
-                Position = v1,
-                Normal = normal,
-                UV0 = uv.Uv1,
-                UV1 = new float2(0, 0),
-                UV2 = info.OverrideColor
-            };
+            Vertex vertex1 = new(v1, fNormal, uv.Uv1, new float2(0, 0), info.OverrideColor);
 
             // 2 Top Left
-            Vertex vertex2 = new()
-            {
-                Position = v2,
-                Normal = normal,
-                UV0 = uv.Uv2,
-                UV1 = new float2(0, 1),
-                UV2 = info.OverrideColor
-            };
+            Vertex vertex2 = new(v2, fNormal, uv.Uv2, new float2(0, 1), info.OverrideColor);
 
             // 3 Bottom Right
-            Vertex vertex3 = new()
-            {
-                Position = v3,
-                Normal = normal,
-                UV0 = uv.Uv3,
-                UV1 = new float2(1, 0),
-                UV2 = info.OverrideColor
-            };
+            Vertex vertex3 = new(v3, fNormal, uv.Uv3, new float2(1, 0), info.OverrideColor);
 
             // 4 Top Right
-            Vertex vertex4 = new()
-            {
-                Position = v4,
-                Normal = normal,
-                UV0 = uv.Uv4,
-                UV1 = new float2(1, 1),
-                UV2 = info.OverrideColor
-            };
+            Vertex vertex4 = new(v4, fNormal, uv.Uv4, new float2(1, 1), info.OverrideColor);
 
             mesh.VertexBuffer.Add(vertex1);
             mesh.VertexBuffer.Add(vertex2);
@@ -462,42 +439,16 @@ namespace Runtime.Engine.Mesher
             float3 v3, float3 v4)
         {
             int uvz = info.TexUp;
-            float u0 = UVEdgeInset;
-            float v0 = UVEdgeInset;
-            float u1 = 1f - UVEdgeInset;
-            float v1U = 1f - UVEdgeInset;
-            Vertex vertex1 = new()
-            {
-                Position = v1,
-                Normal = new float3(0, 1, 0),
-                UV0 = new float3(u0, v0, uvz),
-                UV1 = new float2(0, 0),
-                UV2 = info.OverrideColor
-            };
-            Vertex vertex2 = new()
-            {
-                Position = v2,
-                Normal = new float3(0, 1, 0),
-                UV0 = new float3(u0, v1U, uvz),
-                UV1 = new float2(0, 1),
-                UV2 = info.OverrideColor
-            };
-            Vertex vertex3 = new()
-            {
-                Position = v3,
-                Normal = new float3(0, 1, 0),
-                UV0 = new float3(u1, v0, uvz),
-                UV1 = new float2(1, 0),
-                UV2 = info.OverrideColor
-            };
-            Vertex vertex4 = new()
-            {
-                Position = v4,
-                Normal = new float3(0, 1, 0),
-                UV0 = new float3(u1, v1U, uvz),
-                UV1 = new float2(1, 1),
-                UV2 = info.OverrideColor
-            };
+            UVQuad uv = ComputeFaceUVs(new int3(1, 1, 0), 1, 1, uvz);
+            float3 normal = new(0, 1, 0);
+            Vertex vertex1 = new(v1, normal, uv.Uv1, new float2(0, 0), info.OverrideColor);
+
+            Vertex vertex2 = new(v2, normal, uv.Uv2, new float2(0, 1), info.OverrideColor);
+
+            Vertex vertex3 = new(v3, normal, uv.Uv3, new float2(1, 0), info.OverrideColor);
+
+            Vertex vertex4 = new(v4, normal, uv.Uv4, new float2(1, 1), info.OverrideColor);
+
             mesh.VertexBuffer.Add(vertex1);
             mesh.VertexBuffer.Add(vertex2);
             mesh.VertexBuffer.Add(vertex3);
