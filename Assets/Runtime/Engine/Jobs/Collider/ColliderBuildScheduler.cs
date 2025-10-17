@@ -42,10 +42,10 @@ namespace Runtime.Engine.Jobs.Collider
 
             foreach ((int3 _, ChunkBehaviour behaviour) in _meshes)
             {
-                if (behaviour.Mesh.vertexCount > 0)
+                if (behaviour.ColliderMesh.vertexCount > 0)
                 {
                     // Avoid colliders for empty meshes
-                    _jobs.Add(behaviour.Mesh.GetInstanceID());
+                    _jobs.Add(behaviour.ColliderMesh.GetInstanceID());
                 }
             }
 
@@ -67,8 +67,8 @@ namespace Runtime.Engine.Jobs.Collider
                 _chunkPool.ColliderBaked(position);
                 _chunkManager.ReCollideChunk(position);
 
-                if (behaviour.Mesh.vertexCount <= 0) continue;
-                behaviour.Collider.sharedMesh = behaviour.Mesh;
+                if (behaviour.ColliderMesh.vertexCount <= 0) continue;
+                behaviour.Collider.sharedMesh = behaviour.ColliderMesh;
             }
 
             double totalTime = (Time.realtimeSinceStartupAsDouble - start) * 1000;

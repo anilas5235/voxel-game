@@ -273,6 +273,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   moveSpeed: 20
   lookSpeed: 10
+  maxLookAngle: 85
   rigidbodyCam: {fileID: 455605765}
 --- !u!114 &330585549
 MonoBehaviour:

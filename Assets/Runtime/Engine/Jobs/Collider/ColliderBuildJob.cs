@@ -17,8 +17,7 @@ namespace Runtime.Engine.Jobs.Collider
         public void Execute(int index)
         {
             Physics.BakeMesh(MeshIDs[index], false,
-                MeshColliderCookingOptions.EnableMeshCleaning | MeshColliderCookingOptions.WeldColocatedVertices| 
-                MeshColliderCookingOptions.UseFastMidphase | MeshColliderCookingOptions.CookForFasterSimulation);
+                MeshColliderCookingOptions.WeldColocatedVertices | MeshColliderCookingOptions.CookForFasterSimulation);
         }
     }
 }

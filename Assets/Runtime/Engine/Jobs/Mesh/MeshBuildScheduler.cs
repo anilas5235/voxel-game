@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Diagnostics;
 using Runtime.Engine.Components;
 using Runtime.Engine.Data;
 using Runtime.Engine.Jobs.Core;
@@ -7,6 +6,7 @@ using Runtime.Engine.Settings;
 using Runtime.Engine.Utils.Extensions;
 using Runtime.Engine.Utils.Logger;
 using Runtime.Engine.Voxels.Data;
+using Runtime.Engine.Behaviour;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
@@ -28,7 +28,9 @@ namespace Runtime.Engine.Jobs.Mesh
         private ChunkAccessor _chunkAccessor;
         private NativeParallelHashMap<int3, int> _results;
         private UnityEngine.Mesh.MeshDataArray _meshDataArray;
+        private UnityEngine.Mesh.MeshDataArray _colliderMeshDataArray;
         private NativeArray<VertexAttributeDescriptor> _vertexParams;
+        private NativeArray<VertexAttributeDescriptor> _colliderVertexParams;
 
         public MeshBuildScheduler(
             VoxelEngineSettings settings,
@@ -53,6 +55,13 @@ namespace Runtime.Engine.Jobs.Mesh
                 [4] = new VertexAttributeDescriptor(VertexAttribute.TexCoord2, VertexAttributeFormat.Float32, 4)
             };
 
+            // Collider uses only Position and Normal from CVertex
+            _colliderVertexParams = new NativeArray<VertexAttributeDescriptor>(2, Allocator.Persistent)
+            {
+                [0] = new VertexAttributeDescriptor(VertexAttribute.Position),
+                [1] = new VertexAttributeDescriptor(VertexAttribute.Normal)
+            };
+
             _results = new NativeParallelHashMap<int3, int>(settings.Chunk.DrawDistance.CubedSize(),
                 Allocator.Persistent);
             _jobs = new NativeList<int3>(Allocator.Persistent);
@@ -75,6 +84,7 @@ namespace Runtime.Engine.Jobs.Mesh
             }
 
             _meshDataArray = UnityEngine.Mesh.AllocateWritableMeshData(_jobs.Length);
+            _colliderMeshDataArray = UnityEngine.Mesh.AllocateWritableMeshData(_jobs.Length);
 
             MeshBuildJob job = new()
             {
@@ -82,7 +92,9 @@ namespace Runtime.Engine.Jobs.Mesh
                 ChunkSize = _chunkSize,
                 Jobs = _jobs,
                 VertexParams = _vertexParams,
+                ColliderVertexParams = _colliderVertexParams,
                 MeshDataArray = _meshDataArray,
+                ColliderMeshDataArray = _colliderMeshDataArray,
                 VoxelEngineRenderGenData = _voxelRegistry.GetVoxelGenData(),
                 Results = _results.AsParallelWriter()
             };
@@ -96,18 +108,23 @@ namespace Runtime.Engine.Jobs.Mesh
             _handle.Complete();
 
             UnityEngine.Mesh[] meshes = new UnityEngine.Mesh[_jobs.Length];
+            UnityEngine.Mesh[] colliderMeshes = new UnityEngine.Mesh[_jobs.Length];
 
             for (int index = 0; index < _jobs.Length; index++)
             {
                 int3 position = _jobs[index];
+                ChunkBehaviour cb;
                 if (_chunkManager.ReMeshedChunk(position))
                 {
-                    meshes[_results[position]] = _chunkPool.Get(position).Mesh;
+                    cb = _chunkPool.Get(position);
                 }
                 else
                 {
-                    meshes[_results[position]] = _chunkPool.Claim(position).Mesh;
+                    cb = _chunkPool.Claim(position);
                 }
+
+                meshes[_results[position]] = cb.Mesh;
+                colliderMeshes[_results[position]] = cb.ColliderMesh;
             }
 
             UnityEngine.Mesh.ApplyAndDisposeWritableMeshData(
@@ -117,9 +134,20 @@ namespace Runtime.Engine.Jobs.Mesh
                 MeshUpdateFlags.DontResetBoneBounds
             );
 
+            UnityEngine.Mesh.ApplyAndDisposeWritableMeshData(
+                _colliderMeshDataArray,
+                colliderMeshes,
+                MeshUpdateFlags.DontRecalculateBounds | MeshUpdateFlags.DontValidateIndices |
+                MeshUpdateFlags.DontResetBoneBounds
+            );
+
             foreach (UnityEngine.Mesh m in meshes)
             {
                 m.RecalculateBounds();
+            }
+            foreach (UnityEngine.Mesh cm in colliderMeshes)
+            {
+                cm.RecalculateBounds();
             }
 
             double totalTime = (Time.realtimeSinceStartupAsDouble - start) * 1000;
@@ -142,6 +170,7 @@ namespace Runtime.Engine.Jobs.Mesh
             _handle.Complete();
 
             _vertexParams.Dispose();
+            _colliderVertexParams.Dispose();
             _results.Dispose();
             _jobs.Dispose();
         }

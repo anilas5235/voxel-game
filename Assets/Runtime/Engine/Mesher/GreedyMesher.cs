@@ -24,6 +24,8 @@ namespace Runtime.Engine.Mesher
                 VertexBuffer = new NativeList<Vertex>(Allocator.Temp),
                 IndexBuffer0 = new NativeList<int>(Allocator.Temp),
                 IndexBuffer1 = new NativeList<int>(Allocator.Temp),
+                CVertexBuffer = new NativeList<CVertex>(Allocator.Temp),
+                CIndexBuffer = new NativeList<int>(Allocator.Temp)
             };
 
             int vertexCount = 0;
@@ -94,6 +96,76 @@ namespace Runtime.Engine.Mesher
                 normalMask.Dispose();
             }
 
+            // Collider pass: build a minimal collider mesh using greedy quads over collidable boundaries
+            int cVertexCount = 0;
+            for (int direction = 0; direction < 3; direction++)
+            {
+                int axis1 = (direction + 1) % 3; // U axis
+                int axis2 = (direction + 2) % 3; // V axis
+
+                int mainAxisLimit = size[direction];
+                int axis1Limit = size[axis1];
+                int axis2Limit = size[axis2];
+
+                int3 deltaAxis1 = int3.zero;
+                int3 deltaAxis2 = int3.zero;
+
+                int3 chunkItr = int3.zero;
+                int3 directionMask = int3.zero;
+                directionMask[direction] = 1;
+
+                NativeArray<Mask> colliderMask = new(axis1Limit * axis2Limit, Allocator.Temp);
+
+                for (chunkItr[direction] = -1; chunkItr[direction] < mainAxisLimit;)
+                {
+                    // Build collider mask for current slice
+                    BuildColliderMask(accessor, chunkPos, chunkItr, directionMask, axis1, axis2, axis1Limit,
+                        axis2Limit, renderGenData, colliderMask);
+
+                    ++chunkItr[direction];
+                    int n = 0;
+                    for (int j = 0; j < axis2Limit; j++)
+                    {
+                        for (int i = 0; i < axis1Limit;)
+                        {
+                            if (colliderMask[n].Normal != 0)
+                            {
+                                Mask currentMask = colliderMask[n];
+                                chunkItr[axis1] = i;
+                                chunkItr[axis2] = j;
+                                int width = FindQuadWidth(colliderMask, n, currentMask, i, axis1Limit);
+                                int height = FindQuadHeight(colliderMask, n, currentMask, axis1Limit, axis2Limit, width,
+                                    j);
+                                deltaAxis1[axis1] = width;
+                                deltaAxis2[axis2] = height;
+
+                                cVertexCount += CreateColliderQuad(
+                                    mesh, cVertexCount, currentMask, directionMask, new VQuad(
+                                        chunkItr,
+                                        chunkItr + deltaAxis1,
+                                        chunkItr + deltaAxis2,
+                                        chunkItr + deltaAxis1 + deltaAxis2
+                                    )
+                                );
+
+                                ClearMaskRegion(colliderMask, n, width, height, axis1Limit);
+                                deltaAxis1 = int3.zero;
+                                deltaAxis2 = int3.zero;
+                                i += width;
+                                n += width;
+                            }
+                            else
+                            {
+                                i++;
+                                n++;
+                            }
+                        }
+                    }
+                }
+
+                colliderMask.Dispose();
+            }
+
             return mesh;
         }
 
@@ -135,6 +207,35 @@ namespace Runtime.Engine.Mesher
                             int4 ao = ComputeAOMask(accessor, renderGenData, chunkPos, chunkItr, axis1, axis2);
                             normalMask[n++] = new Mask(compareVoxel, compareMeshIndex, -1, ao, noGreedy);
                         }
+                    }
+                }
+            }
+        }
+
+        [BurstCompile]
+        private static void BuildColliderMask(ChunkAccessor accessor, int3 chunkPos, int3 chunkItr, int3 directionMask,
+            int axis1, int axis2, int axis1Limit, int axis2Limit, VoxelEngineRenderGenData renderGenData,
+            NativeArray<Mask> colliderMask)
+        {
+            int n = 0;
+            for (chunkItr[axis2] = 0; chunkItr[axis2] < axis2Limit; ++chunkItr[axis2])
+            {
+                for (chunkItr[axis1] = 0; chunkItr[axis1] < axis1Limit; ++chunkItr[axis1])
+                {
+                    ushort currentVoxel = accessor.GetVoxelInChunk(chunkPos, chunkItr);
+                    ushort compareVoxel = accessor.GetVoxelInChunk(chunkPos, chunkItr + directionMask);
+                    bool currentCollidable = renderGenData.GetRenderDef(currentVoxel).Collision;
+                    bool compareCollidable = renderGenData.GetRenderDef(compareVoxel).Collision;
+
+                    // Only when there is a boundary between collidable and non-collidable we emit a face
+                    if (currentCollidable ^ compareCollidable)
+                    {
+                        sbyte normal = currentCollidable ? (sbyte)1 : (sbyte)-1;
+                        colliderMask[n++] = new Mask(1, MeshLayer.Solid, normal, new int4(0, 0, 0, 0), false);
+                    }
+                    else
+                    {
+                        colliderMask[n++] = default;
                     }
                 }
             }
@@ -191,6 +292,21 @@ namespace Runtime.Engine.Mesher
                 default:
                     return 0;
             }
+        }
+
+        [BurstCompile]
+        private static int CreateColliderQuad(
+            MeshBuffer mesh, int cVertexCount, Mask mask, int3 directionMask,
+            VQuad verts
+        )
+        {
+            int3 normal = directionMask * mask.Normal;
+
+            AddColliderVertices(mesh, verts, normal);
+
+            // Use AO zeros for a deterministic diagonal, reuse existing helper for correct winding
+            AddQuadIndices(mesh.CIndexBuffer, cVertexCount, mask.Normal, new int4(0, 0, 0, 0));
+            return 4;
         }
 
         [BurstCompile]
@@ -332,6 +448,23 @@ namespace Runtime.Engine.Mesher
             mesh.VertexBuffer.Add(vertex2);
             mesh.VertexBuffer.Add(vertex3);
             mesh.VertexBuffer.Add(vertex4);
+        }
+
+        private static void AddColliderVertices(MeshBuffer mesh, VQuad verts, float3 normal)
+        {
+            // 1 Bottom Left
+            CVertex vertex1 = new(verts.V1, normal);
+            // 2 Top Left
+            CVertex vertex2 = new(verts.V2, normal);
+            // 3 Bottom Right
+            CVertex vertex3 = new(verts.V3, normal);
+            // 4 Top Right
+            CVertex vertex4 = new(verts.V4, normal);
+
+            mesh.CVertexBuffer.Add(vertex1);
+            mesh.CVertexBuffer.Add(vertex2);
+            mesh.CVertexBuffer.Add(vertex3);
+            mesh.CVertexBuffer.Add(vertex4);
         }
 
         private static void AddFloraQuad(MeshBuffer mesh, VoxelRenderDef info, int vertexCount, VQuad verts)

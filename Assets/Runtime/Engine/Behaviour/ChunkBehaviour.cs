@@ -11,11 +11,14 @@ namespace Runtime.Engine.Behaviour {
         [SerializeField] private MeshCollider _Collider;
 
         public Mesh Mesh { get; private set; }
+        public Mesh ColliderMesh { get; private set; }
         public MeshCollider Collider => _Collider;
 
         private void Awake() {
             Mesh = GetComponent<MeshFilter>().mesh;
             _Renderer = GetComponent<MeshRenderer>();
+            // Dedicated collider mesh (not shared with renderer)
+            ColliderMesh = new Mesh { name = "ChunkCollider" };
         }
 
         public void Init(RendererSettings settings) {

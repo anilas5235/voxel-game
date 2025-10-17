@@ -13,6 +13,7 @@ namespace Test
 
         [Range(1f, 100f)] public float moveSpeed = 5f;
         [Range(1f, 100f)] public float lookSpeed = 10f;
+        [Range(1f,89f)] public float maxLookAngle = 80f;
         private Camera _camera;
         public Rigidbody rigidbodyCam;
 
@@ -51,7 +52,7 @@ namespace Test
 
             // Vertical rotation (pitch) with clamping
             _pitch -= _lookInput.y * lookSpeed * Time.fixedDeltaTime;
-            _pitch = Mathf.Clamp(_pitch, -80f, 80f);
+            _pitch = Mathf.Clamp(_pitch, -maxLookAngle, maxLookAngle);
 
             Vector3 currentEuler = _camera.transform.eulerAngles;
             currentEuler.x = _pitch;
