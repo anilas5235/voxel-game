@@ -33,7 +33,7 @@ namespace Runtime.Engine.Jobs.Chunk
             Data.Chunk data = new(position, ChunkSize);
 
             NoiseValue noise = NoiseProfile.GetNoise(position);
-            ushort currentVoxelId = GetVoxel(ref noise);
+            ushort lastVoxelId = GetVoxel(ref noise);
 
             int count = 0;
 
@@ -43,27 +43,27 @@ namespace Runtime.Engine.Jobs.Chunk
             for (int y = 0; y < ChunkSize.y; y++)
             {
                 noise = NoiseProfile.GetNoise(position + new int3(x, y, z));
-                ushort voxelId = GetVoxel(ref noise);
+                ushort currVoxelId = GetVoxel(ref noise);
 
-                // 50% chance to generate grass (id:5) on grassblock (id:3)
-                if (voxelId == 0 && currentVoxelId == 3 && random.NextFloat() < 0.5f)
+                // 40% chance to generate grass (id:5) on grassblock (id:3)
+                if (currVoxelId == 0 && lastVoxelId == 3 && random.NextFloat() < 0.4f)
                 {
-                    voxelId = 5;
+                    currVoxelId = 5;
                 }
 
-                if (voxelId == currentVoxelId)
+                if (currVoxelId == lastVoxelId)
                 {
                     count++;
                 }
                 else
                 {
-                    data.AddVoxels(currentVoxelId, count);
-                    currentVoxelId = voxelId;
+                    data.AddVoxels(lastVoxelId, count);
+                    lastVoxelId = currVoxelId;
                     count = 1;
                 }
             }
 
-            data.AddVoxels(currentVoxelId, count); // Finale interval
+            data.AddVoxels(lastVoxelId, count); // Finale interval
 
             return data;
         }
@@ -73,7 +73,7 @@ namespace Runtime.Engine.Jobs.Chunk
             int y = noise.Position.y;
 
             if (y > noise.Height) return (ushort)(y > noise.WaterLevel ? 0 : 4);
-            if (y == noise.Height) return 3;
+            if (y == noise.Height) return (ushort)(y >= noise.WaterLevel ? 3 : 2);
             if (y <= noise.Height - 1 && y >= noise.Height - 3) return 2;
 
             return 1;
