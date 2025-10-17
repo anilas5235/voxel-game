@@ -12,8 +12,8 @@ namespace Runtime.Engine.Jobs.Collider
 {
     public class ColliderBuildScheduler : JobScheduler
     {
-        private ChunkManager _chunkManager;
-        private ChunkPool _chunkPool;
+        private readonly ChunkManager _chunkManager;
+        private readonly ChunkPool _chunkPool;
 
         private NativeList<int> _jobs;
         private Dictionary<int3, ChunkBehaviour> _meshes;
@@ -49,7 +49,7 @@ namespace Runtime.Engine.Jobs.Collider
                 }
             }
 
-            ColliderBuildJob job = new ColliderBuildJob
+            ColliderBuildJob job = new()
             {
                 MeshIDs = _jobs
             };
@@ -72,14 +72,14 @@ namespace Runtime.Engine.Jobs.Collider
             }
 
             double totalTime = (Time.realtimeSinceStartupAsDouble - start) * 1000;
-            
+
             if (totalTime >= 0.8)
             {
                 VoxelEngineLogger.Info<ColliderBuildScheduler>(
                     $"Built {_jobs.Length} colliders, Collected Results in <color=red>{totalTime:0.000}</color>ms"
                 );
             }
-            
+
             _jobs.Clear();
             _meshes = null;
 
