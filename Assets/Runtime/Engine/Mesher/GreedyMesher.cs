@@ -15,150 +15,6 @@ namespace Runtime.Engine.Mesher
         private const float UVEdgeInset = 0.005f;
 
         [BurstCompile]
-        private struct UVQuad
-        {
-            public float3 Uv1, Uv2, Uv3, Uv4;
-
-            public UVQuad(float3 uv1, float3 uv2, float3 uv3, float3 uv4)
-            {
-                Uv1 = uv1;
-                Uv2 = uv2;
-                Uv3 = uv3;
-                Uv4 = uv4;
-            }
-        }
-
-        [BurstCompile]
-        private struct VQuad
-        {
-            public float3 V1, V2, V3, V4;
-
-            public VQuad(float3 v1, float3 v2, float3 v3, float3 v4)
-            {
-                V1 = v1;
-                V2 = v2;
-                V3 = v3;
-                V4 = v4;
-            }
-
-            public void OffsetAll(float3 offset)
-            {
-                V1 += offset;
-                V2 += offset;
-                V3 += offset;
-                V4 += offset;
-            }
-        }
-
-
-        [BurstCompile]
-        private static UVQuad ComputeFaceUVs(int3 normal, int width, int height, int uvz)
-        {
-            UVQuad uv;
-            float uMaxW = math.max(UVEdgeInset, width - UVEdgeInset);
-            float vMaxH = math.max(UVEdgeInset, height - UVEdgeInset);
-
-            if (normal.x is 1 or -1)
-            {
-                uv.Uv1 = new float3(UVEdgeInset, UVEdgeInset, uvz); // (0,0)
-                uv.Uv2 = new float3(UVEdgeInset, uMaxW, uvz); // (0,width)
-                uv.Uv3 = new float3(vMaxH, UVEdgeInset, uvz); // (height,0)
-                uv.Uv4 = new float3(vMaxH, uMaxW, uvz); // (height,width)
-            }
-            else
-            {
-                uv.Uv1 = new float3(UVEdgeInset, UVEdgeInset, uvz); // (0,0)
-                uv.Uv2 = new float3(uMaxW, UVEdgeInset, uvz); // (width,0)
-                uv.Uv3 = new float3(UVEdgeInset, vMaxH, uvz); // (0,height)
-                uv.Uv4 = new float3(uMaxW, vMaxH, uvz); // (width,height)
-            }
-
-            return uv;
-        }
-
-        [BurstCompile]
-        private static void AddQuadIndices(NativeList<int> indexBuffer, int baseVertexIndex, sbyte normalSign, int4 ao)
-        {
-            // Choose diagonal based on AO to minimize artifacts
-            if (ao[0] + ao[3] > ao[1] + ao[2])
-            {
-                indexBuffer.Add(baseVertexIndex);
-                indexBuffer.Add(baseVertexIndex + 2 - normalSign);
-                indexBuffer.Add(baseVertexIndex + 2 + normalSign);
-
-                indexBuffer.Add(baseVertexIndex + 3);
-                indexBuffer.Add(baseVertexIndex + 1 + normalSign);
-                indexBuffer.Add(baseVertexIndex + 1 - normalSign);
-            }
-            else
-            {
-                indexBuffer.Add(baseVertexIndex + 1);
-                indexBuffer.Add(baseVertexIndex + 1 + normalSign);
-                indexBuffer.Add(baseVertexIndex + 1 - normalSign);
-
-                indexBuffer.Add(baseVertexIndex + 2);
-                indexBuffer.Add(baseVertexIndex + 2 - normalSign);
-                indexBuffer.Add(baseVertexIndex + 2 + normalSign);
-            }
-        }
-
-        [BurstCompile]
-        private static int RenderFloraCross(MeshBuffer mesh, VoxelRenderDef info, int vertexCount, VQuad verts)
-        {
-            // First quad (XZ diagonal)
-            AddFloraQuad(mesh, info, vertexCount,
-                new VQuad(verts.V1 - new float3(0, 1, 0), verts.V1, verts.V4 - new float3(0, 1, 0), verts.V4));
-            vertexCount += 4;
-            // Second quad (ZX diagonal)
-            AddFloraQuad(mesh, info, vertexCount,
-                new VQuad(verts.V3 - new float3(0, 1, 0), verts.V3, verts.V2 - new float3(0, 1, 0), verts.V2));
-            return 8;
-        }
-
-        [BurstCompile]
-        private readonly struct Mask
-        {
-            public readonly ushort VoxelId;
-
-            internal readonly MeshLayer MeshLayer;
-            internal readonly sbyte Normal;
-
-            internal readonly int4 AO;
-
-            // Prevent greedy-merging for certain voxel faces (e.g., Flora)
-            internal readonly bool NoGreedy;
-
-            public Mask(ushort voxelId, MeshLayer meshLayer, sbyte normal, int4 ao, bool noGreedy)
-            {
-                MeshLayer = meshLayer;
-                VoxelId = voxelId;
-                Normal = normal;
-                AO = ao;
-                NoGreedy = noGreedy;
-            }
-        }
-
-        [BurstCompile]
-        private static bool CompareMask(Mask m1, Mask m2)
-        {
-            if (m1.NoGreedy || m2.NoGreedy) return false;
-            return
-                m1.MeshLayer == m2.MeshLayer &&
-                m1.VoxelId == m2.VoxelId &&
-                m1.Normal == m2.Normal &&
-                m1.AO[0] == m2.AO[0] &&
-                m1.AO[1] == m2.AO[1] &&
-                m1.AO[2] == m2.AO[2] &&
-                m1.AO[3] == m2.AO[3];
-        }
-
-        [BurstCompile]
-        private static MeshLayer GetMeshLayer(ushort voxelId, VoxelEngineRenderGenData renderGenData)
-        {
-            return renderGenData.GetMeshLayer(voxelId);
-        }
-
-        [BurstCompile]
         internal static MeshBuffer GenerateMesh(
             ChunkAccessor accessor, int3 chunkPos, int3 size, VoxelEngineRenderGenData renderGenData
         )
@@ -213,13 +69,12 @@ namespace Runtime.Engine.Mesher
                                 deltaAxis2[axis2] = height;
                                 vertexCount += CreateQuad(
                                     mesh, renderGenData.GetRenderDef(currentMask.VoxelId),
-                                    vertexCount, currentMask, directionMask, width, height, new VQuad()
-                                    {
-                                        V1 = chunkItr,
-                                        V2 = chunkItr + deltaAxis1,
-                                        V3 = chunkItr + deltaAxis2,
-                                        V4 = chunkItr + deltaAxis1 + deltaAxis2
-                                    }
+                                    vertexCount, currentMask, directionMask, new int2(width, height), new VQuad(
+                                        chunkItr,
+                                        chunkItr + deltaAxis1,
+                                        chunkItr + deltaAxis2,
+                                        chunkItr + deltaAxis1 + deltaAxis2
+                                    )
                                 );
                                 ClearMaskRegion(normalMask, n, width, height, axis1Limit);
                                 deltaAxis1 = int3.zero;
@@ -241,6 +96,8 @@ namespace Runtime.Engine.Mesher
 
             return mesh;
         }
+
+        #region Mask Helpers
 
         [BurstCompile]
         private static void BuildFaceMask(ChunkAccessor accessor, int3 chunkPos, int3 chunkItr, int3 directionMask,
@@ -315,26 +172,22 @@ namespace Runtime.Engine.Mesher
             return height;
         }
 
-        [BurstCompile]
-        private static void ClearMaskRegion(NativeArray<Mask> normalMask, int n, int width, int height, int axis1Limit)
-        {
-            for (int l = 0; l < height; ++l)
-            for (int k = 0; k < width; ++k)
-                normalMask[n + k + l * axis1Limit] = default;
-        }
+        #endregion
+
+        #region Quad Creation
 
         [BurstCompile]
         private static int CreateQuad(
             MeshBuffer mesh, VoxelRenderDef info, int vertexCount, Mask mask, int3 directionMask,
-            int width, int height, VQuad verts
+            int2 size, VQuad verts
         )
         {
             switch (mask.MeshLayer)
             {
                 case MeshLayer.Solid:
-                    return CreateQuadMesh0(mesh, info, vertexCount, mask, directionMask, width, height, verts);
+                    return CreateQuadMesh0(mesh, info, vertexCount, mask, directionMask, size, verts);
                 case MeshLayer.Transparent:
-                    return CreateQuadMesh1(mesh, info, vertexCount, mask, directionMask, width, height, verts);
+                    return CreateQuadMesh1(mesh, info, vertexCount, mask, directionMask, size, verts);
                 default:
                     return 0;
             }
@@ -343,30 +196,15 @@ namespace Runtime.Engine.Mesher
         [BurstCompile]
         private static int CreateQuadMesh0(
             MeshBuffer mesh, VoxelRenderDef info, int vertexCount, Mask mask, int3 directionMask,
-            int width, int height, VQuad verts
+            int2 size, VQuad verts
         )
         {
             int3 normal = directionMask * mask.Normal;
 
             int uvz = info.GetTextureId(normal.ToDirection());
-            UVQuad uv = ComputeFaceUVs(normal, width, height, uvz);
+            UV0Quad uv = ComputeFaceUVs(normal, size, uvz);
 
-            // 1 Bottom Left
-            Vertex vertex1 = new(verts.V1, normal, uv.Uv1, new float2(0, 0), mask.AO);
-
-            // 2 Top Left
-            Vertex vertex2 = new(verts.V2, normal, uv.Uv2, new float2(0, 1), mask.AO);
-
-            // 3 Bottom Right
-            Vertex vertex3 = new(verts.V3, normal, uv.Uv3, new float2(1, 0), mask.AO);
-
-            // 4 Top Right
-            Vertex vertex4 = new(verts.V4, normal, uv.Uv4, new float2(1, 1), mask.AO);
-
-            mesh.VertexBuffer.Add(vertex1);
-            mesh.VertexBuffer.Add(vertex2);
-            mesh.VertexBuffer.Add(vertex3);
-            mesh.VertexBuffer.Add(vertex4);
+            AddVertices(mesh, verts, normal, uv, mask.AO);
 
             AddQuadIndices(mesh.IndexBuffer0, vertexCount, mask.Normal, mask.AO);
             return 4;
@@ -375,7 +213,7 @@ namespace Runtime.Engine.Mesher
         [BurstCompile]
         private static int CreateQuadMesh1(
             MeshBuffer mesh, VoxelRenderDef info, int vertexCount, Mask mask, int3 directionMask,
-            int width, int height, VQuad verts
+            int2 size, VQuad verts
         )
         {
             int3 normal = directionMask * mask.Normal;
@@ -397,48 +235,113 @@ namespace Runtime.Engine.Mesher
             }
 
             int uvz = info.GetTextureId(normal.ToDirection());
-            UVQuad uv = ComputeFaceUVs(normal, width, height, uvz);
-            float3 fNormal = normal;
+            UV0Quad uv = ComputeFaceUVs(normal, size, uvz);
 
-            // 1 Bottom Left
-            Vertex vertex1 = new(verts.V1, fNormal, uv.Uv1, new float2(0, 0), info.OverrideColor);
-
-            // 2 Top Left
-            Vertex vertex2 = new(verts.V2, fNormal, uv.Uv2, new float2(0, 1), info.OverrideColor);
-
-            // 3 Bottom Right
-            Vertex vertex3 = new(verts.V3, fNormal, uv.Uv3, new float2(1, 0), info.OverrideColor);
-
-            // 4 Top Right
-            Vertex vertex4 = new(verts.V4, fNormal, uv.Uv4, new float2(1, 1), info.OverrideColor);
-
-            mesh.VertexBuffer.Add(vertex1);
-            mesh.VertexBuffer.Add(vertex2);
-            mesh.VertexBuffer.Add(vertex3);
-            mesh.VertexBuffer.Add(vertex4);
+            AddVertices(mesh, verts, normal, uv, info.OverrideColor);
 
             AddQuadIndices(mesh.IndexBuffer1, vertexCount, mask.Normal, mask.AO);
             return 4;
         }
 
-        private static void AddFloraQuad(MeshBuffer mesh, VoxelRenderDef info, int vertexCount, VQuad verts)
+        [BurstCompile]
+        private static UV0Quad ComputeFaceUVs(int3 normal, int2 size, int uvz)
         {
-            int uvz = info.TexUp;
-            UVQuad uv = ComputeFaceUVs(new int3(1, 1, 0), 1, 1, uvz);
-            float3 normal = new(0, 1, 0);
+            UV0Quad uv;
+            float uMaxW = math.max(UVEdgeInset, size.x - UVEdgeInset);
+            float vMaxH = math.max(UVEdgeInset, size.y - UVEdgeInset);
 
-            Vertex vertex1 = new(verts.V1, normal, uv.Uv1, new float2(0, 0), info.OverrideColor);
+            if (normal.x is 1 or -1)
+            {
+                uv.Uv1 = new float3(UVEdgeInset, UVEdgeInset, uvz); // (0,0)
+                uv.Uv2 = new float3(UVEdgeInset, uMaxW, uvz); // (0,width)
+                uv.Uv3 = new float3(vMaxH, UVEdgeInset, uvz); // (height,0)
+                uv.Uv4 = new float3(vMaxH, uMaxW, uvz); // (height,width)
+            }
+            else
+            {
+                uv.Uv1 = new float3(UVEdgeInset, UVEdgeInset, uvz); // (0,0)
+                uv.Uv2 = new float3(uMaxW, UVEdgeInset, uvz); // (width,0)
+                uv.Uv3 = new float3(UVEdgeInset, vMaxH, uvz); // (0,height)
+                uv.Uv4 = new float3(uMaxW, vMaxH, uvz); // (width,height)
+            }
 
-            Vertex vertex2 = new(verts.V2, normal, uv.Uv2, new float2(0, 1), info.OverrideColor);
+            return uv;
+        }
 
-            Vertex vertex3 = new(verts.V3, normal, uv.Uv3, new float2(1, 0), info.OverrideColor);
+        [BurstCompile]
+        private static void AddQuadIndices(NativeList<int> indexBuffer, int baseVertexIndex, sbyte normalSign, int4 ao)
+        {
+            // Choose diagonal based on AO to minimize artifacts
+            if (ao[0] + ao[3] > ao[1] + ao[2])
+            {
+                indexBuffer.Add(baseVertexIndex);
+                indexBuffer.Add(baseVertexIndex + 2 - normalSign);
+                indexBuffer.Add(baseVertexIndex + 2 + normalSign);
 
-            Vertex vertex4 = new(verts.V4, normal, uv.Uv4, new float2(1, 1), info.OverrideColor);
+                indexBuffer.Add(baseVertexIndex + 3);
+                indexBuffer.Add(baseVertexIndex + 1 + normalSign);
+                indexBuffer.Add(baseVertexIndex + 1 - normalSign);
+            }
+            else
+            {
+                indexBuffer.Add(baseVertexIndex + 1);
+                indexBuffer.Add(baseVertexIndex + 1 + normalSign);
+                indexBuffer.Add(baseVertexIndex + 1 - normalSign);
+
+                indexBuffer.Add(baseVertexIndex + 2);
+                indexBuffer.Add(baseVertexIndex + 2 - normalSign);
+                indexBuffer.Add(baseVertexIndex + 2 + normalSign);
+            }
+        }
+
+        [BurstCompile]
+        private static int RenderFloraCross(MeshBuffer mesh, VoxelRenderDef info, int vertexCount, VQuad verts)
+        {
+            // First quad (XZ diagonal)
+            AddFloraQuad(mesh, info, vertexCount,
+                new VQuad(verts.V1 - new float3(0, 1, 0), verts.V1, verts.V4 - new float3(0, 1, 0), verts.V4));
+            vertexCount += 4;
+            // Second quad (ZX diagonal)
+            AddFloraQuad(mesh, info, vertexCount,
+                new VQuad(verts.V3 - new float3(0, 1, 0), verts.V3, verts.V2 - new float3(0, 1, 0), verts.V2));
+            return 8;
+        }
+
+        private static readonly UV1Quad UV1 = new(
+            new float2(0, 0),
+            new float2(0, 1),
+            new float2(1, 0),
+            new float2(1, 1)
+        );
+
+        private static void AddVertices(MeshBuffer mesh, VQuad verts, float3 normal, UV0Quad uv0, float4 uv2)
+        {
+            // 1 Bottom Left
+            Vertex vertex1 = new(verts.V1, normal, uv0.Uv1, UV1.Uv1, uv2);
+
+            // 2 Top Left
+            Vertex vertex2 = new(verts.V2, normal, uv0.Uv2, UV1.Uv2, uv2);
+
+            // 3 Bottom Right
+            Vertex vertex3 = new(verts.V3, normal, uv0.Uv3, UV1.Uv3, uv2);
+
+            // 4 Top Right
+            Vertex vertex4 = new(verts.V4, normal, uv0.Uv4, UV1.Uv4, uv2);
 
             mesh.VertexBuffer.Add(vertex1);
             mesh.VertexBuffer.Add(vertex2);
             mesh.VertexBuffer.Add(vertex3);
             mesh.VertexBuffer.Add(vertex4);
+        }
+
+        private static void AddFloraQuad(MeshBuffer mesh, VoxelRenderDef info, int vertexCount, VQuad verts)
+        {
+            int uvz = info.TexUp;
+            UV0Quad uv = ComputeFaceUVs(new int3(1, 1, 0), new int2(1, 1), uvz);
+            float3 normal = new(0, 1, 0);
+
+            AddVertices(mesh, verts, normal, uv, info.OverrideColor);
+
             NativeList<int> indexBuffer = mesh.IndexBuffer1;
             indexBuffer.Add(vertexCount);
             indexBuffer.Add(vertexCount + 1);
@@ -447,6 +350,10 @@ namespace Runtime.Engine.Mesher
             indexBuffer.Add(vertexCount + 1);
             indexBuffer.Add(vertexCount + 3);
         }
+
+        #endregion
+
+        #region AO Calculation
 
         [BurstCompile]
         private static int4 ComputeAOMask(ChunkAccessor accessor, VoxelEngineRenderGenData renderGenData, int3 pos,
@@ -504,5 +411,113 @@ namespace Runtime.Engine.Mesher
 
             return 3 - (s1 + s2 + c);
         }
+
+        #endregion
+
+        #region Structs
+
+        [BurstCompile]
+        private struct UV0Quad
+        {
+            public float3 Uv1, Uv2, Uv3, Uv4;
+        }
+
+        [BurstCompile]
+        private struct UV1Quad
+        {
+            public readonly float2 Uv1, Uv2, Uv3, Uv4;
+
+            public UV1Quad(float2 uv1, float2 uv2, float2 uv3, float2 uv4)
+            {
+                Uv1 = uv1;
+                Uv2 = uv2;
+                Uv3 = uv3;
+                Uv4 = uv4;
+            }
+        }
+
+        [BurstCompile]
+        private struct VQuad
+        {
+            public float3 V1, V2, V3, V4;
+
+            public VQuad(float3 v1, float3 v2, float3 v3, float3 v4)
+            {
+                V1 = v1;
+                V2 = v2;
+                V3 = v3;
+                V4 = v4;
+            }
+
+            public void OffsetAll(float3 offset)
+            {
+                V1 += offset;
+                V2 += offset;
+                V3 += offset;
+                V4 += offset;
+            }
+        }
+
+        [BurstCompile]
+        private readonly struct Mask
+        {
+            public readonly ushort VoxelId;
+
+            internal readonly MeshLayer MeshLayer;
+            internal readonly sbyte Normal;
+
+            internal readonly int4 AO;
+
+            // Prevent greedy-merging for certain voxel faces (e.g., Flora)
+            private readonly bool _noGreedy;
+
+            public Mask(ushort voxelId, MeshLayer meshLayer, sbyte normal, int4 ao, bool noGreedy)
+            {
+                MeshLayer = meshLayer;
+                VoxelId = voxelId;
+                Normal = normal;
+                AO = ao;
+                _noGreedy = noGreedy;
+            }
+
+            public bool CompareTo(Mask other)
+            {
+                if (_noGreedy || other._noGreedy) return false;
+                return
+                    MeshLayer == other.MeshLayer &&
+                    VoxelId == other.VoxelId &&
+                    Normal == other.Normal &&
+                    AO[0] == other.AO[0] &&
+                    AO[1] == other.AO[1] &&
+                    AO[2] == other.AO[2] &&
+                    AO[3] == other.AO[3];
+            }
+        }
+
+        #endregion
+
+        #region Helpers
+
+        [BurstCompile]
+        private static bool CompareMask(Mask m1, Mask m2)
+        {
+            return m1.CompareTo(m2);
+        }
+
+        [BurstCompile]
+        private static MeshLayer GetMeshLayer(ushort voxelId, VoxelEngineRenderGenData renderGenData)
+        {
+            return renderGenData.GetMeshLayer(voxelId);
+        }
+
+        [BurstCompile]
+        private static void ClearMaskRegion(NativeArray<Mask> normalMask, int n, int width, int height, int axis1Limit)
+        {
+            for (int l = 0; l < height; ++l)
+            for (int k = 0; k < width; ++k)
+                normalMask[n + k + l * axis1Limit] = default;
+        }
+
+        #endregion
     }
 }
