@@ -141,7 +141,8 @@ namespace Runtime.Engine.Voxels.Data
 
         public void Dispose()
         {
-            _voxelEngineRenderGenData.VoxelRenderDefs.Dispose();
+            if (_voxelEngineRenderGenData.VoxelRenderDefs.IsCreated)
+                _voxelEngineRenderGenData.VoxelRenderDefs.Dispose();
         }
 
         public void ApplyToMaterial(Material material, MeshLayer solid)
