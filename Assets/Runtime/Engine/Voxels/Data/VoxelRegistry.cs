@@ -46,6 +46,7 @@ namespace Runtime.Engine.Voxels.Data
             {
                 MeshLayer = definition.meshLayer,
                 VoxelType = definition.voxelType,
+                DepthFadeDistance = definition.depthFadeDistance,
                 OverrideColor = ConvertColor(definition.overrideColor),
                 Collision = definition.collision,
                 TexUp = RegisterTexture(definition, Direction.Up),

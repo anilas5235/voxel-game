@@ -902,7 +902,7 @@
     ],
     "synonyms": [],
     "m_Precision": 0,
-    "m_PreviewExpanded": true,
+    "m_PreviewExpanded": false,
     "m_DismissedVersion": 0,
     "m_PreviewMode": 0,
     "m_CustomColors": {
@@ -1623,7 +1623,7 @@
     "m_ObjectId": "66e942f5dd914bcea4a7efe014306449",
     "m_Title": "AO Mixing",
     "m_Position": {
-        "x": -677.0001220703125,
+        "x": -677.0,
         "y": -285.9999084472656
     }
 }
@@ -1635,7 +1635,7 @@
     "m_Title": "AO Interpolation",
     "m_Position": {
         "x": -2311.0,
-        "y": -105.99993896484375
+        "y": -106.0
     }
 }
 
@@ -1694,7 +1694,7 @@
     "m_ObjectId": "727388a9bfa6460b9465eb9e415dd6a6",
     "m_Title": "AO_Computation",
     "m_Position": {
-        "x": -659.0001220703125,
+        "x": -659.0,
         "y": -752.0
     }
 }

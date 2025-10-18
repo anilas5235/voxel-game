@@ -17,6 +17,7 @@ namespace Runtime.Engine.Voxels.Data
         
         public VoxelType voxelType;
         public Color overrideColor = Color.white;
+        public float depthFadeDistance;
 
         public Texture2D top;
         public Texture2D bottom;

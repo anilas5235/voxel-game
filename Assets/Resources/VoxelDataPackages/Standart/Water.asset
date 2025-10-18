@@ -16,6 +16,7 @@ MonoBehaviour:
   meshLayer: 1
   voxelType: 1
   overrideColor: {r: 0, g: 0.111756146, b: 0.2264151, a: 1}
+  depthFadeDistance: 10
   top: {fileID: 0}
   bottom: {fileID: 0}
   front: {fileID: 0}

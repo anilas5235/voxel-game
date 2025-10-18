@@ -305,7 +305,7 @@ namespace Runtime.Engine.Mesher
             AddColliderVertices(mesh, verts, normal);
 
             // Use AO zeros for a deterministic diagonal, reuse existing helper for correct winding
-            AddQuadIndices(mesh.CIndexBuffer, cVertexCount, mask.Normal, new int4(0, 0, 0, 0));
+            AddQuadIndices(mesh.CIndexBuffer, cVertexCount, mask.Normal, int4.zero);
             return 4;
         }
 
@@ -317,10 +317,10 @@ namespace Runtime.Engine.Mesher
         {
             int3 normal = directionMask * mask.Normal;
 
-            int uvz = info.GetTextureId(normal.ToDirection());
-            UV0Quad uv = ComputeFaceUVs(normal, size, uvz);
+            int texIndex = info.GetTextureId(normal.ToDirection());
+            UVQuad uv = ComputeFaceUVs(normal, size);
 
-            AddVertices(mesh, verts, normal, uv, mask.AO);
+            AddVertices(mesh, verts, normal, uv,new float4(texIndex,0,0,0), mask.AO);
 
             AddQuadIndices(mesh.IndexBuffer0, vertexCount, mask.Normal, mask.AO);
             return 4;
@@ -350,35 +350,35 @@ namespace Runtime.Engine.Mesher
                     throw new ArgumentOutOfRangeException();
             }
 
-            int uvz = info.GetTextureId(normal.ToDirection());
-            UV0Quad uv = ComputeFaceUVs(normal, size, uvz);
+            int texIndex = info.GetTextureId(normal.ToDirection());
+            UVQuad uv = ComputeFaceUVs(normal, size);
 
-            AddVertices(mesh, verts, normal, uv, info.OverrideColor);
+            AddVertices(mesh, verts, normal, uv,new float4(texIndex,info.DepthFadeDistance,0,0), info.OverrideColor);
 
             AddQuadIndices(mesh.IndexBuffer1, vertexCount, mask.Normal, mask.AO);
             return 4;
         }
 
         [BurstCompile]
-        private static UV0Quad ComputeFaceUVs(int3 normal, int2 size, int uvz)
+        private static UVQuad ComputeFaceUVs(int3 normal, int2 size)
         {
-            UV0Quad uv;
+            UVQuad uv;
             float uMaxW = math.max(UVEdgeInset, size.x - UVEdgeInset);
             float vMaxH = math.max(UVEdgeInset, size.y - UVEdgeInset);
 
             if (normal.x is 1 or -1)
             {
-                uv.Uv1 = new float3(UVEdgeInset, UVEdgeInset, uvz); // (0,0)
-                uv.Uv2 = new float3(UVEdgeInset, uMaxW, uvz); // (0,width)
-                uv.Uv3 = new float3(vMaxH, UVEdgeInset, uvz); // (height,0)
-                uv.Uv4 = new float3(vMaxH, uMaxW, uvz); // (height,width)
+                uv.Uv1 = new float4(UVEdgeInset, UVEdgeInset, 0, 0); // (0,0)
+                uv.Uv2 = new float4(UVEdgeInset, uMaxW, 0, 1); // (0,width)
+                uv.Uv3 = new float4(vMaxH, UVEdgeInset, 1, 0); // (height,0)
+                uv.Uv4 = new float4(vMaxH, uMaxW, 1, 1); // (height,width)
             }
             else
             {
-                uv.Uv1 = new float3(UVEdgeInset, UVEdgeInset, uvz); // (0,0)
-                uv.Uv2 = new float3(uMaxW, UVEdgeInset, uvz); // (width,0)
-                uv.Uv3 = new float3(UVEdgeInset, vMaxH, uvz); // (0,height)
-                uv.Uv4 = new float3(uMaxW, vMaxH, uvz); // (width,height)
+                uv.Uv1 = new float4(UVEdgeInset, UVEdgeInset, 0, 0); // (0,0)
+                uv.Uv2 = new float4(uMaxW, UVEdgeInset, 0, 1); // (width,0)
+                uv.Uv3 = new float4(UVEdgeInset, vMaxH, 1, 0); // (0,height)
+                uv.Uv4 = new float4(uMaxW, vMaxH, 1, 1); // (width,height)
             }
 
             return uv;
@@ -423,26 +423,19 @@ namespace Runtime.Engine.Mesher
             return 8;
         }
 
-        private static readonly UV1Quad UV1 = new(
-            new float2(0, 0),
-            new float2(0, 1),
-            new float2(1, 0),
-            new float2(1, 1)
-        );
-
-        private static void AddVertices(MeshBuffer mesh, VQuad verts, float3 normal, UV0Quad uv0, float4 uv2)
+        private static void AddVertices(MeshBuffer mesh, VQuad verts, float3 normal, UVQuad uv0, float4 uv1 ,float4 uv2)
         {
             // 1 Bottom Left
-            Vertex vertex1 = new(verts.V1, normal, uv0.Uv1, UV1.Uv1, uv2);
+            Vertex vertex1 = new(verts.V1, normal, uv0.Uv1, uv1, uv2);
 
             // 2 Top Left
-            Vertex vertex2 = new(verts.V2, normal, uv0.Uv2, UV1.Uv2, uv2);
+            Vertex vertex2 = new(verts.V2, normal, uv0.Uv2, uv1, uv2);
 
             // 3 Bottom Right
-            Vertex vertex3 = new(verts.V3, normal, uv0.Uv3, UV1.Uv3, uv2);
+            Vertex vertex3 = new(verts.V3, normal, uv0.Uv3, uv1, uv2);
 
             // 4 Top Right
-            Vertex vertex4 = new(verts.V4, normal, uv0.Uv4, UV1.Uv4, uv2);
+            Vertex vertex4 = new(verts.V4, normal, uv0.Uv4, uv1, uv2);
 
             mesh.VertexBuffer.Add(vertex1);
             mesh.VertexBuffer.Add(vertex2);
@@ -469,11 +462,11 @@ namespace Runtime.Engine.Mesher
 
         private static void AddFloraQuad(MeshBuffer mesh, VoxelRenderDef info, int vertexCount, VQuad verts)
         {
-            int uvz = info.TexUp;
-            UV0Quad uv = ComputeFaceUVs(new int3(1, 1, 0), new int2(1, 1), uvz);
+            int texIndex = info.TexUp;
+            UVQuad uv = ComputeFaceUVs(new int3(1, 1, 0), new int2(1, 1));
             float3 normal = new(0, 1, 0);
 
-            AddVertices(mesh, verts, normal, uv, info.OverrideColor);
+            AddVertices(mesh, verts, normal, uv, new float4(texIndex,-1,0,0), info.OverrideColor);
 
             NativeList<int> indexBuffer = mesh.IndexBuffer1;
             indexBuffer.Add(vertexCount);
@@ -550,23 +543,9 @@ namespace Runtime.Engine.Mesher
         #region Structs
 
         [BurstCompile]
-        private struct UV0Quad
+        private struct UVQuad
         {
-            public float3 Uv1, Uv2, Uv3, Uv4;
-        }
-
-        [BurstCompile]
-        private struct UV1Quad
-        {
-            public readonly float2 Uv1, Uv2, Uv3, Uv4;
-
-            public UV1Quad(float2 uv1, float2 uv2, float2 uv3, float2 uv4)
-            {
-                Uv1 = uv1;
-                Uv2 = uv2;
-                Uv3 = uv3;
-                Uv4 = uv4;
-            }
+            public float4 Uv1, Uv2, Uv3, Uv4;
         }
 
         [BurstCompile]
