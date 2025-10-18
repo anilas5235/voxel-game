@@ -45,7 +45,7 @@ namespace Runtime.Engine.Components
 
         #region API
 
-        internal int GetVoxel(Vector3Int position)
+        internal ushort GetVoxel(Vector3Int position)
         {
             int3 chunkPos = VoxelUtils.GetChunkCoords(position);
             int3 blockPos = VoxelUtils.GetVoxelIndex(position);

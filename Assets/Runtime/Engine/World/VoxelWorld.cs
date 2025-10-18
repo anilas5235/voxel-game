@@ -87,7 +87,7 @@ namespace Runtime.Engine.World
 
         #endregion
 
-        public int GetVoxel(Vector3Int position) => ChunkManager.GetVoxel(position);
+        public ushort GetVoxel(Vector3Int position) => ChunkManager.GetVoxel(position);
 
         public bool SetVoxel(ushort voxelId, Vector3Int position, bool remesh = true) =>
             ChunkManager.SetVoxel(voxelId, position, remesh);
