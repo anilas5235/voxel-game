@@ -38,6 +38,7 @@ namespace Runtime.Shaders
         {
             _postProcessManager.ResetLiftGammaGain();
             _postProcessManager.ResetColorAdjustments();
+            RenderSettings.fog = false;
 
             if (!_voxelRegistry.GetVoxelDefinition(voxelId, out VoxelDefinition info)) return;
 
@@ -46,6 +47,9 @@ namespace Runtime.Shaders
             {
                 _postProcessManager.SetLiftGammaGain(info.postProcess.postProcessColor);
                 _postProcessManager.SetColorAdjustments(info.postProcess.contrast, info.postProcess.saturation);
+                RenderSettings.fog = info.postProcess.enableFog;
+                RenderSettings.fogColor = info.postProcess.postProcessColor;
+                RenderSettings.fogDensity = info.postProcess.fogDensity;
             }
         }
     }

@@ -16,11 +16,13 @@ MonoBehaviour:
   meshLayer: 1
   voxelType: 1
   overrideColor: {r: 0, g: 0.111756146, b: 0.2264151, a: 1}
-  depthFadeDistance: 10
+  depthFadeDistance: 14
   postProcess:
-    postProcessColor: {r: 0.60188675, g: 0.83930963, b: 1, a: 0}
+    postProcessColor: {r: 0.41037738, g: 0.76299477, b: 1, a: 0}
     contrast: 1
     saturation: 7
+    enableFog: 1
+    fogDensity: 0.01
   top: {fileID: 0}
   bottom: {fileID: 0}
   front: {fileID: 0}

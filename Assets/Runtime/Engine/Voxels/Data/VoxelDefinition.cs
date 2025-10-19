@@ -1,5 +1,6 @@
 ﻿using System;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace Runtime.Engine.Voxels.Data
 {
@@ -66,5 +67,7 @@ namespace Runtime.Engine.Voxels.Data
         public Color postProcessColor;
         public float contrast;
         public float saturation;
+        public bool enableFog;
+        public float fogDensity = .01f;
     }
 }
