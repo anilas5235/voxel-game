@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 
 namespace Runtime.Engine.Voxels.Data
 {
@@ -18,6 +19,7 @@ namespace Runtime.Engine.Voxels.Data
         public VoxelType voxelType;
         public Color overrideColor = Color.white;
         public float depthFadeDistance;
+        public VoxelPostProcessData postProcess = new();
 
         public Texture2D top;
         public Texture2D bottom;
@@ -56,5 +58,13 @@ namespace Runtime.Engine.Voxels.Data
                 _ => null
             };
         }
+    }
+    
+    [Serializable]
+    public class VoxelPostProcessData
+    {
+        public Color postProcessColor;
+        public float contrast;
+        public float saturation;
     }
 }
