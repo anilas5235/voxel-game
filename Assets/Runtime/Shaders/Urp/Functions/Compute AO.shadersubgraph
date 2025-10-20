@@ -144,6 +144,7 @@
     "m_OutputNode": {
         "m_Id": "f513c5f9271b4683a5b697173f0cebcd"
     },
+    "m_SubDatas": [],
     "m_ActiveTargets": []
 }
 
@@ -589,6 +590,7 @@
     "m_SourceType": 0,
     "m_FunctionName": "compute_ao",
     "m_FunctionSource": "04757ca8726f48f88ccb7be40b06c97d",
+    "m_FunctionSourceUsePragmas": true,
     "m_FunctionBody": "Enter function body here..."
 }
 

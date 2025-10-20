@@ -26,7 +26,12 @@ namespace Runtime.Engine.Voxels.Editor
             if (voxelDef.meshLayer == MeshLayer.Transparent)
             {
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("voxelType"));
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("depthFadeDistance"));
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("overrideColor"));
+                if (voxelDef.voxelType == VoxelType.Liquid)
+                {
+                    EditorGUILayout.PropertyField(serializedObject.FindProperty("postProcess"));
+                }
             }
 
             switch (voxelDef.TextureMode)

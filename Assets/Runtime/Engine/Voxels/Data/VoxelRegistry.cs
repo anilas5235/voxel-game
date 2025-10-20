@@ -14,6 +14,7 @@ namespace Runtime.Engine.Voxels.Data
         private readonly Dictionary<ushort, string> _idToName = new();
 
         private readonly Dictionary<ushort, VoxelRenderDef> _idToVoxel = new(100);
+        private readonly Dictionary<ushort, VoxelDefinition> _idToVoxelDefinition = new(100);
 
         private VoxelEngineRenderGenData _voxelEngineRenderGenData;
 
@@ -46,6 +47,7 @@ namespace Runtime.Engine.Voxels.Data
             {
                 MeshLayer = definition.meshLayer,
                 VoxelType = definition.voxelType,
+                DepthFadeDistance = definition.depthFadeDistance,
                 OverrideColor = ConvertColor(definition.overrideColor),
                 Collision = definition.collision,
                 TexUp = RegisterTexture(definition, Direction.Up),
@@ -56,27 +58,30 @@ namespace Runtime.Engine.Voxels.Data
                 TexRight = RegisterTexture(definition, Direction.Right)
             };
 
-            Register(packagePrefix + ":" + definition.name, type);
+            ushort id = Register(packagePrefix + ":" + definition.name, type);
+            if (id == 0) return;
+            _idToVoxelDefinition.Add(id, definition);
         }
-        
+
         private static float4 ConvertColor(Color color)
         {
             return new float4(color.r, color.g, color.b, color.a);
         }
 
-        private void Register(string name, VoxelRenderDef renderDef)
+        private ushort Register(string name, VoxelRenderDef renderDef)
         {
             Initialize();
             if (_nameToId.ContainsKey(name))
             {
                 Debug.LogWarning($"Voxel with name {name} is already registered.");
-                return;
+                return 0;
             }
 
             ushort id = (ushort)_idToVoxel.Count;
             _idToVoxel.Add(id, renderDef);
             _nameToId.Add(name, id);
             _idToName.Add(id, name);
+            return id;
         }
 
         private int RegisterTexture(VoxelDefinition definition, Direction dir)
@@ -90,15 +95,11 @@ namespace Runtime.Engine.Voxels.Data
             };
         }
 
-        public ushort GetId(string name)
-        {
-            return _nameToId[name];
-        }
+        public bool GetId(string name, out ushort id) => _nameToId.TryGetValue(name, out id);
 
-        public string GetName(ushort id)
-        {
-            return _idToName[id];
-        }
+        public bool GetName(ushort id, out string name) => _idToName.TryGetValue(id, out name);
+
+        public bool GetVoxelDefinition(ushort id,out VoxelDefinition def) => _idToVoxelDefinition.TryGetValue(id, out def);
 
         public void FinalizeRegistry()
         {
