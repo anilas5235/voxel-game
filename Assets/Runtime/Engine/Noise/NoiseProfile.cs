@@ -19,7 +19,7 @@ namespace Runtime.Engine.Noise
         {
             Position = position,
             WaterLevel = _waterLevel,
-            Height = (int)math.round((ComputeNoise(position) * .5f + .35f) * _halfHeight)
+            Height = (int)math.round((ComputeNoise(position) * _halfHeight) + _halfHeight)
         };
 
         public NoiseProfile(Settings settings)
