@@ -151,9 +151,8 @@ namespace Runtime.Engine.Jobs
         {
             for (int x = -draw; x <= draw; x++)
             for (int z = -draw; z <= draw; z++)
-            for (int y = -draw; y <= draw; y++)
             {
-                int3 pos = focus + chunkSize.MemberMultiply(x, y, z);
+                int3 pos = focus + chunkSize.MemberMultiply(x, 0, z);
                 if (!_meshQueue.Contains(pos) && ShouldScheduleForMeshing(pos) && CanGenerateMeshForChunk(pos))
                 {
                     _meshQueue.Enqueue(pos, (pos - focus).SqrMagnitude());
@@ -165,9 +164,8 @@ namespace Runtime.Engine.Jobs
         {
             for (int x = -update; x <= update; x++)
             for (int z = -update; z <= update; z++)
-            for (int y = -update; y <= update; y++)
             {
-                int3 pos = focus + chunkSize.MemberMultiply(x, y, z);
+                int3 pos = focus + chunkSize.MemberMultiply(x, 0, z);
                 if (!_colliderQueue.Contains(pos) && ShouldScheduleForBaking(pos) &&
                     CanBakeColliderForChunk(pos))
                 {
@@ -180,9 +178,8 @@ namespace Runtime.Engine.Jobs
         {
             for (int x = -load; x <= load; x++)
             for (int z = -load; z <= load; z++)
-            for (int y = -load; y <= load; y++)
             {
-                int3 pos = focus + chunkSize.MemberMultiply(x, y, z);
+                int3 pos = focus + chunkSize.MemberMultiply(x, 0, z);
                 if (!_dataQueue.Contains(pos) && ShouldScheduleForGenerating(pos))
                 {
                     _dataQueue.Enqueue(pos, (pos - focus).SqrMagnitude());
@@ -310,9 +307,8 @@ namespace Runtime.Engine.Jobs
 
             for (int x = -1; x <= 1; x++)
             for (int z = -1; z <= 1; z++)
-            for (int y = -1; y <= 1; y++)
             {
-                int3 pos = position + _settings.Chunk.ChunkSize.MemberMultiply(x, y, z);
+                int3 pos = position + _settings.Chunk.ChunkSize.MemberMultiply(x, 0, z);
                 result &= _chunkManager.IsChunkLoaded(pos);
             }
 

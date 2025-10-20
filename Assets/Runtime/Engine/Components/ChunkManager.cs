@@ -145,9 +145,8 @@ namespace Runtime.Engine.Components
             {
                 for (int x = -1; x <= 1; x++)
                 for (int z = -1; z <= 1; z++)
-                for (int y = -1; y <= 1; y++)
                 {
-                    int3 pos = position + _chunkSize.MemberMultiply(x, y, z);
+                    int3 pos = position + _chunkSize.MemberMultiply(x, 0, z);
 
                     if (!_chunks.TryGetValue(pos, out Chunk chunk))
                     {

@@ -88,7 +88,7 @@ namespace Runtime.Engine.Components
             ChunkBehaviour behaviour = _pool.Get();
 
             behaviour.transform.position = position.GetVector3();
-            behaviour.name = $"Chunk({position.x},{position.z})";
+            behaviour.name = $"Chunk({position.x},{position.y},{position.z})";
 
             _meshMap.Add(position, behaviour);
             _queue.Enqueue(position, -(position - _focus).SqrMagnitude());
