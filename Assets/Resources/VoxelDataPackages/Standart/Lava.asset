@@ -15,7 +15,7 @@ MonoBehaviour:
   textureMode: 0
   meshLayer: 1
   voxelType: 1
-  overrideColor: {r: 0.5754717, g: 0.25045383, b: 0.046146322, a: 1}
+  overrideColor: {r: 1, g: 1, b: 1, a: 1}
   top: {fileID: 0}
   bottom: {fileID: 0}
   front: {fileID: 0}
