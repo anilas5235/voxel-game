@@ -40,8 +40,11 @@ namespace Runtime.Engine
 
         internal ChunkScheduler ChunkDataScheduler(
             ChunkManager chunkManager,
-            NoiseProfile noiseProfile
-        ) => new(Settings, chunkManager, noiseProfile);
+            NoiseProfile noiseProfile,
+            GeneratorConfig generatorConfig
+        ) => new(Settings, chunkManager, noiseProfile, generatorConfig);
+        
+       
 
         internal MeshBuildScheduler MeshBuildScheduler(
             ChunkManager chunkManager,

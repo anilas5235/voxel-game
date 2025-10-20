@@ -18,6 +18,8 @@ namespace Runtime.Engine.Jobs.Chunk
         [WriteOnly] public NativeParallelHashMap<int3, Data.Chunk>.ParallelWriter Results;
 
         [ReadOnly] public uint RandomSeed;
+        
+        [ReadOnly] public GeneratorConfig Config;
 
         public void Execute(int index)
         {

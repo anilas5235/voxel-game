@@ -96,6 +96,7 @@ namespace Runtime.Engine.Voxels.Data
         }
 
         public bool GetId(string name, out ushort id) => _nameToId.TryGetValue(name, out id);
+        public ushort GetId(string name) => _nameToId.GetValueOrDefault(name, (ushort)0);
 
         public bool GetName(ushort id, out string name) => _idToName.TryGetValue(id, out name);
 
