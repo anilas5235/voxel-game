@@ -18,6 +18,11 @@ namespace Runtime.Engine.Utils.Extensions
 
         [BurstCompile]
         public static int YCubedSize(this int num, int y) => (2 * num + 1) * (2 * num + 1) * (2 * y + 1);
+        
+        [BurstCompile]
+        public static int Flatten(this int2 vec, int x, int y) =>
+            x * vec.y +
+            y;
 
         [BurstCompile]
         public static int Flatten(this int3 vec, int x, int y, int z) =>

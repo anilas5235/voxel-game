@@ -32,8 +32,8 @@ namespace Runtime.Engine.Data {
             return result;
         }
         
-        public bool SetVoxel(int3 pos, ushort block) {
-            bool result= _data.Set(_chunkSize.Flatten(pos), block);
+        public bool SetVoxel(int3 pos, ushort voxelId) {
+            bool result= _data.Set(_chunkSize.Flatten(pos), voxelId);
             if (result) Dirty = true;
             return result;
         }

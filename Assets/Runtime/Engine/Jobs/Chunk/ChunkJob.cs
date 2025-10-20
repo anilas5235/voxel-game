@@ -1,5 +1,4 @@
-﻿using Runtime.Engine.Data;
-using Runtime.Engine.Noise;
+﻿using Runtime.Engine.Noise;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
@@ -18,14 +17,14 @@ namespace Runtime.Engine.Jobs.Chunk
         [WriteOnly] public NativeParallelHashMap<int3, Data.Chunk>.ParallelWriter Results;
 
         [ReadOnly] public uint RandomSeed;
-        
+
         [ReadOnly] public GeneratorConfig Config;
 
         public void Execute(int index)
         {
             int3 position = Jobs[index];
             // Seed random per job
-            Random random = new(RandomSeed + (uint)index);
+            Random random = new((uint)(RandomSeed + position.x + position.z));
             Data.Chunk chunk = GenerateChunkData(position, ref random);
             Results.TryAdd(position, chunk);
         }
