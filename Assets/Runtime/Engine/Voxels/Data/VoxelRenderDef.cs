@@ -7,9 +7,9 @@ namespace Runtime.Engine.Voxels.Data
     public struct VoxelRenderDef
     {
         public MeshLayer MeshLayer;
+        public bool AlwaysRenderAllFaces;
         public VoxelType VoxelType;
         public float DepthFadeDistance;
-        public float4 OverrideColor;
         public bool Collision;
         public int TexUp;
         public int TexDown;

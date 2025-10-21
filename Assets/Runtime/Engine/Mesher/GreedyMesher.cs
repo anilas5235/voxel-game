@@ -187,9 +187,9 @@ namespace Runtime.Engine.Mesher
                     VoxelRenderDef compareDef = renderGenData.GetRenderDef(compareVoxel);
                     MeshLayer currentMeshIndex = currentDef.MeshLayer;
                     MeshLayer compareMeshIndex = compareDef.MeshLayer;
-                    if (currentMeshIndex == compareMeshIndex)
+                    if (currentMeshIndex == compareMeshIndex && !currentDef.AlwaysRenderAllFaces)
                     {
-                        normalMask[n++] = default;
+                        normalMask[n] = default;
                     }
                     else
                     {
@@ -200,14 +200,15 @@ namespace Runtime.Engine.Mesher
                         {
                             int4 ao = ComputeAOMask(accessor, renderGenData, chunkPos, chunkItr + directionMask, axis1,
                                 axis2);
-                            normalMask[n++] = new Mask(currentVoxel, currentMeshIndex, 1, ao, noGreedy);
+                            normalMask[n] = new Mask(currentVoxel, currentMeshIndex, 1, ao, noGreedy);
                         }
                         else
                         {
                             int4 ao = ComputeAOMask(accessor, renderGenData, chunkPos, chunkItr, axis1, axis2);
-                            normalMask[n++] = new Mask(compareVoxel, compareMeshIndex, -1, ao, noGreedy);
+                            normalMask[n] = new Mask(compareVoxel, compareMeshIndex, -1, ao, noGreedy);
                         }
                     }
+                    n++;
                 }
             }
         }
@@ -345,7 +346,7 @@ namespace Runtime.Engine.Mesher
                 case VoxelType.Flora:
                     return normal.y != 1
                         ? 0
-                        : RenderFloraCross(mesh, info, vertexCount, verts); // Only render flora on top faces
+                        : RenderFloraCross(mesh, info, vertexCount, verts,mask.AO); // Only render flora on top faces
                 default:
                     throw new ArgumentOutOfRangeException();
             }
@@ -353,7 +354,7 @@ namespace Runtime.Engine.Mesher
             int texIndex = info.GetTextureId(normal.ToDirection());
             UVQuad uv = ComputeFaceUVs(normal, size);
 
-            AddVertices(mesh, verts, normal, uv,new float4(texIndex,info.DepthFadeDistance,0,0), info.OverrideColor);
+            AddVertices(mesh, verts, normal, uv,new float4(texIndex,info.DepthFadeDistance,0,0), mask.AO);
 
             AddQuadIndices(mesh.IndexBuffer1, vertexCount, mask.Normal, mask.AO);
             return 4;
@@ -411,15 +412,15 @@ namespace Runtime.Engine.Mesher
         }
 
         [BurstCompile]
-        private static int RenderFloraCross(MeshBuffer mesh, VoxelRenderDef info, int vertexCount, VQuad verts)
+        private static int RenderFloraCross(MeshBuffer mesh, VoxelRenderDef info, int vertexCount, VQuad verts,float4 ao)
         {
             // First quad (XZ diagonal)
             AddFloraQuad(mesh, info, vertexCount,
-                new VQuad(verts.V1 - new float3(0, 1, 0), verts.V1, verts.V4 - new float3(0, 1, 0), verts.V4));
+                new VQuad(verts.V1 - new float3(0, 1, 0), verts.V1, verts.V4 - new float3(0, 1, 0), verts.V4),ao);
             vertexCount += 4;
             // Second quad (ZX diagonal)
             AddFloraQuad(mesh, info, vertexCount,
-                new VQuad(verts.V3 - new float3(0, 1, 0), verts.V3, verts.V2 - new float3(0, 1, 0), verts.V2));
+                new VQuad(verts.V3 - new float3(0, 1, 0), verts.V3, verts.V2 - new float3(0, 1, 0), verts.V2),ao);
             return 8;
         }
 
@@ -460,13 +461,13 @@ namespace Runtime.Engine.Mesher
             mesh.CVertexBuffer.Add(vertex4);
         }
 
-        private static void AddFloraQuad(MeshBuffer mesh, VoxelRenderDef info, int vertexCount, VQuad verts)
+        private static void AddFloraQuad(MeshBuffer mesh, VoxelRenderDef info, int vertexCount, VQuad verts, float4 ao)
         {
             int texIndex = info.TexUp;
             UVQuad uv = ComputeFaceUVs(new int3(1, 1, 0), new int2(1, 1));
             float3 normal = new(0, 1, 0);
 
-            AddVertices(mesh, verts, normal, uv, new float4(texIndex,-1,0,0), info.OverrideColor);
+            AddVertices(mesh, verts, normal, uv, new float4(texIndex,-1,0,0), ao);
 
             NativeList<int> indexBuffer = mesh.IndexBuffer1;
             indexBuffer.Add(vertexCount);

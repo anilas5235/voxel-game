@@ -27,7 +27,7 @@ namespace Runtime.Engine.Voxels.Data
         {
             if (_initialized) return;
             _initialized = true;
-            Register("air", new VoxelRenderDef
+            Register("std:air", new VoxelRenderDef
             {
                 MeshLayer = MeshLayer.Air,
                 Collision = false,
@@ -46,9 +46,9 @@ namespace Runtime.Engine.Voxels.Data
             VoxelRenderDef type = new()
             {
                 MeshLayer = definition.meshLayer,
+                AlwaysRenderAllFaces = definition.alwaysRenderAllFaces,
                 VoxelType = definition.voxelType,
                 DepthFadeDistance = definition.depthFadeDistance,
-                OverrideColor = ConvertColor(definition.overrideColor),
                 Collision = definition.collision,
                 TexUp = RegisterTexture(definition, Direction.Up),
                 TexDown = RegisterTexture(definition, Direction.Down),
@@ -61,11 +61,6 @@ namespace Runtime.Engine.Voxels.Data
             ushort id = Register(packagePrefix + ":" + definition.name, type);
             if (id == 0) return;
             _idToVoxelDefinition.Add(id, definition);
-        }
-
-        private static float4 ConvertColor(Color color)
-        {
-            return new float4(color.r, color.g, color.b, color.a);
         }
 
         private ushort Register(string name, VoxelRenderDef renderDef)
