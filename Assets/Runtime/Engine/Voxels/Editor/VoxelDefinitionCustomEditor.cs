@@ -22,12 +22,13 @@ namespace Runtime.Engine.Voxels.Editor
             {
                 voxelDef.TextureMode = VoxelDefinition.VoxelTexMode.AllSame;
             }
+            
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("alwaysRenderAllFaces"));
 
             if (voxelDef.meshLayer == MeshLayer.Transparent)
             {
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("voxelType"));
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("depthFadeDistance"));
-                EditorGUILayout.PropertyField(serializedObject.FindProperty("overrideColor"));
                 if (voxelDef.voxelType == VoxelType.Liquid)
                 {
                     EditorGUILayout.PropertyField(serializedObject.FindProperty("postProcess"));
