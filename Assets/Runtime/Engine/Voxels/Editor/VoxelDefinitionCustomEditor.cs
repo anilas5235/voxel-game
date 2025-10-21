@@ -22,8 +22,15 @@ namespace Runtime.Engine.Voxels.Editor
             {
                 voxelDef.TextureMode = VoxelDefinition.VoxelTexMode.AllSame;
             }
-            
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("alwaysRenderAllFaces"));
+
+            if (voxelDef.voxelType != VoxelType.Flora)
+            {
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("alwaysRenderAllFaces"));
+            }
+            else
+            {
+                voxelDef.alwaysRenderAllFaces = true;
+            }
 
             if (voxelDef.meshLayer == MeshLayer.Transparent)
             {

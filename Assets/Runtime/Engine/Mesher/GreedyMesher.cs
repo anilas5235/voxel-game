@@ -187,7 +187,7 @@ namespace Runtime.Engine.Mesher
                     VoxelRenderDef compareDef = renderGenData.GetRenderDef(compareVoxel);
                     MeshLayer currentMeshIndex = currentDef.MeshLayer;
                     MeshLayer compareMeshIndex = compareDef.MeshLayer;
-                    if (currentMeshIndex == compareMeshIndex && !currentDef.AlwaysRenderAllFaces)
+                    if (!currentDef.AlwaysRenderAllFaces && currentMeshIndex == compareMeshIndex)
                     {
                         normalMask[n] = default;
                     }
@@ -208,6 +208,7 @@ namespace Runtime.Engine.Mesher
                             normalMask[n] = new Mask(compareVoxel, compareMeshIndex, -1, ao, noGreedy);
                         }
                     }
+
                     n++;
                 }
             }
@@ -321,7 +322,7 @@ namespace Runtime.Engine.Mesher
             int texIndex = info.GetTextureId(normal.ToDirection());
             UVQuad uv = ComputeFaceUVs(normal, size);
 
-            AddVertices(mesh, verts, normal, uv,new float4(texIndex,0,0,0), mask.AO);
+            AddVertices(mesh, verts, normal, uv, new float4(texIndex, 0, 0, 0), mask.AO);
 
             AddQuadIndices(mesh.IndexBuffer0, vertexCount, mask.Normal, mask.AO);
             return 4;
@@ -344,9 +345,16 @@ namespace Runtime.Engine.Mesher
                     verts.OffsetAll(new float3(0, -0.25f, 0));
                     break;
                 case VoxelType.Flora:
-                    return normal.y != 1
-                        ? 0
-                        : RenderFloraCross(mesh, info, vertexCount, verts,mask.AO); // Only render flora on top faces
+                    float3 xOne = new(1, 0, 0);
+                    return normal.x switch
+                    {
+                        1 => AddFloraQuad(mesh, info, vertexCount,
+                            new VQuad(verts.V1, verts.V2, verts.V3 - xOne, verts.V4 - xOne), mask.AO),
+                        -1 => AddFloraQuad(mesh, info, vertexCount,
+                            new VQuad(verts.V1, verts.V2, verts.V3 + xOne, verts.V4 + xOne), mask.AO),
+                        _ => 0
+                    };
+
                 default:
                     throw new ArgumentOutOfRangeException();
             }
@@ -354,7 +362,7 @@ namespace Runtime.Engine.Mesher
             int texIndex = info.GetTextureId(normal.ToDirection());
             UVQuad uv = ComputeFaceUVs(normal, size);
 
-            AddVertices(mesh, verts, normal, uv,new float4(texIndex,info.DepthFadeDistance,0,0), mask.AO);
+            AddVertices(mesh, verts, normal, uv, new float4(texIndex, info.DepthFadeDistance, 0, 0), mask.AO);
 
             AddQuadIndices(mesh.IndexBuffer1, vertexCount, mask.Normal, mask.AO);
             return 4;
@@ -412,19 +420,20 @@ namespace Runtime.Engine.Mesher
         }
 
         [BurstCompile]
-        private static int RenderFloraCross(MeshBuffer mesh, VoxelRenderDef info, int vertexCount, VQuad verts,float4 ao)
+        private static int RenderFloraCross(MeshBuffer mesh, VoxelRenderDef info, int vertexCount, VQuad verts,
+            float4 ao)
         {
             // First quad (XZ diagonal)
             AddFloraQuad(mesh, info, vertexCount,
-                new VQuad(verts.V1 - new float3(0, 1, 0), verts.V1, verts.V4 - new float3(0, 1, 0), verts.V4),ao);
+                new VQuad(verts.V1 - new float3(0, 1, 0), verts.V1, verts.V4 - new float3(0, 1, 0), verts.V4), ao);
             vertexCount += 4;
             // Second quad (ZX diagonal)
             AddFloraQuad(mesh, info, vertexCount,
-                new VQuad(verts.V3 - new float3(0, 1, 0), verts.V3, verts.V2 - new float3(0, 1, 0), verts.V2),ao);
+                new VQuad(verts.V3 - new float3(0, 1, 0), verts.V3, verts.V2 - new float3(0, 1, 0), verts.V2), ao);
             return 8;
         }
 
-        private static void AddVertices(MeshBuffer mesh, VQuad verts, float3 normal, UVQuad uv0, float4 uv1 ,float4 uv2)
+        private static void AddVertices(MeshBuffer mesh, VQuad verts, float3 normal, UVQuad uv0, float4 uv1, float4 uv2)
         {
             // 1 Bottom Left
             Vertex vertex1 = new(verts.V1, normal, uv0.Uv1, uv1, uv2);
@@ -461,13 +470,13 @@ namespace Runtime.Engine.Mesher
             mesh.CVertexBuffer.Add(vertex4);
         }
 
-        private static void AddFloraQuad(MeshBuffer mesh, VoxelRenderDef info, int vertexCount, VQuad verts, float4 ao)
+        private static int AddFloraQuad(MeshBuffer mesh, VoxelRenderDef info, int vertexCount, VQuad verts, float4 ao)
         {
             int texIndex = info.TexUp;
             UVQuad uv = ComputeFaceUVs(new int3(1, 1, 0), new int2(1, 1));
             float3 normal = new(0, 1, 0);
 
-            AddVertices(mesh, verts, normal, uv, new float4(texIndex,-1,0,0), ao);
+            AddVertices(mesh, verts, normal, uv, new float4(texIndex, -1, 0, 0), ao);
 
             NativeList<int> indexBuffer = mesh.IndexBuffer1;
             indexBuffer.Add(vertexCount);
@@ -476,6 +485,8 @@ namespace Runtime.Engine.Mesher
             indexBuffer.Add(vertexCount + 2);
             indexBuffer.Add(vertexCount + 1);
             indexBuffer.Add(vertexCount + 3);
+
+            return 4;
         }
 
         #endregion
