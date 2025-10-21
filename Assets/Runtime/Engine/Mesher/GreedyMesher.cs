@@ -14,6 +14,9 @@ namespace Runtime.Engine.Mesher
         // Small UV inset to reduce atlas bleeding at tile borders (in tile UV units)
         private const float UVEdgeInset = 0.005f;
 
+        // Amount to lower liquid surface when exposed at the top
+        private const float LiquidSurfaceLowering = 0.2f;
+
         [BurstCompile]
         internal static MeshBuffer GenerateMesh(
             ChunkAccessor accessor, int3 chunkPos, int3 size, VoxelEngineRenderGenData renderGenData
@@ -29,6 +32,7 @@ namespace Runtime.Engine.Mesher
             };
 
             int vertexCount = 0;
+            NativeHashMap<int3, VoxelRenderDef> foliageVoxels = new(40, Allocator.Temp);
 
             for (int direction = 0; direction < 3; direction++)
             {
@@ -52,7 +56,7 @@ namespace Runtime.Engine.Mesher
                 {
                     // Build mask for current slice
                     BuildFaceMask(accessor, chunkPos, chunkItr, directionMask, axis1, axis2, axis1Limit, axis2Limit,
-                        renderGenData, normalMask);
+                        renderGenData, normalMask, foliageVoxels);
                     ++chunkItr[direction];
                     int n = 0;
                     for (int j = 0; j < axis2Limit; j++)
@@ -96,6 +100,27 @@ namespace Runtime.Engine.Mesher
                 normalMask.Dispose();
             }
 
+            foreach (KVPair<int3, VoxelRenderDef> entry in foliageVoxels)
+            {
+                int3 pos = entry.Key;
+                VoxelRenderDef def = entry.Value;
+                vertexCount += AddFloraQuad(mesh, def, vertexCount,
+                    new VQuad(
+                        pos,
+                        pos + new float3(0, 1, 0),
+                        pos + new float3(1, 0, 1),
+                        pos + new float3(1, 1, 1)
+                    ), new int4(0, 0, 0, 0));
+                vertexCount += AddFloraQuad(mesh, def, vertexCount,
+                    new VQuad(
+                        pos + new float3(1, 0, 0),
+                        pos + new float3(1, 1, 0),
+                        pos + new float3(0, 0, 1),
+                        pos + new float3(0, 1, 1)
+                    ), new int4(0, 0, 0, 0));
+            }
+
+            foliageVoxels.Dispose();
             // Collider pass: build a minimal collider mesh using greedy quads over collidable boundaries
             int cVertexCount = 0;
             for (int direction = 0; direction < 3; direction++)
@@ -174,39 +199,70 @@ namespace Runtime.Engine.Mesher
         [BurstCompile]
         private static void BuildFaceMask(ChunkAccessor accessor, int3 chunkPos, int3 chunkItr, int3 directionMask,
             int axis1, int axis2, int axis1Limit, int axis2Limit, VoxelEngineRenderGenData renderGenData,
-            NativeArray<Mask> normalMask)
+            NativeArray<Mask> normalMask, NativeHashMap<int3, VoxelRenderDef> foliageVoxels)
         {
             int n = 0;
             for (chunkItr[axis2] = 0; chunkItr[axis2] < axis2Limit; ++chunkItr[axis2])
             {
                 for (chunkItr[axis1] = 0; chunkItr[axis1] < axis1Limit; ++chunkItr[axis1])
                 {
+                    int3 neighborCoord = chunkItr + directionMask;
+
                     ushort currentVoxel = accessor.GetVoxelInChunk(chunkPos, chunkItr);
-                    ushort compareVoxel = accessor.GetVoxelInChunk(chunkPos, chunkItr + directionMask);
+                    ushort neighborVoxel = accessor.GetVoxelInChunk(chunkPos, neighborCoord);
+
                     VoxelRenderDef currentDef = renderGenData.GetRenderDef(currentVoxel);
-                    VoxelRenderDef compareDef = renderGenData.GetRenderDef(compareVoxel);
-                    MeshLayer currentMeshIndex = currentDef.MeshLayer;
-                    MeshLayer compareMeshIndex = compareDef.MeshLayer;
-                    if (!currentDef.AlwaysRenderAllFaces && currentMeshIndex == compareMeshIndex)
+                    VoxelRenderDef neighborDef = renderGenData.GetRenderDef(neighborVoxel);
+
+                    MeshLayer currentLayer = currentDef.MeshLayer;
+                    MeshLayer neighborLayer = neighborDef.MeshLayer;
+
+                    // Flora: collect for separate foliage pass, still emit a backface to keep AO continuity
+                    if (currentDef.VoxelType == VoxelType.Flora)
+                    {
+                        foliageVoxels.TryAdd(chunkItr, currentDef);
+                        int4 ao = ComputeAOMask(accessor, renderGenData, chunkPos, chunkItr, axis1, axis2);
+                        sbyte topOpen = (sbyte)(neighborDef.VoxelType == VoxelType.Liquid &&
+                                                renderGenData.GetRenderDef(accessor.GetVoxelInChunk(chunkPos,
+                                                    neighborCoord + new int3(0, 1, 0))).VoxelType != VoxelType.Liquid
+                            ? 1
+                            : 0);
+                        normalMask[n] = new Mask(neighborVoxel, neighborLayer, -1, ao, topOpen);
+                        n++;
+                        continue;
+                    }
+
+                    // Same layer and not forced -> no face between them
+                    if (!currentDef.AlwaysRenderAllFaces && currentLayer == neighborLayer && neighborDef.VoxelType != VoxelType.Flora)
                     {
                         normalMask[n] = default;
+                        n++;
+                        continue;
+                    }
+
+                    // Decide which side owns the face and compute AO accordingly
+                    if (currentLayer < neighborLayer || neighborDef.VoxelType == VoxelType.Flora)
+                    {
+                        int4 ao = ComputeAOMask(accessor, renderGenData, chunkPos, neighborCoord, axis1, axis2);
+                        // Flag if owning voxel has exposed top (above is not liquid)
+                        sbyte topOpen = (sbyte)((currentDef.VoxelType == VoxelType.Liquid &&
+                                                 renderGenData
+                                                     .GetRenderDef(accessor.GetVoxelInChunk(chunkPos,
+                                                         chunkItr + new int3(0, 1, 0))).VoxelType != VoxelType.Liquid)
+                            ? 1
+                            : 0);
+                        normalMask[n] = new Mask(currentVoxel, currentLayer, 1, ao, topOpen);
                     }
                     else
                     {
-                        bool noGreedy = currentDef.VoxelType == VoxelType.Flora ||
-                                        compareDef.VoxelType == VoxelType.Flora;
-
-                        if (currentMeshIndex < compareMeshIndex)
-                        {
-                            int4 ao = ComputeAOMask(accessor, renderGenData, chunkPos, chunkItr + directionMask, axis1,
-                                axis2);
-                            normalMask[n] = new Mask(currentVoxel, currentMeshIndex, 1, ao, noGreedy);
-                        }
-                        else
-                        {
-                            int4 ao = ComputeAOMask(accessor, renderGenData, chunkPos, chunkItr, axis1, axis2);
-                            normalMask[n] = new Mask(compareVoxel, compareMeshIndex, -1, ao, noGreedy);
-                        }
+                        int4 ao = ComputeAOMask(accessor, renderGenData, chunkPos, chunkItr, axis1, axis2);
+                        // For the neighbor-owned face, compute exposure for neighbor voxel
+                        sbyte topOpen = (sbyte)((neighborDef.VoxelType == VoxelType.Liquid &&
+                                                 renderGenData.GetRenderDef(accessor.GetVoxelInChunk(chunkPos,
+                                                     neighborCoord + new int3(0, 1, 0))).VoxelType != VoxelType.Liquid)
+                            ? 1
+                            : 0);
+                        normalMask[n] = new Mask(neighborVoxel, neighborLayer, -1, ao, topOpen);
                     }
 
                     n++;
@@ -233,7 +289,7 @@ namespace Runtime.Engine.Mesher
                     if (currentCollidable ^ compareCollidable)
                     {
                         sbyte normal = currentCollidable ? (sbyte)1 : (sbyte)-1;
-                        colliderMask[n++] = new Mask(1, MeshLayer.Solid, normal, new int4(0, 0, 0, 0), false);
+                        colliderMask[n++] = new Mask(1, MeshLayer.Solid, normal, new int4(0, 0, 0, 0), 0);
                     }
                     else
                     {
@@ -341,8 +397,22 @@ namespace Runtime.Engine.Mesher
                 case VoxelType.Full:
                     break;
                 case VoxelType.Liquid:
-                    if (info.VoxelType != VoxelType.Liquid || normal.y != 1) break;
-                    verts.OffsetAll(new float3(0, -0.25f, 0));
+                    // Lower the visible liquid surface
+                    if (normal.y == 1)
+                    {
+                        verts.OffsetAll(new float3(0, -LiquidSurfaceLowering, 0));
+                    }
+                    // For vertical faces, if the top is exposed (no liquid above), lower only the top edge
+                    else if (normal.y == 0 && mask.TopOpen == 1)
+                    {
+                        float topY = math.max(math.max(verts.V1.y, verts.V2.y), math.max(verts.V3.y, verts.V4.y));
+                        const float eps = 1e-4f;
+                        if (math.abs(verts.V1.y - topY) < eps) verts.V1.y -= LiquidSurfaceLowering;
+                        if (math.abs(verts.V2.y - topY) < eps) verts.V2.y -= LiquidSurfaceLowering;
+                        if (math.abs(verts.V3.y - topY) < eps) verts.V3.y -= LiquidSurfaceLowering;
+                        if (math.abs(verts.V4.y - topY) < eps) verts.V4.y -= LiquidSurfaceLowering;
+                    }
+
                     break;
                 case VoxelType.Flora:
                     float3 xOne = new(1, 0, 0);
@@ -420,19 +490,6 @@ namespace Runtime.Engine.Mesher
         }
 
         [BurstCompile]
-        private static int RenderFloraCross(MeshBuffer mesh, VoxelRenderDef info, int vertexCount, VQuad verts,
-            float4 ao)
-        {
-            // First quad (XZ diagonal)
-            AddFloraQuad(mesh, info, vertexCount,
-                new VQuad(verts.V1 - new float3(0, 1, 0), verts.V1, verts.V4 - new float3(0, 1, 0), verts.V4), ao);
-            vertexCount += 4;
-            // Second quad (ZX diagonal)
-            AddFloraQuad(mesh, info, vertexCount,
-                new VQuad(verts.V3 - new float3(0, 1, 0), verts.V3, verts.V2 - new float3(0, 1, 0), verts.V2), ao);
-            return 8;
-        }
-
         private static void AddVertices(MeshBuffer mesh, VQuad verts, float3 normal, UVQuad uv0, float4 uv1, float4 uv2)
         {
             // 1 Bottom Left
@@ -453,6 +510,7 @@ namespace Runtime.Engine.Mesher
             mesh.VertexBuffer.Add(vertex4);
         }
 
+        [BurstCompile]
         private static void AddColliderVertices(MeshBuffer mesh, VQuad verts, float3 normal)
         {
             // 1 Bottom Left
@@ -470,6 +528,7 @@ namespace Runtime.Engine.Mesher
             mesh.CVertexBuffer.Add(vertex4);
         }
 
+        [BurstCompile]
         private static int AddFloraQuad(MeshBuffer mesh, VoxelRenderDef info, int vertexCount, VQuad verts, float4 ao)
         {
             int texIndex = info.TexUp;
@@ -589,28 +648,27 @@ namespace Runtime.Engine.Mesher
 
             internal readonly MeshLayer MeshLayer;
             internal readonly sbyte Normal;
+            internal readonly sbyte TopOpen; // 1 if the owning voxel's top is exposed (no liquid above)
 
             internal readonly int4 AO;
 
-            // Prevent greedy-merging for certain voxel faces (e.g., Flora)
-            private readonly bool _noGreedy;
 
-            public Mask(ushort voxelId, MeshLayer meshLayer, sbyte normal, int4 ao, bool noGreedy)
+            public Mask(ushort voxelId, MeshLayer meshLayer, sbyte normal, int4 ao, sbyte topOpen)
             {
                 MeshLayer = meshLayer;
                 VoxelId = voxelId;
                 Normal = normal;
                 AO = ao;
-                _noGreedy = noGreedy;
+                TopOpen = topOpen;
             }
 
             public bool CompareTo(Mask other)
             {
-                if (_noGreedy || other._noGreedy) return false;
                 return
                     MeshLayer == other.MeshLayer &&
                     VoxelId == other.VoxelId &&
                     Normal == other.Normal &&
+                    TopOpen == other.TopOpen &&
                     AO[0] == other.AO[0] &&
                     AO[1] == other.AO[1] &&
                     AO[2] == other.AO[2] &&

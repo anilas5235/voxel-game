@@ -29,7 +29,7 @@ namespace Runtime.Engine.Voxels.Editor
             }
             else
             {
-                voxelDef.alwaysRenderAllFaces = true;
+                voxelDef.alwaysRenderAllFaces = false;
             }
 
             if (voxelDef.meshLayer == MeshLayer.Transparent)

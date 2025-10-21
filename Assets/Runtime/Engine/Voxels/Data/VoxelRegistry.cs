@@ -46,7 +46,7 @@ namespace Runtime.Engine.Voxels.Data
             VoxelRenderDef type = new()
             {
                 MeshLayer = definition.meshLayer,
-                AlwaysRenderAllFaces = definition.alwaysRenderAllFaces || definition.voxelType == VoxelType.Flora,
+                AlwaysRenderAllFaces = definition.alwaysRenderAllFaces,
                 VoxelType = definition.voxelType,
                 DepthFadeDistance = definition.depthFadeDistance,
                 Collision = definition.collision,
