@@ -11,6 +11,7 @@ namespace Runtime.Engine.Mesher
     [GenerateTestsForBurstCompatibility]
     public static class GreedyMesher
     {
+        private static readonly int3 YOne = new(0, 1, 0);
         // Small UV inset to reduce atlas bleeding at tile borders (in tile UV units)
         private const float UVEdgeInset = 0.005f;
 
@@ -110,14 +111,14 @@ namespace Runtime.Engine.Mesher
                         pos + new float3(0, 1, 0),
                         pos + new float3(1, 0, 1),
                         pos + new float3(1, 1, 1)
-                    ), new int4(0, 0, 0, 0));
+                    ), int4.zero);
                 vertexCount += AddFloraQuad(mesh, def, vertexCount,
                     new VQuad(
                         pos + new float3(1, 0, 0),
                         pos + new float3(1, 1, 0),
                         pos + new float3(0, 0, 1),
                         pos + new float3(0, 1, 1)
-                    ), new int4(0, 0, 0, 0));
+                    ), int4.zero);
             }
 
             foliageVoxels.Dispose();
@@ -221,53 +222,66 @@ namespace Runtime.Engine.Mesher
                     if (currentDef.VoxelType == VoxelType.Flora)
                     {
                         foliageVoxels.TryAdd(chunkItr, currentDef);
-                        int4 ao = ComputeAOMask(accessor, renderGenData, chunkPos, chunkItr, axis1, axis2);
-                        sbyte topOpen = (sbyte)(neighborDef.VoxelType == VoxelType.Liquid &&
-                                                renderGenData.GetRenderDef(accessor.GetVoxelInChunk(chunkPos,
-                                                    neighborCoord + new int3(0, 1, 0))).VoxelType != VoxelType.Liquid
-                            ? 1
-                            : 0);
-                        normalMask[n] = new Mask(neighborVoxel, neighborLayer, -1, ao, topOpen);
+                        int4 floraAo = ComputeAOMask(accessor, renderGenData, chunkPos, chunkItr, axis1, axis2);
+                        // top open for the neighbor (owning backface)
+                        sbyte neighborTopOpen = ComputeTopOpen(accessor, renderGenData, chunkPos,
+                            neighborCoord + YOne, neighborDef.VoxelType);
+                        normalMask[n] = new Mask(neighborVoxel, neighborLayer, -1, floraAo, neighborTopOpen);
                         n++;
                         continue;
                     }
 
                     // Same layer and not forced -> no face between them
-                    if (!currentDef.AlwaysRenderAllFaces && currentLayer == neighborLayer && neighborDef.VoxelType != VoxelType.Flora)
+                    if (ShouldSkipFace(currentDef, neighborDef))
                     {
                         normalMask[n] = default;
                         n++;
                         continue;
                     }
 
-                    // Decide which side owns the face and compute AO accordingly
-                    if (currentLayer < neighborLayer || neighborDef.VoxelType == VoxelType.Flora)
+                    bool currentOwns = IsCurrentOwner(currentLayer, neighborDef);
+                    if (currentOwns)
                     {
                         int4 ao = ComputeAOMask(accessor, renderGenData, chunkPos, neighborCoord, axis1, axis2);
-                        // Flag if owning voxel has exposed top (above is not liquid)
-                        sbyte topOpen = (sbyte)((currentDef.VoxelType == VoxelType.Liquid &&
-                                                 renderGenData
-                                                     .GetRenderDef(accessor.GetVoxelInChunk(chunkPos,
-                                                         chunkItr + new int3(0, 1, 0))).VoxelType != VoxelType.Liquid)
-                            ? 1
-                            : 0);
+                        sbyte topOpen = ComputeTopOpen(accessor, renderGenData, chunkPos,
+                            chunkItr + YOne, currentDef.VoxelType);
                         normalMask[n] = new Mask(currentVoxel, currentLayer, 1, ao, topOpen);
                     }
                     else
                     {
                         int4 ao = ComputeAOMask(accessor, renderGenData, chunkPos, chunkItr, axis1, axis2);
-                        // For the neighbor-owned face, compute exposure for neighbor voxel
-                        sbyte topOpen = (sbyte)((neighborDef.VoxelType == VoxelType.Liquid &&
-                                                 renderGenData.GetRenderDef(accessor.GetVoxelInChunk(chunkPos,
-                                                     neighborCoord + new int3(0, 1, 0))).VoxelType != VoxelType.Liquid)
-                            ? 1
-                            : 0);
+                        sbyte topOpen = ComputeTopOpen(accessor, renderGenData, chunkPos,
+                            neighborCoord + YOne, neighborDef.VoxelType);
                         normalMask[n] = new Mask(neighborVoxel, neighborLayer, -1, ao, topOpen);
                     }
 
                     n++;
                 }
             }
+        }
+
+        [BurstCompile]
+        private static bool ShouldSkipFace(VoxelRenderDef currentDef, VoxelRenderDef neighborDef)
+        {
+            return !currentDef.AlwaysRenderAllFaces &&
+                   currentDef.MeshLayer == neighborDef.MeshLayer &&
+                   neighborDef.VoxelType != VoxelType.Flora;
+        }
+
+        [BurstCompile]
+        private static bool IsCurrentOwner(MeshLayer currentLayer, VoxelRenderDef neighborDef)
+        {
+            return currentLayer < neighborDef.MeshLayer || neighborDef.VoxelType == VoxelType.Flora;
+        }
+
+        [BurstCompile]
+        private static sbyte ComputeTopOpen(ChunkAccessor accessor, VoxelEngineRenderGenData renderGenData,
+            int3 chunkPos, int3 aboveCoord, VoxelType ownerType)
+        {
+            if (ownerType != VoxelType.Liquid) return 0;
+            ushort aboveId = accessor.GetVoxelInChunk(chunkPos, aboveCoord);
+            VoxelRenderDef aboveDef = renderGenData.GetRenderDef(aboveId);
+            return (sbyte)(aboveDef.VoxelType != VoxelType.Liquid ? 1 : 0);
         }
 
         [BurstCompile]
