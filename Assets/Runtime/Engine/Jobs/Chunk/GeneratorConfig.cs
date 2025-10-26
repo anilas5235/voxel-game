@@ -3,6 +3,8 @@
     public struct GeneratorConfig
     {
         public int WaterLevel;
+        // Global seed passed to jobs
+        public uint GlobalSeed;
         
         public ushort BrickGrey;
         public ushort BrickRed;

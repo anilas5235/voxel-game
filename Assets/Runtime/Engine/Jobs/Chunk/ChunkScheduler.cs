@@ -61,10 +61,10 @@ namespace Runtime.Engine.Jobs.Chunk {
                 ChunkSize = _chunkSize,
                 NoiseProfile = _noiseProfile,
                 Results = _results.AsParallelWriter(),
-                RandomSeed = 41854u,
+                RandomSeed = _config.GlobalSeed,
                 Config = _config
             };
-            
+
             _handle = job.Schedule(_jobs.Length, 1);
         }
 
