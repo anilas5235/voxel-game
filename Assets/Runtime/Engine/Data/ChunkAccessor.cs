@@ -8,7 +8,7 @@ namespace Runtime.Engine.Data
     internal struct ChunkAccessor
     {
         private readonly NativeParallelHashMap<int3, Chunk>.ReadOnly _chunks;
-        private int3 _chunkSize;
+        private readonly int3 _chunkSize;
 
         internal ChunkAccessor(NativeParallelHashMap<int3, Chunk>.ReadOnly chunks, int3 chunkSize)
         {
@@ -16,7 +16,7 @@ namespace Runtime.Engine.Data
             _chunkSize = chunkSize;
         }
 
-        internal ushort GetVoxelInChunk(int3 chunkPos, int3 voxelPos)
+        internal readonly ushort GetVoxelInChunk(int3 chunkPos, int3 voxelPos)
         {
             int3 key = int3.zero;
 
@@ -33,7 +33,7 @@ namespace Runtime.Engine.Data
             return TryGetChunk(chunkPos + key, out Chunk chunk) ? chunk.GetVoxel(voxelPos) : (ushort)0;
         }
 
-        internal bool TryGetChunk(int3 pos, out Chunk chunk) => _chunks.TryGetValue(pos, out chunk);
+        internal readonly bool TryGetChunk(int3 pos, out Chunk chunk) => _chunks.TryGetValue(pos, out chunk);
 
         internal bool ContainsChunk(int3 coord) => _chunks.ContainsKey(coord);
 

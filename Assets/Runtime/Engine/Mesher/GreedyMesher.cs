@@ -9,21 +9,33 @@ using Unity.Mathematics;
 namespace Runtime.Engine.Mesher
 {
     [GenerateTestsForBurstCompatibility]
-    public static class GreedyMesher
+    internal struct GreedyMesher : IDisposable
     {
         private static readonly int3 YOne = new(0, 1, 0);
+
         // Small UV inset to reduce atlas bleeding at tile borders (in tile UV units)
         private const float UVEdgeInset = 0.005f;
 
         // Amount to lower liquid surface when exposed at the top
         private const float LiquidSurfaceLowering = 0.2f;
 
-        [BurstCompile]
-        internal static MeshBuffer GenerateMesh(
+        private readonly ChunkAccessor _accessor;
+        private readonly int3 _chunkPos;
+        private readonly int3 _size;
+        private readonly VoxelEngineRenderGenData _renderGenData;
+
+        private readonly MeshBuffer _meshBuffer;
+        private NativeHashMap<int3, VoxelRenderDef> _foliageVoxels;
+
+        internal GreedyMesher(
             ChunkAccessor accessor, int3 chunkPos, int3 size, VoxelEngineRenderGenData renderGenData
         )
         {
-            MeshBuffer mesh = new()
+            _accessor = accessor;
+            _chunkPos = chunkPos;
+            _size = size;
+            _renderGenData = renderGenData;
+            _meshBuffer = new MeshBuffer
             {
                 VertexBuffer = new NativeList<Vertex>(Allocator.Temp),
                 IndexBuffer0 = new NativeList<int>(Allocator.Temp),
@@ -31,18 +43,22 @@ namespace Runtime.Engine.Mesher
                 CVertexBuffer = new NativeList<CVertex>(Allocator.Temp),
                 CIndexBuffer = new NativeList<int>(Allocator.Temp)
             };
+            _foliageVoxels = new NativeHashMap<int3, VoxelRenderDef>(40, Allocator.Temp);
+        }
 
+        [BurstCompile]
+        internal MeshBuffer GenerateMesh()
+        {
             int vertexCount = 0;
-            NativeHashMap<int3, VoxelRenderDef> foliageVoxels = new(40, Allocator.Temp);
 
             for (int direction = 0; direction < 3; direction++)
             {
                 int axis1 = (direction + 1) % 3; // U axis
                 int axis2 = (direction + 2) % 3; // V axis
 
-                int mainAxisLimit = size[direction];
-                int axis1Limit = size[axis1];
-                int axis2Limit = size[axis2];
+                int mainAxisLimit = _size[direction];
+                int axis1Limit = _size[axis1];
+                int axis2Limit = _size[axis2];
 
                 int3 deltaAxis1 = int3.zero;
                 int3 deltaAxis2 = int3.zero;
@@ -56,8 +72,7 @@ namespace Runtime.Engine.Mesher
                 for (chunkItr[direction] = -1; chunkItr[direction] < mainAxisLimit;)
                 {
                     // Build mask for current slice
-                    BuildFaceMask(accessor, chunkPos, chunkItr, directionMask, axis1, axis2, axis1Limit, axis2Limit,
-                        renderGenData, normalMask, foliageVoxels);
+                    BuildFaceMask(chunkItr, directionMask, axis1, axis2, axis1Limit, axis2Limit, normalMask);
                     ++chunkItr[direction];
                     int n = 0;
                     for (int j = 0; j < axis2Limit; j++)
@@ -75,7 +90,7 @@ namespace Runtime.Engine.Mesher
                                 deltaAxis1[axis1] = width;
                                 deltaAxis2[axis2] = height;
                                 vertexCount += CreateQuad(
-                                    mesh, renderGenData.GetRenderDef(currentMask.VoxelId),
+                                     _renderGenData.GetRenderDef(currentMask.VoxelId),
                                     vertexCount, currentMask, directionMask, new int2(width, height), new VQuad(
                                         chunkItr,
                                         chunkItr + deltaAxis1,
@@ -101,27 +116,28 @@ namespace Runtime.Engine.Mesher
                 normalMask.Dispose();
             }
 
-            foreach (KVPair<int3, VoxelRenderDef> entry in foliageVoxels)
+            foreach (KVPair<int3, VoxelRenderDef> entry in _foliageVoxels)
             {
                 int3 pos = entry.Key;
                 VoxelRenderDef def = entry.Value;
-                vertexCount += AddFloraQuad(mesh, def, vertexCount,
+                vertexCount += AddFloraQuad(def, vertexCount,
                     new VQuad(
                         pos,
                         pos + new float3(0, 1, 0),
                         pos + new float3(1, 0, 1),
                         pos + new float3(1, 1, 1)
-                    ), int4.zero);
-                vertexCount += AddFloraQuad(mesh, def, vertexCount,
+                    ), int4.zero
+                );
+                vertexCount += AddFloraQuad(def, vertexCount,
                     new VQuad(
                         pos + new float3(1, 0, 0),
                         pos + new float3(1, 1, 0),
                         pos + new float3(0, 0, 1),
                         pos + new float3(0, 1, 1)
-                    ), int4.zero);
+                    ), int4.zero
+                );
             }
 
-            foliageVoxels.Dispose();
             // Collider pass: build a minimal collider mesh using greedy quads over collidable boundaries
             int cVertexCount = 0;
             for (int direction = 0; direction < 3; direction++)
@@ -129,9 +145,9 @@ namespace Runtime.Engine.Mesher
                 int axis1 = (direction + 1) % 3; // U axis
                 int axis2 = (direction + 2) % 3; // V axis
 
-                int mainAxisLimit = size[direction];
-                int axis1Limit = size[axis1];
-                int axis2Limit = size[axis2];
+                int mainAxisLimit = _size[direction];
+                int axis1Limit = _size[axis1];
+                int axis2Limit = _size[axis2];
 
                 int3 deltaAxis1 = int3.zero;
                 int3 deltaAxis2 = int3.zero;
@@ -145,8 +161,8 @@ namespace Runtime.Engine.Mesher
                 for (chunkItr[direction] = -1; chunkItr[direction] < mainAxisLimit;)
                 {
                     // Build collider mask for current slice
-                    BuildColliderMask(accessor, chunkPos, chunkItr, directionMask, axis1, axis2, axis1Limit,
-                        axis2Limit, renderGenData, colliderMask);
+                    BuildColliderMask(_accessor, _chunkPos, chunkItr, directionMask, axis1, axis2, axis1Limit,
+                        axis2Limit, _renderGenData, colliderMask);
 
                     ++chunkItr[direction];
                     int n = 0;
@@ -166,7 +182,7 @@ namespace Runtime.Engine.Mesher
                                 deltaAxis2[axis2] = height;
 
                                 cVertexCount += CreateColliderQuad(
-                                    mesh, cVertexCount, currentMask, directionMask, new VQuad(
+                                    _meshBuffer, cVertexCount, currentMask, directionMask, new VQuad(
                                         chunkItr,
                                         chunkItr + deltaAxis1,
                                         chunkItr + deltaAxis2,
@@ -192,15 +208,14 @@ namespace Runtime.Engine.Mesher
                 colliderMask.Dispose();
             }
 
-            return mesh;
+            return _meshBuffer;
         }
 
         #region Mask Helpers
 
         [BurstCompile]
-        private static void BuildFaceMask(ChunkAccessor accessor, int3 chunkPos, int3 chunkItr, int3 directionMask,
-            int axis1, int axis2, int axis1Limit, int axis2Limit, VoxelEngineRenderGenData renderGenData,
-            NativeArray<Mask> normalMask, NativeHashMap<int3, VoxelRenderDef> foliageVoxels)
+        private void BuildFaceMask(int3 chunkItr, int3 directionMask, int axis1, int axis2, int axis1Limit,
+            int axis2Limit, NativeArray<Mask> normalMask)
         {
             int n = 0;
             for (chunkItr[axis2] = 0; chunkItr[axis2] < axis2Limit; ++chunkItr[axis2])
@@ -209,11 +224,11 @@ namespace Runtime.Engine.Mesher
                 {
                     int3 neighborCoord = chunkItr + directionMask;
 
-                    ushort currentVoxel = accessor.GetVoxelInChunk(chunkPos, chunkItr);
-                    ushort neighborVoxel = accessor.GetVoxelInChunk(chunkPos, neighborCoord);
+                    ushort currentVoxel = _accessor.GetVoxelInChunk(_chunkPos, chunkItr);
+                    ushort neighborVoxel = _accessor.GetVoxelInChunk(_chunkPos, neighborCoord);
 
-                    VoxelRenderDef currentDef = renderGenData.GetRenderDef(currentVoxel);
-                    VoxelRenderDef neighborDef = renderGenData.GetRenderDef(neighborVoxel);
+                    VoxelRenderDef currentDef = _renderGenData.GetRenderDef(currentVoxel);
+                    VoxelRenderDef neighborDef = _renderGenData.GetRenderDef(neighborVoxel);
 
                     MeshLayer currentLayer = currentDef.MeshLayer;
                     MeshLayer neighborLayer = neighborDef.MeshLayer;
@@ -221,11 +236,10 @@ namespace Runtime.Engine.Mesher
                     // Flora: collect for separate foliage pass, still emit a backface to keep AO continuity
                     if (currentDef.VoxelType == VoxelType.Flora)
                     {
-                        foliageVoxels.TryAdd(chunkItr, currentDef);
-                        int4 floraAo = ComputeAOMask(accessor, renderGenData, chunkPos, chunkItr, axis1, axis2);
+                        _foliageVoxels.TryAdd(chunkItr, currentDef);
+                        int4 floraAo = ComputeAOMask(chunkItr, axis1, axis2);
                         // top open for the neighbor (owning backface)
-                        sbyte neighborTopOpen = ComputeTopOpen(accessor, renderGenData, chunkPos,
-                            neighborCoord + YOne, neighborDef.VoxelType);
+                        sbyte neighborTopOpen = ComputeTopOpen(neighborCoord + YOne, neighborDef.VoxelType);
                         normalMask[n] = new Mask(neighborVoxel, neighborLayer, -1, floraAo, neighborTopOpen);
                         n++;
                         continue;
@@ -242,16 +256,14 @@ namespace Runtime.Engine.Mesher
                     bool currentOwns = IsCurrentOwner(currentLayer, neighborDef);
                     if (currentOwns)
                     {
-                        int4 ao = ComputeAOMask(accessor, renderGenData, chunkPos, neighborCoord, axis1, axis2);
-                        sbyte topOpen = ComputeTopOpen(accessor, renderGenData, chunkPos,
-                            chunkItr + YOne, currentDef.VoxelType);
+                        int4 ao = ComputeAOMask(neighborCoord, axis1, axis2);
+                        sbyte topOpen = ComputeTopOpen(chunkItr + YOne, currentDef.VoxelType);
                         normalMask[n] = new Mask(currentVoxel, currentLayer, 1, ao, topOpen);
                     }
                     else
                     {
-                        int4 ao = ComputeAOMask(accessor, renderGenData, chunkPos, chunkItr, axis1, axis2);
-                        sbyte topOpen = ComputeTopOpen(accessor, renderGenData, chunkPos,
-                            neighborCoord + YOne, neighborDef.VoxelType);
+                        int4 ao = ComputeAOMask(chunkItr, axis1, axis2);
+                        sbyte topOpen = ComputeTopOpen(neighborCoord + YOne, neighborDef.VoxelType);
                         normalMask[n] = new Mask(neighborVoxel, neighborLayer, -1, ao, topOpen);
                     }
 
@@ -275,12 +287,11 @@ namespace Runtime.Engine.Mesher
         }
 
         [BurstCompile]
-        private static sbyte ComputeTopOpen(ChunkAccessor accessor, VoxelEngineRenderGenData renderGenData,
-            int3 chunkPos, int3 aboveCoord, VoxelType ownerType)
+        private sbyte ComputeTopOpen(int3 aboveCoord, VoxelType ownerType)
         {
             if (ownerType != VoxelType.Liquid) return 0;
-            ushort aboveId = accessor.GetVoxelInChunk(chunkPos, aboveCoord);
-            VoxelRenderDef aboveDef = renderGenData.GetRenderDef(aboveId);
+            ushort aboveId = _accessor.GetVoxelInChunk(_chunkPos, aboveCoord);
+            VoxelRenderDef aboveDef = _renderGenData.GetRenderDef(aboveId);
             return (sbyte)(aboveDef.VoxelType != VoxelType.Liquid ? 1 : 0);
         }
 
@@ -350,17 +361,16 @@ namespace Runtime.Engine.Mesher
         #region Quad Creation
 
         [BurstCompile]
-        private static int CreateQuad(
-            MeshBuffer mesh, VoxelRenderDef info, int vertexCount, Mask mask, int3 directionMask,
-            int2 size, VQuad verts
+        private int CreateQuad(
+            VoxelRenderDef info, int vertexCount, Mask mask, int3 directionMask, int2 size, VQuad verts
         )
         {
             switch (mask.MeshLayer)
             {
                 case MeshLayer.Solid:
-                    return CreateQuadMesh0(mesh, info, vertexCount, mask, directionMask, size, verts);
+                    return CreateQuadMesh0(info, vertexCount, mask, directionMask, size, verts);
                 case MeshLayer.Transparent:
-                    return CreateQuadMesh1(mesh, info, vertexCount, mask, directionMask, size, verts);
+                    return CreateQuadMesh1(info, vertexCount, mask, directionMask, size, verts);
                 default:
                     return 0;
             }
@@ -382,8 +392,8 @@ namespace Runtime.Engine.Mesher
         }
 
         [BurstCompile]
-        private static int CreateQuadMesh0(
-            MeshBuffer mesh, VoxelRenderDef info, int vertexCount, Mask mask, int3 directionMask,
+        private int CreateQuadMesh0(
+            VoxelRenderDef info, int vertexCount, Mask mask, int3 directionMask,
             int2 size, VQuad verts
         )
         {
@@ -392,15 +402,15 @@ namespace Runtime.Engine.Mesher
             int texIndex = info.GetTextureId(normal.ToDirection());
             UVQuad uv = ComputeFaceUVs(normal, size);
 
-            AddVertices(mesh, verts, normal, uv, new float4(texIndex, 0, 0, 0), mask.AO);
+            AddVertices(_meshBuffer, verts, normal, uv, new float4(texIndex, 0, 0, 0), mask.AO);
 
-            AddQuadIndices(mesh.IndexBuffer0, vertexCount, mask.Normal, mask.AO);
+            AddQuadIndices(_meshBuffer.IndexBuffer0, vertexCount, mask.Normal, mask.AO);
             return 4;
         }
 
         [BurstCompile]
-        private static int CreateQuadMesh1(
-            MeshBuffer mesh, VoxelRenderDef info, int vertexCount, Mask mask, int3 directionMask,
+        private int CreateQuadMesh1(
+            VoxelRenderDef info, int vertexCount, Mask mask, int3 directionMask,
             int2 size, VQuad verts
         )
         {
@@ -432,9 +442,9 @@ namespace Runtime.Engine.Mesher
                     float3 xOne = new(1, 0, 0);
                     return normal.x switch
                     {
-                        1 => AddFloraQuad(mesh, info, vertexCount,
+                        1 => AddFloraQuad(info, vertexCount,
                             new VQuad(verts.V1, verts.V2, verts.V3 - xOne, verts.V4 - xOne), mask.AO),
-                        -1 => AddFloraQuad(mesh, info, vertexCount,
+                        -1 => AddFloraQuad(info, vertexCount,
                             new VQuad(verts.V1, verts.V2, verts.V3 + xOne, verts.V4 + xOne), mask.AO),
                         _ => 0
                     };
@@ -446,9 +456,9 @@ namespace Runtime.Engine.Mesher
             int texIndex = info.GetTextureId(normal.ToDirection());
             UVQuad uv = ComputeFaceUVs(normal, size);
 
-            AddVertices(mesh, verts, normal, uv, new float4(texIndex, info.DepthFadeDistance, 0, 0), mask.AO);
+            AddVertices(_meshBuffer, verts, normal, uv, new float4(texIndex, info.DepthFadeDistance, 0, 0), mask.AO);
 
-            AddQuadIndices(mesh.IndexBuffer1, vertexCount, mask.Normal, mask.AO);
+            AddQuadIndices(_meshBuffer.IndexBuffer1, vertexCount, mask.Normal, mask.AO);
             return 4;
         }
 
@@ -543,15 +553,15 @@ namespace Runtime.Engine.Mesher
         }
 
         [BurstCompile]
-        private static int AddFloraQuad(MeshBuffer mesh, VoxelRenderDef info, int vertexCount, VQuad verts, float4 ao)
+        private int AddFloraQuad(VoxelRenderDef info, int vertexCount, VQuad verts, float4 ao)
         {
             int texIndex = info.TexUp;
             UVQuad uv = ComputeFaceUVs(new int3(1, 1, 0), new int2(1, 1));
             float3 normal = new(0, 1, 0);
 
-            AddVertices(mesh, verts, normal, uv, new float4(texIndex, -1, 0, 0), ao);
+            AddVertices(_meshBuffer, verts, normal, uv, new float4(texIndex, -1, 0, 0), ao);
 
-            NativeList<int> indexBuffer = mesh.IndexBuffer1;
+            NativeList<int> indexBuffer = _meshBuffer.IndexBuffer1;
             indexBuffer.Add(vertexCount);
             indexBuffer.Add(vertexCount + 1);
             indexBuffer.Add(vertexCount + 2);
@@ -567,8 +577,7 @@ namespace Runtime.Engine.Mesher
         #region AO Calculation
 
         [BurstCompile]
-        private static int4 ComputeAOMask(ChunkAccessor accessor, VoxelEngineRenderGenData renderGenData, int3 pos,
-            int3 coord, int axis1, int axis2)
+        private int4 ComputeAOMask(int3 coord, int axis1, int axis2)
         {
             int3 l = coord;
             int3 r = coord;
@@ -594,15 +603,15 @@ namespace Runtime.Engine.Mesher
             rtc[axis1] += 1;
             rtc[axis2] += 1;
 
-            int lo = GetMeshLayer(accessor.GetVoxelInChunk(pos, l), renderGenData) == 0 ? 1 : 0;
-            int ro = GetMeshLayer(accessor.GetVoxelInChunk(pos, r), renderGenData) == 0 ? 1 : 0;
-            int bo = GetMeshLayer(accessor.GetVoxelInChunk(pos, b), renderGenData) == 0 ? 1 : 0;
-            int to = GetMeshLayer(accessor.GetVoxelInChunk(pos, T), renderGenData) == 0 ? 1 : 0;
+            int lo = GetMeshLayer(_accessor.GetVoxelInChunk(_chunkPos, l), _renderGenData) == 0 ? 1 : 0;
+            int ro = GetMeshLayer(_accessor.GetVoxelInChunk(_chunkPos, r), _renderGenData) == 0 ? 1 : 0;
+            int bo = GetMeshLayer(_accessor.GetVoxelInChunk(_chunkPos, b), _renderGenData) == 0 ? 1 : 0;
+            int to = GetMeshLayer(_accessor.GetVoxelInChunk(_chunkPos, T), _renderGenData) == 0 ? 1 : 0;
 
-            int lbco = GetMeshLayer(accessor.GetVoxelInChunk(pos, lbc), renderGenData) == 0 ? 1 : 0;
-            int rbco = GetMeshLayer(accessor.GetVoxelInChunk(pos, rbc), renderGenData) == 0 ? 1 : 0;
-            int ltco = GetMeshLayer(accessor.GetVoxelInChunk(pos, ltc), renderGenData) == 0 ? 1 : 0;
-            int rtco = GetMeshLayer(accessor.GetVoxelInChunk(pos, rtc), renderGenData) == 0 ? 1 : 0;
+            int lbco = GetMeshLayer(_accessor.GetVoxelInChunk(_chunkPos, lbc), _renderGenData) == 0 ? 1 : 0;
+            int rbco = GetMeshLayer(_accessor.GetVoxelInChunk(_chunkPos, rbc), _renderGenData) == 0 ? 1 : 0;
+            int ltco = GetMeshLayer(_accessor.GetVoxelInChunk(_chunkPos, ltc), _renderGenData) == 0 ? 1 : 0;
+            int rtco = GetMeshLayer(_accessor.GetVoxelInChunk(_chunkPos, rtc), _renderGenData) == 0 ? 1 : 0;
 
             return new int4(
                 ComputeAO(lo, bo, lbco),
@@ -715,5 +724,10 @@ namespace Runtime.Engine.Mesher
         }
 
         #endregion
+
+        public void Dispose()
+        {
+            _foliageVoxels.Dispose();
+        }
     }
 }
