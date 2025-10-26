@@ -1,8 +1,9 @@
-﻿using Runtime.Engine.World;
+﻿using System;
+using Runtime.Engine.World;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-namespace Test
+namespace Player
 {
     public class VoxelEditor : MonoBehaviour
     {
@@ -10,6 +11,8 @@ namespace Test
         public bool destruct;
         public bool place;
         public ushort voxelId = 1;
+        
+        public event Action<ushort> OnVoxelIdChanged; 
 
         private void OnEnable()
         {
@@ -26,7 +29,11 @@ namespace Test
             if (!value.isPressed) return;
             if (!GetLookAtVoxelPos(out Vector3Int voxelWorldPos)) return;
             ushort voxId = VoxelWorld.Instance.GetVoxel(voxelWorldPos);
-            if (voxId > 0) voxelId = VoxelWorld.Instance.GetVoxel(voxelWorldPos);
+            if (voxId > 0 && voxId != voxelId)
+            {
+                voxelId = voxId;
+                OnVoxelIdChanged?.Invoke(voxelId);
+            }
         }
 
         public void OnPlaceVoxel(InputValue value)
