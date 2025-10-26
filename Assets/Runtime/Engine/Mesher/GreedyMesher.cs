@@ -51,63 +51,109 @@ namespace Runtime.Engine.Mesher
         {
             int vertexCount = 0;
 
-            for (int direction = 0; direction < 3; direction++)
+            // Step 1: Build Masks (hook for future caching/prepasses)
+            BuildMasks();
+
+            // Step 2: Build visible quads for normal/transparent layers
+            BuildSurfaceQuads(ref vertexCount);
+
+            // Step 3: Build foliage/quads that rely on pre-collected flora
+            BuildFoliage(ref vertexCount);
+
+            // Step 4: Build collider quads
+            BuildCollider();
+
+            return _meshBuffer;
+        }
+
+        [BurstCompile]
+        private void BuildMasks()
+        {
+            // Currently masks are computed per-slice on-the-fly in BuildSurfaceQuads.
+            // This method provides a dedicated step to precompute/cache masks if needed later.
+        }
+
+        [BurstCompile]
+        private void BuildSurfaceQuads(ref int vertexCount)
+        {
+            // Sweep along each principal axis (X, Y, Z)
+            for (int mainAxis = 0; mainAxis < 3; mainAxis++)
             {
-                int axis1 = (direction + 1) % 3; // U axis
-                int axis2 = (direction + 2) % 3; // V axis
+                // Define orthogonal axes for the 2D slice (U and V plane)
+                int uAxis = (mainAxis + 1) % 3;
+                int vAxis = (mainAxis + 2) % 3;
 
-                int mainAxisLimit = _size[direction];
-                int axis1Limit = _size[axis1];
-                int axis2Limit = _size[axis2];
+                int mainAxisLimit = _size[mainAxis];
+                int uLimit = _size[uAxis];
+                int vLimit = _size[vAxis];
 
-                int3 deltaAxis1 = int3.zero;
-                int3 deltaAxis2 = int3.zero;
+                int3 uDelta = int3.zero;
+                int3 vDelta = int3.zero;
 
-                int3 chunkItr = int3.zero;
+                int3 pos = int3.zero;
+
                 int3 directionMask = int3.zero;
-                directionMask[direction] = 1;
+                directionMask[mainAxis] = 1;
 
-                NativeArray<Mask> normalMask = new(axis1Limit * axis2Limit, Allocator.Temp);
+                // Temporary mask buffer for the current slice (U x V)
+                NativeArray<Mask> normalMask = new(uLimit * vLimit, Allocator.Temp);
 
-                for (chunkItr[direction] = -1; chunkItr[direction] < mainAxisLimit;)
+                // Sweep all slices perpendicular to mainAxis; we compare slice k vs k+1, so start at -1
+                for (pos[mainAxis] = -1; pos[mainAxis] < mainAxisLimit;)
                 {
-                    // Build mask for current slice
-                    BuildFaceMask(chunkItr, directionMask, axis1, axis2, axis1Limit, axis2Limit, normalMask);
-                    ++chunkItr[direction];
-                    int n = 0;
-                    for (int j = 0; j < axis2Limit; j++)
+                    BuildFaceMask(pos, directionMask, uAxis, vAxis, uLimit, vLimit, normalMask);
+
+                    // Move to the actual slice index we just built the mask for
+                    ++pos[mainAxis];
+
+                    int maskIndex = 0;
+                    for (int v = 0; v < vLimit; v++)
                     {
-                        for (int i = 0; i < axis1Limit;)
+                        for (int u = 0; u < uLimit;)
                         {
-                            if (normalMask[n].Normal != 0)
+                            if (normalMask[maskIndex].Normal != 0)
                             {
-                                Mask currentMask = normalMask[n];
-                                chunkItr[axis1] = i;
-                                chunkItr[axis2] = j;
-                                int width = FindQuadWidth(normalMask, n, currentMask, i, axis1Limit);
-                                int height = FindQuadHeight(normalMask, n, currentMask, axis1Limit, axis2Limit, width,
-                                    j);
-                                deltaAxis1[axis1] = width;
-                                deltaAxis2[axis2] = height;
+                                // Found a face; grow the maximal rectangle (width x height)
+                                Mask current = normalMask[maskIndex];
+                                pos[uAxis] = u;
+                                pos[vAxis] = v;
+
+                                int quadWidth = FindQuadWidth(normalMask, maskIndex, current, u, uLimit);
+                                int quadHeight = FindQuadHeight(normalMask, maskIndex, current, uLimit, vLimit,
+                                    quadWidth, v);
+
+                                uDelta[uAxis] = quadWidth;
+                                vDelta[vAxis] = quadHeight;
+
+                                // Emit the quad
                                 vertexCount += CreateQuad(
-                                     _renderGenData.GetRenderDef(currentMask.VoxelId),
-                                    vertexCount, currentMask, directionMask, new int2(width, height), new VQuad(
-                                        chunkItr,
-                                        chunkItr + deltaAxis1,
-                                        chunkItr + deltaAxis2,
-                                        chunkItr + deltaAxis1 + deltaAxis2
+                                    _renderGenData.GetRenderDef(current.VoxelId),
+                                    vertexCount,
+                                    current,
+                                    directionMask,
+                                    new int2(quadWidth, quadHeight),
+                                    new VQuad(
+                                        pos,
+                                        pos + uDelta,
+                                        pos + vDelta,
+                                        pos + uDelta + vDelta
                                     )
                                 );
-                                ClearMaskRegion(normalMask, n, width, height, axis1Limit);
-                                deltaAxis1 = int3.zero;
-                                deltaAxis2 = int3.zero;
-                                i += width;
-                                n += width;
+
+                                // Clear the consumed region in the mask and reset deltas
+                                ClearMaskRegion(normalMask, maskIndex, quadWidth, quadHeight, uLimit);
+                                uDelta = int3.zero;
+                                vDelta = int3.zero;
+
+                                // Jump horizontally by the consumed width
+                                u += quadWidth;
+                                maskIndex += quadWidth;
                             }
                             else
                             {
-                                i++;
-                                n++;
+                                // No face here; advance to next cell
+                                u++;
+                                maskIndex++;
                             }
                         }
                     }
@@ -115,91 +161,115 @@ namespace Runtime.Engine.Mesher
 
                 normalMask.Dispose();
             }
+        }
 
+        [BurstCompile]
+        private void BuildFoliage(ref int vertexCount)
+        {
+            // Build cross (billboard) quads for flora collected during the surface pass
             foreach (KVPair<int3, VoxelRenderDef> entry in _foliageVoxels)
             {
-                int3 pos = entry.Key;
+                int3 p = entry.Key;
+                if(!_accessor.InChunkBounds(p)) continue;
                 VoxelRenderDef def = entry.Value;
+
+                // Diagonal 1
                 vertexCount += AddFloraQuad(def, vertexCount,
                     new VQuad(
-                        pos,
-                        pos + new float3(0, 1, 0),
-                        pos + new float3(1, 0, 1),
-                        pos + new float3(1, 1, 1)
+                        p,
+                        p + new float3(0, 1, 0),
+                        p + new float3(1, 0, 1),
+                        p + new float3(1, 1, 1)
                     ), int4.zero
                 );
+
+                // Diagonal 2
                 vertexCount += AddFloraQuad(def, vertexCount,
                     new VQuad(
-                        pos + new float3(1, 0, 0),
-                        pos + new float3(1, 1, 0),
-                        pos + new float3(0, 0, 1),
-                        pos + new float3(0, 1, 1)
+                        p + new float3(1, 0, 0),
+                        p + new float3(1, 1, 0),
+                        p + new float3(0, 0, 1),
+                        p + new float3(0, 1, 1)
                     ), int4.zero
                 );
             }
+        }
 
-            // Collider pass: build a minimal collider mesh using greedy quads over collidable boundaries
+        [BurstCompile]
+        private void BuildCollider()
+        {
+            // Greedy collider pass: emit faces only at collision boundaries
             int cVertexCount = 0;
-            for (int direction = 0; direction < 3; direction++)
+
+            for (int mainAxis = 0; mainAxis < 3; mainAxis++)
             {
-                int axis1 = (direction + 1) % 3; // U axis
-                int axis2 = (direction + 2) % 3; // V axis
+                int uAxis = (mainAxis + 1) % 3;
+                int vAxis = (mainAxis + 2) % 3;
 
-                int mainAxisLimit = _size[direction];
-                int axis1Limit = _size[axis1];
-                int axis2Limit = _size[axis2];
+                int mainAxisLimit = _size[mainAxis];
+                int uLimit = _size[uAxis];
+                int vLimit = _size[vAxis];
 
-                int3 deltaAxis1 = int3.zero;
-                int3 deltaAxis2 = int3.zero;
+                int3 uDelta = int3.zero;
+                int3 vDelta = int3.zero;
+                int3 pos = int3.zero;
 
-                int3 chunkItr = int3.zero;
                 int3 directionMask = int3.zero;
-                directionMask[direction] = 1;
+                directionMask[mainAxis] = 1;
 
-                NativeArray<Mask> colliderMask = new(axis1Limit * axis2Limit, Allocator.Temp);
+                NativeArray<Mask> colliderMask = new(uLimit * vLimit, Allocator.Temp);
 
-                for (chunkItr[direction] = -1; chunkItr[direction] < mainAxisLimit;)
+                for (pos[mainAxis] = -1; pos[mainAxis] < mainAxisLimit;)
                 {
-                    // Build collider mask for current slice
-                    BuildColliderMask(_accessor, _chunkPos, chunkItr, directionMask, axis1, axis2, axis1Limit,
-                        axis2Limit, _renderGenData, colliderMask);
+                    // 1) Build collider mask for the current slice
+                    BuildColliderMask(pos, directionMask, uAxis, vAxis, uLimit, vLimit, colliderMask);
 
-                    ++chunkItr[direction];
-                    int n = 0;
-                    for (int j = 0; j < axis2Limit; j++)
+                    // Move to the slice index we just prepared
+                    ++pos[mainAxis];
+
+                    // 2) Greedy merge over the collider mask
+                    int maskIndex = 0;
+                    for (int v = 0; v < vLimit; v++)
                     {
-                        for (int i = 0; i < axis1Limit;)
+                        for (int u = 0; u < uLimit;)
                         {
-                            if (colliderMask[n].Normal != 0)
+                            if (colliderMask[maskIndex].Normal != 0)
                             {
-                                Mask currentMask = colliderMask[n];
-                                chunkItr[axis1] = i;
-                                chunkItr[axis2] = j;
-                                int width = FindQuadWidth(colliderMask, n, currentMask, i, axis1Limit);
-                                int height = FindQuadHeight(colliderMask, n, currentMask, axis1Limit, axis2Limit, width,
-                                    j);
-                                deltaAxis1[axis1] = width;
-                                deltaAxis2[axis2] = height;
+                                Mask current = colliderMask[maskIndex];
+                                pos[uAxis] = u;
+                                pos[vAxis] = v;
+
+                                int quadWidth = FindQuadWidth(colliderMask, maskIndex, current, u, uLimit);
+                                int quadHeight = FindQuadHeight(colliderMask, maskIndex, current, uLimit, vLimit,
+                                    quadWidth, v);
+
+                                uDelta[uAxis] = quadWidth;
+                                vDelta[vAxis] = quadHeight;
 
                                 cVertexCount += CreateColliderQuad(
-                                    _meshBuffer, cVertexCount, currentMask, directionMask, new VQuad(
-                                        chunkItr,
-                                        chunkItr + deltaAxis1,
-                                        chunkItr + deltaAxis2,
-                                        chunkItr + deltaAxis1 + deltaAxis2
+                                    _meshBuffer,
+                                    cVertexCount,
+                                    current,
+                                    directionMask,
+                                    new VQuad(
+                                        pos,
+                                        pos + uDelta,
+                                        pos + vDelta,
+                                        pos + uDelta + vDelta
                                     )
                                 );
 
-                                ClearMaskRegion(colliderMask, n, width, height, axis1Limit);
-                                deltaAxis1 = int3.zero;
-                                deltaAxis2 = int3.zero;
-                                i += width;
-                                n += width;
+                                ClearMaskRegion(colliderMask, maskIndex, quadWidth, quadHeight, uLimit);
+                                uDelta = int3.zero;
+                                vDelta = int3.zero;
+
+                                u += quadWidth;
+                                maskIndex += quadWidth;
                             }
                             else
                             {
-                                i++;
-                                n++;
+                                u++;
+                                maskIndex++;
                             }
                         }
                     }
@@ -207,8 +277,6 @@ namespace Runtime.Engine.Mesher
 
                 colliderMask.Dispose();
             }
-
-            return _meshBuffer;
         }
 
         #region Mask Helpers
@@ -237,6 +305,12 @@ namespace Runtime.Engine.Mesher
                     if (currentDef.VoxelType == VoxelType.Flora)
                     {
                         _foliageVoxels.TryAdd(chunkItr, currentDef);
+                        if (neighborDef.VoxelType == VoxelType.Flora)
+                        {
+                            normalMask[n] = default;
+                            n++;
+                            continue;
+                        }
                         int4 floraAo = ComputeAOMask(chunkItr, axis1, axis2);
                         // top open for the neighbor (owning backface)
                         sbyte neighborTopOpen = ComputeTopOpen(neighborCoord + YOne, neighborDef.VoxelType);
@@ -296,19 +370,18 @@ namespace Runtime.Engine.Mesher
         }
 
         [BurstCompile]
-        private static void BuildColliderMask(ChunkAccessor accessor, int3 chunkPos, int3 chunkItr, int3 directionMask,
-            int axis1, int axis2, int axis1Limit, int axis2Limit, VoxelEngineRenderGenData renderGenData,
-            NativeArray<Mask> colliderMask)
+        private void BuildColliderMask(int3 chunkItr, int3 directionMask,
+            int axis1, int axis2, int axis1Limit, int axis2Limit, NativeArray<Mask> colliderMask)
         {
             int n = 0;
             for (chunkItr[axis2] = 0; chunkItr[axis2] < axis2Limit; ++chunkItr[axis2])
             {
                 for (chunkItr[axis1] = 0; chunkItr[axis1] < axis1Limit; ++chunkItr[axis1])
                 {
-                    ushort currentVoxel = accessor.GetVoxelInChunk(chunkPos, chunkItr);
-                    ushort compareVoxel = accessor.GetVoxelInChunk(chunkPos, chunkItr + directionMask);
-                    bool currentCollidable = renderGenData.GetRenderDef(currentVoxel).Collision;
-                    bool compareCollidable = renderGenData.GetRenderDef(compareVoxel).Collision;
+                    ushort currentVoxel = _accessor.GetVoxelInChunk(_chunkPos, chunkItr);
+                    ushort compareVoxel = _accessor.GetVoxelInChunk(_chunkPos, chunkItr + directionMask);
+                    bool currentCollidable = _renderGenData.GetRenderDef(currentVoxel).Collision;
+                    bool compareCollidable = _renderGenData.GetRenderDef(compareVoxel).Collision;
 
                     // Only when there is a boundary between collidable and non-collidable we emit a face
                     if (currentCollidable ^ compareCollidable)
@@ -393,8 +466,7 @@ namespace Runtime.Engine.Mesher
 
         [BurstCompile]
         private int CreateQuadMesh0(
-            VoxelRenderDef info, int vertexCount, Mask mask, int3 directionMask,
-            int2 size, VQuad verts
+            VoxelRenderDef info, int vertexCount, Mask mask, int3 directionMask, int2 size, VQuad verts
         )
         {
             int3 normal = directionMask * mask.Normal;
@@ -410,16 +482,13 @@ namespace Runtime.Engine.Mesher
 
         [BurstCompile]
         private int CreateQuadMesh1(
-            VoxelRenderDef info, int vertexCount, Mask mask, int3 directionMask,
-            int2 size, VQuad verts
+            VoxelRenderDef info, int vertexCount, Mask mask, int3 directionMask, int2 size, VQuad verts
         )
         {
             int3 normal = directionMask * mask.Normal;
 
             switch (info.VoxelType)
             {
-                case VoxelType.Full:
-                    break;
                 case VoxelType.Liquid:
                     // Lower the visible liquid surface
                     if (normal.y == 1)
@@ -436,21 +505,7 @@ namespace Runtime.Engine.Mesher
                         if (math.abs(verts.V3.y - topY) < eps) verts.V3.y -= LiquidSurfaceLowering;
                         if (math.abs(verts.V4.y - topY) < eps) verts.V4.y -= LiquidSurfaceLowering;
                     }
-
                     break;
-                case VoxelType.Flora:
-                    float3 xOne = new(1, 0, 0);
-                    return normal.x switch
-                    {
-                        1 => AddFloraQuad(info, vertexCount,
-                            new VQuad(verts.V1, verts.V2, verts.V3 - xOne, verts.V4 - xOne), mask.AO),
-                        -1 => AddFloraQuad(info, vertexCount,
-                            new VQuad(verts.V1, verts.V2, verts.V3 + xOne, verts.V4 + xOne), mask.AO),
-                        _ => 0
-                    };
-
-                default:
-                    throw new ArgumentOutOfRangeException();
             }
 
             int texIndex = info.GetTextureId(normal.ToDirection());
