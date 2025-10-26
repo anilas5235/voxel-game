@@ -60,7 +60,9 @@ namespace Runtime.Engine.Mesher
                 int uAxis = (mainAxis + 1) % 3;
                 int vAxis = (mainAxis + 2) % 3;
 
-                int mainAxisLimit = _size[mainAxis]-1;
+                // We only generate faces for slices starting inside the chunk (0..size-1)
+                // so that negative-side faces are owned by the neighboring chunk.
+                int mainAxisLimit = _size[mainAxis];
 
                 AxisInfo axisInfo = new()
                 {
@@ -78,24 +80,25 @@ namespace Runtime.Engine.Mesher
                 // Temporary mask buffer for the current slice (U x V)
                 NativeArray<Mask> normalMask = new(axisInfo.ULimit * axisInfo.VLimit, Allocator.Temp);
                 NativeArray<Mask> colliderMask = new(axisInfo.ULimit * axisInfo.VLimit, Allocator.Temp);
-                
-                for (pos[mainAxis] = -1; pos[mainAxis] < mainAxisLimit;)
-                {
-                    BuildFaceMask(pos, directionMask,  axisInfo, normalMask);
 
-                    BuildColliderMask(pos, directionMask,  axisInfo, colliderMask);
+                for (pos[mainAxis] = 0; pos[mainAxis] < mainAxisLimit;)
+                {
+                    BuildFaceMask(pos, directionMask, axisInfo, normalMask);
+
+                    BuildColliderMask(pos, directionMask, axisInfo, colliderMask);
 
                     // Move to the actual slice index we just built the mask for
                     ++pos[mainAxis];
 
-                    _meshVertexCount = BuildSurfaceQuads(_meshVertexCount,  axisInfo, pos,
+                    _meshVertexCount = BuildSurfaceQuads(_meshVertexCount, axisInfo, pos,
                         normalMask, directionMask);
 
-                    _colliderVertexCount = BuildColliderQuads(_colliderVertexCount,  axisInfo, pos,
+                    _colliderVertexCount = BuildColliderQuads(_colliderVertexCount, axisInfo, pos,
                         colliderMask, directionMask);
                 }
 
                 normalMask.Dispose();
+                colliderMask.Dispose();
             }
 
             _meshVertexCount = BuildFoliage(_meshVertexCount);
