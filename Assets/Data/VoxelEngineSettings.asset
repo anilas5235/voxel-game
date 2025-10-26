@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: de6253de127543aeb23d6596fc20fad2, type: 3}
-  m_Name: VloxySettings
+  m_Name: VoxelEngineSettings
   m_EditorClassIdentifier: 
   Noise: {fileID: 11400000, guid: 0d29f4d418efd7d42a007b66f6e5a547, type: 2}
   Chunk:
