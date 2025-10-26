@@ -10,6 +10,8 @@
         Snow,
         Mountain,
         Ocean,
-        Tundra
+        Tundra,
+        HighStone,
+        GreyMountain
     }
 }

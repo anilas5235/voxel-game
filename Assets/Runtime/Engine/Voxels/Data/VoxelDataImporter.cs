@@ -122,9 +122,60 @@ namespace Runtime.Engine.Voxels.Data
                 WheatStage1 = VoxelRegistry.GetId("std:WheatStage1"),
                 WheatStage2 = VoxelRegistry.GetId("std:WheatStage2"),
                 WheatStage3 = VoxelRegistry.GetId("std:WheatStage3"),
+                WheatStage4 = VoxelRegistry.GetId("std:WheatStage4"),
                 Workbench = VoxelRegistry.GetId("std:Workbench"),
             };
-            return config;
-        }
-    }
-}
+
+            // Debug logging: dump the important mappings to help locate misplaced blocks
+            void LogId(string name, ushort id)
+            {
+                if (id == 0) Debug.LogWarning($"VoxelRegistry: '{name}' not found (id=0)");
+                else if (VoxelRegistry.GetName(id, out string resolved)) Debug.Log($"VoxelRegistry: '{name}' => id={id}, resolvedName='{resolved}'");
+                else Debug.Log($"VoxelRegistry: '{name}' => id={id} (no resolved name)");
+            }
+
+            LogId("std:Flowers", config.Flowers);
+            LogId("std:Grass", config.Grass);
+            LogId("std:GrassF", config.GrassF);
+            LogId("std:GrassFDry", config.GrassFDry);
+            LogId("std:WheatStage1", config.WheatStage1);
+            LogId("std:WheatStage2", config.WheatStage2);
+            LogId("std:WheatStage3", config.WheatStage3);
+            LogId("std:WheatStage4", config.WheatStage4);
+
+            // Validate mappings: ensure critical roles point to expected voxel names
+            bool EnsureEndsWith(ref ushort id, string expectedSuffix, string logicalName)
+            {
+                if (id == 0) return false;
+                if (VoxelRegistry.GetName(id, out string resolved))
+                {
+                    if (!resolved.EndsWith(":" + expectedSuffix))
+                    {
+                        Debug.LogError($"VoxelDataImporter: expected {logicalName} to map to *:{expectedSuffix} but got '{resolved}' (id={id}). Clearing mapping to avoid accidental placement.");
+                        id = 0;
+                        return false;
+                    }
+                    return true;
+                }
+                else
+                {
+                    Debug.LogWarning($"VoxelDataImporter: could not resolve name for id={id} when validating {logicalName}. Clearing mapping.");
+                    id = 0;
+                    return false;
+                }
+            }
+
+            // Flowers and grass must map correctly; otherwise clear them so generation falls back to safe defaults.
+            EnsureEndsWith(ref config.Flowers, "Flowers", "Flowers");
+            EnsureEndsWith(ref config.Grass, "Grass", "Grass");
+            EnsureEndsWith(ref config.GrassF, "GrassF", "GrassF");
+            EnsureEndsWith(ref config.GrassFDry, "GrassFDry", "GrassFDry");
+            EnsureEndsWith(ref config.WheatStage1, "WheatStage1", "WheatStage1");
+            EnsureEndsWith(ref config.WheatStage2, "WheatStage2", "WheatStage2");
+            EnsureEndsWith(ref config.WheatStage3, "WheatStage3", "WheatStage3");
+            EnsureEndsWith(ref config.WheatStage4, "WheatStage4", "WheatStage4");
+
+             return config;
+         }
+     }
+ }
