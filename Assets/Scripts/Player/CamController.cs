@@ -1,7 +1,7 @@
 ﻿using UnityEngine;
 using UnityEngine.InputSystem;
 
-namespace Test
+namespace Player
 {
     public class CamController : MonoBehaviour
     {

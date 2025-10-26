@@ -15,8 +15,8 @@ MonoBehaviour:
   textureMode: 0
   meshLayer: 1
   voxelType: 1
-  overrideColor: {r: 0, g: 0.111756146, b: 0.2264151, a: 1}
-  depthFadeDistance: 14
+  alwaysRenderAllFaces: 0
+  depthFadeDistance: 13
   postProcess:
     postProcessColor: {r: 0.41037738, g: 0.76299477, b: 1, a: 0}
     contrast: 1
