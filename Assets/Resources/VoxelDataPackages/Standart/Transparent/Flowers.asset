@@ -15,7 +15,14 @@ MonoBehaviour:
   textureMode: 0
   meshLayer: 1
   voxelType: 2
-  overrideColor: {r: 1, g: 1, b: 1, a: 1}
+  alwaysRenderAllFaces: 0
+  depthFadeDistance: -1
+  postProcess:
+    postProcessColor: {r: 0, g: 0, b: 0, a: 0}
+    contrast: 0
+    saturation: 0
+    enableFog: 0
+    fogDensity: 0.01
   top: {fileID: 2800000, guid: 34cb72f0b3ba45a4aa3a02994c5e8652, type: 3}
   bottom: {fileID: 2800000, guid: 5e57ea94da3a7b24bbbd3aff00760151, type: 3}
   front: {fileID: 0}

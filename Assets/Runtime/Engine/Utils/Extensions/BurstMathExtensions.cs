@@ -66,6 +66,7 @@ namespace Runtime.Engine.Utils.Extensions
         public static int3 Int3(this Vector3Int vec) => new(vec.x, vec.y, vec.z);
 
         public static int3 Int3(this Vector3 vec) => Vector3Int.FloorToInt(vec).Int3();
+        public static Vector3Int V3Int(this Vector3 vec) => Vector3Int.FloorToInt(vec);
 
         public static Direction ToDirection(this int3 vec)
         {

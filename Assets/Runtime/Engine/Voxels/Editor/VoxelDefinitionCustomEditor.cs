@@ -14,6 +14,11 @@ namespace Runtime.Engine.Voxels.Editor
             serializedObject.Update();
 
             EditorGUILayout.PropertyField(serializedObject.FindProperty("meshLayer"));
+            if(voxelDef.meshLayer == MeshLayer.Solid)
+            {
+                voxelDef.voxelType = VoxelType.Full;
+            }
+            
             if (voxelDef.voxelType != VoxelType.Flora)
             {
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("textureMode"));
