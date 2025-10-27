@@ -17,6 +17,10 @@ namespace Runtime.Engine.Jobs.Mesh
 {
     public class MeshBuildScheduler : JobScheduler
     {
+        private const MeshUpdateFlags MeshFlags = MeshUpdateFlags.DontRecalculateBounds |
+                                                  MeshUpdateFlags.DontValidateIndices |
+                                                  MeshUpdateFlags.DontResetBoneBounds;
+        
         private readonly ChunkManager _chunkManager;
         private readonly ChunkPool _chunkPool;
         private readonly VoxelRegistry _voxelRegistry;
@@ -27,8 +31,10 @@ namespace Runtime.Engine.Jobs.Mesh
         private NativeList<int3> _jobs;
         private ChunkAccessor _chunkAccessor;
         private NativeParallelHashMap<int3, int> _results;
+        
         private UnityEngine.Mesh.MeshDataArray _meshDataArray;
         private UnityEngine.Mesh.MeshDataArray _colliderMeshDataArray;
+        
         private NativeArray<VertexAttributeDescriptor> _vertexParams;
         private NativeArray<VertexAttributeDescriptor> _colliderVertexParams;
 
@@ -112,39 +118,31 @@ namespace Runtime.Engine.Jobs.Mesh
 
             for (int index = 0; index < _jobs.Length; index++)
             {
-                int3 position = _jobs[index];
-                ChunkBehaviour cb;
-                if (_chunkManager.ReMeshedChunk(position))
-                {
-                    cb = _chunkPool.Get(position);
-                }
-                else
-                {
-                    cb = _chunkPool.Claim(position);
-                }
+                int3 pos = _jobs[index];
+                ChunkBehaviour cb = _chunkPool.GetOrClaim(pos);
+                _chunkManager.ReMeshedChunk(pos);
 
-                meshes[_results[position]] = cb.Mesh;
-                colliderMeshes[_results[position]] = cb.ColliderMesh;
+                meshes[_results[pos]] = cb.Mesh;
+                colliderMeshes[_results[pos]] = cb.ColliderMesh;
             }
 
             UnityEngine.Mesh.ApplyAndDisposeWritableMeshData(
                 _meshDataArray,
                 meshes,
-                MeshUpdateFlags.DontRecalculateBounds | MeshUpdateFlags.DontValidateIndices |
-                MeshUpdateFlags.DontResetBoneBounds
+                MeshFlags 
             );
 
             UnityEngine.Mesh.ApplyAndDisposeWritableMeshData(
                 _colliderMeshDataArray,
                 colliderMeshes,
-                MeshUpdateFlags.DontRecalculateBounds | MeshUpdateFlags.DontValidateIndices |
-                MeshUpdateFlags.DontResetBoneBounds
+                MeshFlags
             );
 
             foreach (UnityEngine.Mesh m in meshes)
             {
                 m.RecalculateBounds();
             }
+            
             foreach (UnityEngine.Mesh cm in colliderMeshes)
             {
                 cm.RecalculateBounds();

@@ -64,6 +64,12 @@ namespace Runtime.Engine.Components
             }
         }
 
+
+        internal ChunkBehaviour GetOrClaim(int3 position)
+        {
+            return IsActive(position) ? _meshMap[position] : Claim(position);
+        }
+
         internal ChunkBehaviour Claim(int3 position)
         {
             if (_meshMap.ContainsKey(position))
@@ -113,16 +119,6 @@ namespace Runtime.Engine.Components
         internal void ColliderBaked(int3 position)
         {
             _colliderSet.Add(position);
-        }
-
-        internal ChunkBehaviour Get(int3 position)
-        {
-            if (!_meshMap.TryGetValue(position, out ChunkBehaviour chunk))
-            {
-                throw new InvalidOperationException($"Chunk ({position}) isn't active");
-            }
-
-            return chunk;
         }
     }
 }

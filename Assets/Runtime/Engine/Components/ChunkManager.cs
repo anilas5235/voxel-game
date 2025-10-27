@@ -169,23 +169,19 @@ namespace Runtime.Engine.Components
             return new ChunkAccessor(_accessorMap.AsReadOnly(), _chunkSize);
         }
 
-        internal bool ReMeshedChunk(int3 position)
+        internal void ReMeshedChunk(int3 position)
         {
-            if (!_reMeshChunks.Contains(position)) return false;
+            if (!_reMeshChunks.Contains(position)) return;
 
             _reMeshChunks.Remove(position);
             _reCollideChunks.Add(position);
-
-            return true;
         }
 
-        internal bool ReCollideChunk(int3 position)
+        internal void ReCollidedChunk(int3 position)
         {
-            if (!_reCollideChunks.Contains(position)) return false;
+            if (!_reCollideChunks.Contains(position)) return;
 
             _reCollideChunks.Remove(position);
-
-            return true;
         }
 
         private void ReMeshChunks(int3 blockPosition)
