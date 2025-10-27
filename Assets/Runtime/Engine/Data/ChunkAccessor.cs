@@ -18,6 +18,7 @@ namespace Runtime.Engine.Data
 
         internal ushort GetVoxelInChunk(int3 chunkPos, int3 voxelPos)
         {
+            if (voxelPos.y >= _chunkSize.y || voxelPos.y < 0) return 0;
             int3 key = int3.zero;
 
             for (int index = 0; index < 3; index++)

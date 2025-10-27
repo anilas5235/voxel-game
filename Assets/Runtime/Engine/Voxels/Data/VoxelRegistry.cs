@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
@@ -156,6 +158,11 @@ namespace Runtime.Engine.Voxels.Data
             {
                 Debug.LogWarning("Voxel material is null, cannot assign texture array.");
             }
+        }
+
+        public List<KeyValuePair<ushort, string>> GetAllEntries()
+        {
+            return _idToName.ToList();
         }
     }
 }

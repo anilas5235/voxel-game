@@ -14,8 +14,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   textureMode: 0
   meshLayer: 0
-  voxelType: 2
-  overrideColor: {r: 1, g: 1, b: 1, a: 1}
+  voxelType: 0
+  alwaysRenderAllFaces: 0
+  depthFadeDistance: -1
+  postProcess:
+    postProcessColor: {r: 0, g: 0, b: 0, a: 0}
+    contrast: 0
+    saturation: 0
+    enableFog: 0
+    fogDensity: 0.01
   top: {fileID: 0}
   bottom: {fileID: 0}
   front: {fileID: 0}
@@ -24,4 +31,4 @@ MonoBehaviour:
   left: {fileID: 0}
   side: {fileID: 0}
   all: {fileID: 2800000, guid: 39f6eddd988e835468e3cebef38051df, type: 3}
-  collision: 0
+  collision: 1
