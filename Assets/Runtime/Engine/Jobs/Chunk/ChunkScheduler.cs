@@ -13,17 +13,16 @@ using UnityEngine;
 namespace Runtime.Engine.Jobs.Chunk {
 
     public class ChunkScheduler : JobScheduler {
-        private int3 _chunkSize;
-        private ChunkManager _chunkStore;
-        private NoiseProfile _noiseProfile;
+        private readonly int3 _chunkSize;
+        private readonly ChunkManager _chunkStore;
+        private readonly NoiseProfile _noiseProfile;
 
         private JobHandle _handle;
         
-        // can be native arrays
         private NativeList<int3> _jobs;
         private NativeParallelHashMap<int3, Data.Chunk> _results;
         
-        private GeneratorConfig _config;
+        private readonly GeneratorConfig _config;
 
         public ChunkScheduler(
             VoxelEngineSettings settings,
@@ -38,12 +37,18 @@ namespace Runtime.Engine.Jobs.Chunk {
 
             _jobs = new NativeList<int3>(Allocator.Persistent);
             _results = new NativeParallelHashMap<int3, Data.Chunk>(
-                settings.Chunk.LoadDistance.CubedSize(), 
+                settings.Chunk.LoadDistance.SquareSize(), 
                 Allocator.Persistent
             );
         }
 
         internal bool IsReady = true;
+
+        public ChunkScheduler(NativeParallelHashMap<int3, Data.Chunk> results)
+        {
+            _results = results;
+        }
+
         internal bool IsComplete => _handle.IsCompleted;
 
         internal void Start(List<int3> jobs) {

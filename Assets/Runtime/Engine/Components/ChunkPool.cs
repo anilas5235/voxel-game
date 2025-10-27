@@ -26,10 +26,10 @@ namespace Runtime.Engine.Components
 
         internal ChunkPool(Transform transform, VoxelEngineSettings settings)
         {
-            _chunkPoolSize = (settings.Chunk.DrawDistance + 2).CubedSize();
+            _chunkPoolSize = (settings.Chunk.DrawDistance + 2).SquareSize();
 
             _meshMap = new Dictionary<int3, ChunkBehaviour>(_chunkPoolSize);
-            _colliderSet = new HashSet<int3>((settings.Chunk.UpdateDistance + 2).CubedSize());
+            _colliderSet = new HashSet<int3>((settings.Chunk.UpdateDistance + 2).SquareSize());
             _queue = new SimpleFastPriorityQueue<int3, int>();
 
             _pool = new ObjectPool<ChunkBehaviour>( // pool size = x^2 + 1

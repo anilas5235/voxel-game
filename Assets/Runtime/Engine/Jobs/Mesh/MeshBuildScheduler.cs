@@ -62,7 +62,7 @@ namespace Runtime.Engine.Jobs.Mesh
                 [1] = new VertexAttributeDescriptor(VertexAttribute.Normal)
             };
 
-            _results = new NativeParallelHashMap<int3, int>(settings.Chunk.DrawDistance.CubedSize(),
+            _results = new NativeParallelHashMap<int3, int>(settings.Chunk.DrawDistance.SquareSize(),
                 Allocator.Persistent);
             _jobs = new NativeList<int3>(Allocator.Persistent);
         }

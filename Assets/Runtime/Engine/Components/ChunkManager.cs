@@ -29,7 +29,7 @@ namespace Runtime.Engine.Components
         internal ChunkManager(VoxelEngineSettings settings)
         {
             _chunkSize = settings.Chunk.ChunkSize;
-            _chunkStoreSize = (settings.Chunk.LoadDistance + 2).CubedSize();
+            _chunkStoreSize = (settings.Chunk.LoadDistance + 2).SquareSize();
 
             _reMeshChunks = new HashSet<int3>();
             _reCollideChunks = new HashSet<int3>();
@@ -49,6 +49,11 @@ namespace Runtime.Engine.Components
         {
             int3 chunkPos = VoxelUtils.GetChunkCoords(position);
             int3 blockPos = VoxelUtils.GetVoxelIndex(position);
+            
+            if(blockPos.y < 0 || blockPos.y >= _chunkSize.y)
+            {
+                return 0;
+            }
 
             if (_chunks.TryGetValue(chunkPos, out Chunk chunk)) return chunk.GetVoxel(blockPos);
             
@@ -92,8 +97,6 @@ namespace Runtime.Engine.Components
         internal bool ShouldReMesh(int3 position) => _reMeshChunks.Contains(position);
         internal bool ShouldReCollide(int3 position) => _reCollideChunks.Contains(position);
 
-        internal void RemoveChunk(int3 position) => _chunks.Remove(position);
-
         internal void Dispose()
         {
             _accessorMap.Dispose();
@@ -128,13 +131,18 @@ namespace Runtime.Engine.Components
 
                 if (_queue.Count >= _chunkStoreSize)
                 {
-                    _chunks.Remove(_queue.Dequeue());
-                    // if dirty save chunk
+                    RemoveChunkData(_queue.Dequeue());
                 }
 
                 _chunks.Add(position, chunk);
                 _queue.Enqueue(position, -(position - _focus).SqrMagnitude());
             }
+        }
+        
+        private void RemoveChunkData(int3 position)
+        {
+            _chunks.Remove(position);
+            //TODO: at this point a chunk is evicted from store/memory, if persistence is needed it should be saved here
         }
 
         internal ChunkAccessor GetAccessor(List<int3> positions)

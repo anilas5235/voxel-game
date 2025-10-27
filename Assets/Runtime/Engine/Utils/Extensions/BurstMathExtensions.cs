@@ -11,13 +11,13 @@ namespace Runtime.Engine.Utils.Extensions
     public static class BurstMathExtensions
     {
         [BurstCompile]
-        public static int CubedSize(this int num) => (2 * num + 1) * (2 * num + 1) * (2 * num + 1);
+        public static int CubedSize(this int r) => (2 * r + 1) * (2 * r + 1) * (2 * r + 1);
+        
+        [BurstCompile]
+        public static int SquareSize(this int r) => (2 * r + 1) * (2 * r + 1);
 
         [BurstCompile]
-        public static int CubedSize(this int3 num) => (2 * num.x + 1) * (2 * num.y + 1) * (2 * num.z + 1);
-
-        [BurstCompile]
-        public static int YCubedSize(this int num, int y) => (2 * num + 1) * (2 * num + 1) * (2 * y + 1);
+        public static int CubedSize(this int3 r) => (2 * r.x + 1) * (2 * r.y + 1) * (2 * r.z + 1);
         
         [BurstCompile]
         public static int Flatten(this int2 vec, int x, int y) =>
