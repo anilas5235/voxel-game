@@ -395,7 +395,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   destruct: 0
   place: 0
-  voxelId: 0
+  voxelId: 1
 --- !u!1 &410087039
 GameObject:
   m_ObjectHideFlags: 0

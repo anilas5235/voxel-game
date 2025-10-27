@@ -49,14 +49,14 @@ namespace Runtime.Engine.Components
         {
             int3 chunkPos = VoxelUtils.GetChunkCoords(position);
             int3 blockPos = VoxelUtils.GetVoxelIndex(position);
-            
-            if(blockPos.y < 0 || blockPos.y >= _chunkSize.y)
+
+            if (blockPos.y < 0 || blockPos.y >= _chunkSize.y)
             {
                 return 0;
             }
 
             if (_chunks.TryGetValue(chunkPos, out Chunk chunk)) return chunk.GetVoxel(blockPos);
-            
+
             VoxelEngineLogger.Warn<ChunkManager>($"Chunk : {chunkPos} not loaded");
             return 0;
         }
@@ -76,6 +76,12 @@ namespace Runtime.Engine.Components
             if (!_chunks.TryGetValue(chunkPos, out Chunk chunk))
             {
                 VoxelEngineLogger.Warn<ChunkManager>($"Chunk : {chunkPos} not loaded");
+                return false;
+            }
+
+            if (_reMeshChunks.Contains(chunkPos))
+            {
+                VoxelEngineLogger.Warn<ChunkManager>($"Chunk : {chunkPos} is pending remesh, cannot set voxel now");
                 return false;
             }
 
@@ -138,7 +144,7 @@ namespace Runtime.Engine.Components
                 _queue.Enqueue(position, -(position - _focus).SqrMagnitude());
             }
         }
-        
+
         private void RemoveChunkData(int3 position)
         {
             _chunks.Remove(position);
@@ -174,6 +180,8 @@ namespace Runtime.Engine.Components
             if (!_reMeshChunks.Contains(position)) return;
 
             _reMeshChunks.Remove(position);
+            VoxelEngineLogger.Info<ChunkManager>(
+                $"Chunk : {position} has been remeshed;{Time.realtimeSinceStartupAsDouble}");
             _reCollideChunks.Add(position);
         }
 
@@ -190,6 +198,9 @@ namespace Runtime.Engine.Components
             {
                 _reMeshChunks.Add(VoxelUtils.GetChunkCoords(blockPosition + dir));
             }
+
+            VoxelEngineLogger.Info<ChunkManager>(
+                $"ReMeshChunks called at {blockPosition}, total {_reMeshChunks.Count} chunks to remesh;{Time.realtimeSinceStartupAsDouble}");
         }
     }
 }

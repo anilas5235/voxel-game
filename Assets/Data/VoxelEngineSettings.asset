@@ -17,9 +17,9 @@ MonoBehaviour:
     ChunkPrefab: {fileID: 972016758114520785, guid: c64e56d0bf3b95d4786aca3e51faf0ed, type: 3}
     DrawDistance: 6
     ChunkSize:
-      x: 32
+      x: 16
       y: 256
-      z: 32
+      z: 16
     LoadDistance: 8
     UpdateDistance: 4
   Renderer:

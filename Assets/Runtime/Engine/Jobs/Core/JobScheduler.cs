@@ -6,9 +6,9 @@ namespace Runtime.Engine.Jobs.Core {
 
     public abstract class JobScheduler {
 
-        private Queue<long> _timings;
-        private Stopwatch _watch;
-        private int _records;
+        private readonly Queue<long> _timings;
+        private readonly Stopwatch _watch;
+        private readonly int _records;
 
         protected JobScheduler(int records = 16) {
             _records = records;
@@ -22,15 +22,17 @@ namespace Runtime.Engine.Jobs.Core {
             _watch.Restart();
         }
         
-        protected void StopRecord() {
+        protected long StopRecord() {
             _watch.Stop();
             long ms = _watch.ElapsedMilliseconds;
-            
-            if (_timings.Count <= _records) _timings.Enqueue(ms);
-            else {
+
+            if (_timings.Count > _records)
+            {
                 _timings.Dequeue();
-                _timings.Enqueue(ms);
             }
+
+            _timings.Enqueue(ms);
+            return ms;
         }
         
     }

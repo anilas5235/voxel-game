@@ -20,7 +20,7 @@ namespace Runtime.Engine.Jobs.Mesh
         private const MeshUpdateFlags MeshFlags = MeshUpdateFlags.DontRecalculateBounds |
                                                   MeshUpdateFlags.DontValidateIndices |
                                                   MeshUpdateFlags.DontResetBoneBounds;
-        
+
         private readonly ChunkManager _chunkManager;
         private readonly ChunkPool _chunkPool;
         private readonly VoxelRegistry _voxelRegistry;
@@ -31,10 +31,10 @@ namespace Runtime.Engine.Jobs.Mesh
         private NativeList<int3> _jobs;
         private ChunkAccessor _chunkAccessor;
         private NativeParallelHashMap<int3, int> _results;
-        
+
         private UnityEngine.Mesh.MeshDataArray _meshDataArray;
         private UnityEngine.Mesh.MeshDataArray _colliderMeshDataArray;
-        
+
         private NativeArray<VertexAttributeDescriptor> _vertexParams;
         private NativeArray<VertexAttributeDescriptor> _colliderVertexParams;
 
@@ -129,7 +129,7 @@ namespace Runtime.Engine.Jobs.Mesh
             UnityEngine.Mesh.ApplyAndDisposeWritableMeshData(
                 _meshDataArray,
                 meshes,
-                MeshFlags 
+                MeshFlags
             );
 
             UnityEngine.Mesh.ApplyAndDisposeWritableMeshData(
@@ -142,16 +142,16 @@ namespace Runtime.Engine.Jobs.Mesh
             {
                 m.RecalculateBounds();
             }
-            
+
             foreach (UnityEngine.Mesh cm in colliderMeshes)
             {
                 cm.RecalculateBounds();
             }
 
             double totalTime = (Time.realtimeSinceStartupAsDouble - start) * 1000;
-            if (totalTime >= 0.8)
+            if (totalTime >= 4)
             {
-                VoxelEngineLogger.Info<MeshBuildScheduler>(
+                VoxelEngineLogger.Warn<MeshBuildScheduler>(
                     $"Built {_jobs.Length} meshes, Collected Results in <color=red>{totalTime:0.000}</color>ms"
                 );
             }
@@ -160,7 +160,13 @@ namespace Runtime.Engine.Jobs.Mesh
             _jobs.Clear();
 
             IsReady = true;
-            StopRecord();
+            long totalJobTime = StopRecord();
+            if (totalJobTime > 100)
+            {
+                VoxelEngineLogger.Warn<MeshBuildScheduler>(
+                    $"Total Mesh Build Time for {_jobs.Length} jobs: <color=red>{totalJobTime:0.000}</color>ms"
+                );
+            }
         }
 
         internal void Dispose()
