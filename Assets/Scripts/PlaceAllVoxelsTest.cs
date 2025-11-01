@@ -8,13 +8,19 @@ public class PlaceAllVoxelsTest : MonoBehaviour
 {
     [SerializeField] private int gridSize = 16;
 
-    private void FixedUpdate()
+    // Disabled automatic placement to avoid test blocks at spawn. Use the public method below to run manually.
+    // private void FixedUpdate() { }
+
+    public void PlaceAllVoxelsManually()
     {
         if (VoxelWorld.Instance.SetVoxel(50, Vector3Int.one, false))
         {
             PlaceVoxelsInGrid();
-            Debug.Log("All voxels placed successfully.");
-            enabled = false;
+            Debug.Log("All voxels placed successfully (manual run).");
+        }
+        else
+        {
+            Debug.LogWarning("VoxelWorld not ready - could not place test voxels.");
         }
     }
 

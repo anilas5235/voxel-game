@@ -5,13 +5,16 @@
         Plains,
         Forest,
         Desert,
+        RedDesert,
         Jungle,
         Swamp,
         Snow,
+        Ice,
         Mountain,
         Ocean,
         Tundra,
         HighStone,
-        GreyMountain
+        GreyMountain,
+        Beach
     }
 }
