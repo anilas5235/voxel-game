@@ -562,7 +562,7 @@ Rigidbody:
   m_IsKinematic: 0
   m_Interpolate: 1
   m_Constraints: 112
-  m_CollisionDetection: 0
+  m_CollisionDetection: 1
 --- !u!4 &455605766
 Transform:
   m_ObjectHideFlags: 0
@@ -1169,7 +1169,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   gridSize: 16
-  spacing: 1
 --- !u!1 &2092167227
 GameObject:
   m_ObjectHideFlags: 0
