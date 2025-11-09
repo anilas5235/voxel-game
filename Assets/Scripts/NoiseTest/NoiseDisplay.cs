@@ -10,13 +10,13 @@ namespace NoiseTest
     {
         [SerializeField] private int width = 256;
         [SerializeField] private int height = 256;
-        
+
         public int2 offset;
 
         public RawImage rawImage;
         private Texture2D _noiseTexture;
         [SerializeField] private NoiseProfile.Settings settings;
-        public float biomeScale =  0.0012f;
+        public float biomeScale = 0.0012f;
         public bool showHumidity = true;
         public bool showTemperature = true;
         public bool showHeight = true;
@@ -28,7 +28,7 @@ namespace NoiseTest
             GenerateNoise();
         }
 
-        
+
         private void GenerateNoise()
         {
             var noiseProfile = new NoiseProfile(settings);
@@ -37,13 +37,13 @@ namespace NoiseTest
                 for (int y = 0; y < height; y++)
                 {
                     float2 pos = new int2(x, y) + offset;
-                    float height = noiseProfile.GetNoise(pos);
-                    float humidity = noiseProfile.GetNoise((pos - 1000f) * biomeScale);
-                    float temperature = noiseProfile.GetNoise((pos + 1000f) * biomeScale);
+                    float tHeight = noiseProfile.GetNoise(pos);
+                    float humidity = noise.cnoise((pos + 789f) * biomeScale);
+                    float temperature = noise.cnoise((pos - 543f) * biomeScale);
 
-                    Color color = new( showHeight ? height : 0f,
-                         showHumidity ? humidity : 0f,
-                         showTemperature ? temperature: 0f);
+                    Color color = new(showHeight ? tHeight : 0f,
+                        showHumidity ? humidity : 0f,
+                        showTemperature ? temperature : 0f);
                     _noiseTexture.SetPixel(x, y, color);
                 }
             }

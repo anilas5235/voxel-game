@@ -65,16 +65,16 @@ namespace Runtime.Engine.Jobs.Chunk
             FillTerrain(vox, waterLevel, chunkColumns);
 
             // Step C: carve caves (3D snoise + worm tunnels)
-            //CarveCaves(vox, chunkWordPos, ground, riverMap);
+            //CarveCaves(vox, chunkWordPos, chunkColumns);
 
             // Step D: place ores based on depth and exposure
-            //PlaceOres(vox);
+            PlaceOres(vox);
 
             // Step E: vegetation and micro-structures on surface
-            //PlaceVegetationAndStructures(vox, ground, biomeMap, chunkWordPos);
+            PlaceVegetationAndStructures(vox, chunkColumns,chunkWordPos);
 
             // Defensive validation: remove any surface-vegetation that ended up not being on a valid earth-like surface
-            //ValidateSurfaceVegetation(vox, ground);
+            ValidateSurfaceVegetation(vox, chunkColumns);
 
 
             Data.Chunk data = WriteToChunkData(vox, chunkWordPos);
@@ -185,8 +185,8 @@ namespace Runtime.Engine.Jobs.Chunk
                 int i = z + x * sz;
                 float2 worldPos = new(chunkWordPos.x + x, chunkWordPos.z + z);
                 
-                float humidity = NoiseProfile.GetNoise((worldPos - 1000f) * BiomeScale);
-                float temperature = NoiseProfile.GetNoise((worldPos + 1000f) * BiomeScale);
+                float humidity = noise.cnoise((worldPos - 789f) * BiomeScale);
+                float temperature = noise.cnoise((worldPos + 543) * BiomeScale);
 
                 float rawHeight = NoiseProfile.GetNoise(worldPos);
 
@@ -251,8 +251,7 @@ namespace Runtime.Engine.Jobs.Chunk
             public float Radius;
         }
 
-        private void CarveCaves(NativeArray<ushort> vox, int3 origin, NativeArray<int> ground,
-            NativeArray<byte> riverMap)
+        private void CarveCaves(NativeArray<ushort> vox, int3 origin, NativeArray<ChunkColumn> chunkColumns)
         {
             int sx = ChunkSize.x;
             int sz = ChunkSize.z;
@@ -260,7 +259,7 @@ namespace Runtime.Engine.Jobs.Chunk
 
             // Deterministic RNG per chunk
             // include global RandomSeed so world seed changes caves/structures deterministically
-            uint seed = (uint)((origin.x * 73856093) ^ (origin.z * 19349663) ^ (int)RandomSeed ^ 0x9E3779B9);
+            uint seed = (uint)((origin.x * 73856093) ^ (origin.z * 19349663) ^ RandomSeed ^ 0x9E3779B9);
             Random rng = new(seed == 0 ? 1u : seed);
 
             // Generate a few longer/thicker worms that create large connected tunnels
@@ -283,10 +282,7 @@ namespace Runtime.Engine.Jobs.Chunk
             for (int x = 0; x < sx; x++)
             for (int z = 0; z < sz; z++)
             {
-                int gy = ground[z + x * sz];
-                bool river = riverMap[z + x * sz] == 1;
-                if (river) continue; // avoid underwater caves in rivers
-
+                int gy = chunkColumns[z + x * sz].Height;
                 for (int y = 1; y < sy - 1; y++)
                 {
                     // skip near-surface
@@ -405,7 +401,7 @@ namespace Runtime.Engine.Jobs.Chunk
                 for (int x = 1; x < sx - 1; x++)
                 for (int z = 1; z < sz - 1; z++)
                 {
-                    int gy = ground[z + x * sz];
+                    int gy = chunkColumns[z + x * sz].Height;
                     for (int y = 1; y < sy - 2; y++)
                     {
                         int idx = Index(x, y, z, sy, sz);
@@ -466,8 +462,7 @@ namespace Runtime.Engine.Jobs.Chunk
             }
         }
 
-        private void PlaceVegetationAndStructures(NativeArray<ushort> vox, NativeArray<int> ground,
-            NativeArray<byte> biomeMap, int3 origin)
+        private void PlaceVegetationAndStructures(NativeArray<ushort> vox, NativeArray<ChunkColumn> chunkColumns, int3 origin)
         {
             int sx = ChunkSize.x;
             int sz = ChunkSize.z;
@@ -499,10 +494,11 @@ namespace Runtime.Engine.Jobs.Chunk
             for (int z = 1; z < sz - 1; z++)
             {
                 int gi = z + x * sz;
-                int gy = ground[gi];
+                ChunkColumn chunkCol = chunkColumns[gi];
+                int gy = chunkCol.Height;
                 if (gy <= 0 || gy >= sy - 2) continue;
 
-                Biome biome = (Biome)biomeMap[gi];
+                Biome biome = chunkCol.Biome;
                 ushort surface = vox[Index(x, gy, z, sy, sz)];
                 if (surface == 0 || (visibleWater != 0 && surface == visibleWater)) continue;
 
@@ -697,7 +693,7 @@ namespace Runtime.Engine.Jobs.Chunk
                             int tz = z + wz;
                             if (tx < 0 || tx >= sx || tz < 0 || tz >= sz) continue;
                             int tgi = tz + tx * sz;
-                            int tgy = ground[tgi];
+                            int tgy = chunkColumns[tgi].Height;
                             // require that target column's ground is earth-like and not underwater
                             if (tgy <= 0 || tgy >= sy - 1) continue;
                             int belowIdx = Index(tx, tgy, tz, sy, sz);
@@ -930,7 +926,7 @@ namespace Runtime.Engine.Jobs.Chunk
         }
 
         // Remove surface vegetation blocks that are not placed directly above a valid ground block (ground + 1)
-        private void ValidateSurfaceVegetation(NativeArray<ushort> vox, NativeArray<int> ground)
+        private void ValidateSurfaceVegetation(NativeArray<ushort> vox, NativeArray<ChunkColumn> chunkColumns)
         {
             int sx = ChunkSize.x;
             int sz = ChunkSize.z;
@@ -991,7 +987,7 @@ namespace Runtime.Engine.Jobs.Chunk
             for (int z = 0; z < sz; z++)
             {
                 int gi = z + x * sz;
-                int gy = ground[gi];
+                int gy = chunkColumns[gi].Height;
                 if (gy < 0 || gy >= sy - 1) continue;
 
                 int expectedY = gy + 1;
