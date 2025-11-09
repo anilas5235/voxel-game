@@ -186,32 +186,6 @@ namespace Runtime.Engine.Jobs.Chunk
                 
                 ground[z + x * sz] = groundY;
             }
-
-            // ### SCHRITT 2: HÖHE GLÄTTEN (Strände erzeugen) ###
-            for (int pass = 0; pass < 30; pass++) // 30 Pässe
-            {
-                NativeArray<int> copy = new NativeArray<int>(sx * sz, Allocator.Temp);
-                for (int i = 0; i < sx * sz; i++) copy[i] = ground[i];
-                
-                for (int x = 0; x < sx; x++)
-                for (int z = 0; z < sz; z++)
-                {
-                    int i = z + x * sz;
-                    int gy = copy[i];
-                    int minNeighbor = gy;
-                    if (x > 0) minNeighbor = math.min(minNeighbor, copy[z + (x - 1) * sz]);
-                    if (x < sx - 1) minNeighbor = math.min(minNeighbor, copy[z + (x + 1) * sz]);
-                    if (z > 0) minNeighbor = math.min(minNeighbor, copy[(z - 1) + x * sz]);
-                    if (z < sz - 1) minNeighbor = math.min(minNeighbor, copy[(z + 1) + x * sz]);
-                    
-                    // Deine originale Glättungs-Logik
-                    if (minNeighbor < waterLevel && gy > minNeighbor + 1)
-                    {
-                        ground[i] = math.max(minNeighbor + 1, gy - 1);
-                    }
-                }
-                copy.Dispose();
-            }
             
             // ### SCHRITT 3: BIOME & FLÜSSE BESTIMMEN (basiert auf geglätteter Höhe) ###
             for (int x = 0; x < sx; x++)
