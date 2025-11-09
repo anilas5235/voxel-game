@@ -59,7 +59,7 @@ namespace Runtime.Engine.Jobs.Chunk
             PrepareChunkMaps(chunkWordPos, chunkColumns);
 
             // Step B: terrain fill (stone/dirt/top/water) into vox buffer
-            FillTerrain(vox, waterLevel, chunkColumns);
+            FillTerrain(vox, chunkWordPos, waterLevel, chunkColumns);
 
             // Step C: carve caves (3D snoise + worm tunnels)
             //CarveCaves(vox, chunkWordPos, chunkColumns);
@@ -201,7 +201,8 @@ namespace Runtime.Engine.Jobs.Chunk
             }
         }
 
-        private void FillTerrain(NativeArray<ushort> vox, int waterLevel, NativeArray<ChunkColumn> chunkColumns)
+        private void FillTerrain(NativeArray<ushort> vox, int3 chunkWorldPos, int waterLevel,
+            NativeArray<ChunkColumn> chunkColumns)
         {
             int sx = ChunkSize.x;
             int sz = ChunkSize.z;
@@ -212,6 +213,9 @@ namespace Runtime.Engine.Jobs.Chunk
             ushort stone = Config.Stone != 0 ? Config.Stone : Config.Rock;
             ushort dirt = Config.Dirt != 0 ? Config.Dirt : (Config.StoneSandy != 0 ? Config.StoneSandy : stone);
 
+            uint seed = (uint)((chunkWorldPos.x * 73856093) ^ (chunkWorldPos.z * 19349663) ^ RandomSeed ^ 0x85ebca6b);
+            Random rng = new(seed == 0 ? 1u : seed);
+
             for (int x = 0; x < sx; x++)
             for (int z = 0; z < sz; z++)
             {
@@ -219,7 +223,7 @@ namespace Runtime.Engine.Jobs.Chunk
 
                 ChunkColumn col = chunkColumns[i];
 
-                SelectSurfaceMaterials(col, out ushort top, out ushort under, out ushort st);
+                SelectSurfaceMaterials(col, ref rng, out ushort top, out ushort under, out ushort st);
                 if (st == 0) st = stone;
                 if (under == 0) under = dirt;
                 if (top == 0) top = dirt;
@@ -480,6 +484,7 @@ namespace Runtime.Engine.Jobs.Chunk
                 ? Config.MushroomBrown
                 : (Config.MushroomRed != 0 ? Config.MushroomRed : Config.MushroomTan);
             ushort grassF = Config.GrassF != 0 ? Config.GrassF : Config.GrassFDry;
+            ushort snowyDirt = Config.DirtSnowy != 0 ? Config.DirtSnowy : dirt;
             // visible water id (fallback to ice if Water unset)
             ushort visibleWater = Config.Water != 0 ? Config.Water : (Config.Ice != 0 ? Config.Ice : (ushort)0);
 
@@ -656,7 +661,7 @@ namespace Runtime.Engine.Jobs.Chunk
 
                         break;
                     case Biome.Tundra:
-                        if ((surface == sand || surface == dirt) && rng.NextFloat() < 0.08f && Config.GrassFDry != 0)
+                        if (surface == snowyDirt && rng.NextFloat() < 0.08f && Config.GrassFDead != 0)
                         {
                             int targetIdx = Index(x, gy + 1, z, sy, sz);
                             if (InBounds(x, gy + 1, z) && vox[targetIdx] == 0 &&
@@ -669,8 +674,8 @@ namespace Runtime.Engine.Jobs.Chunk
                 }
 
                 // Mineshaft entrances in plains/forest/mountain at low chance
-                if ((biome == Biome.Plains || biome == Biome.Forest || biome == Biome.Mountain ||
-                     biome == Biome.HighStone) && rng.NextFloat() < 0.0009f)
+                if (biome is Biome.Plains or Biome.Forest or Biome.Mountain or Biome.HighStone &&
+                    rng.NextFloat() < 0.0009f)
                 {
                     PlaceMineShaft(vox, x, gy, z, rng.NextInt(6, 20));
                 }
@@ -866,7 +871,7 @@ namespace Runtime.Engine.Jobs.Chunk
             return x >= 0 && x < ChunkSize.x && z >= 0 && z < ChunkSize.z && y >= 0 && y < ChunkSize.y;
         }
 
-        private void SelectSurfaceMaterials(in ChunkColumn col, out ushort topBlock, out ushort underBlock,
+        private void SelectSurfaceMaterials(in ChunkColumn col, ref Random rng, out ushort topBlock, out ushort underBlock,
             out ushort stone)
         {
             stone = Config.Stone != 0 ? Config.Stone : Config.Rock;
@@ -925,7 +930,8 @@ namespace Runtime.Engine.Jobs.Chunk
                     underBlock = stone;
                     break;
                 case Biome.Tundra:
-                    topBlock = Config.DirtSnowy != 0 ? Config.DirtSnowy : topBlock;
+                    topBlock = rng.NextFloat() < .1f ? Config.Dirt :
+                        Config.DirtSnowy != 0 ? Config.DirtSnowy : topBlock;
                     underBlock = dirt;
                     break;
             }
