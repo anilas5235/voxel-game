@@ -24,7 +24,7 @@ namespace Runtime.Engine.Jobs.Chunk
         // make biomes larger (lower frequency) and increase separation
         private const float BiomeScale = 0.0012f;
         private const float BiomeExaggeration = 1.8f;
-        private const float MountainSnowline = 0.75f; // normalized elevation
+        private const int MountainSnowline = 215; 
 
 
         // use a lower scale for caves so noise varies slower -> larger cave features
