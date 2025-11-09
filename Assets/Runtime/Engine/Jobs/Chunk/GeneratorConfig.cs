@@ -4,7 +4,7 @@
     {
         public int WaterLevel;
         // Global seed passed to jobs
-        public uint GlobalSeed;
+        public int GlobalSeed;
         
         public ushort BrickGrey;
         public ushort BrickRed;

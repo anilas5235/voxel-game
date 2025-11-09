@@ -50,7 +50,7 @@ namespace Runtime.Engine.Data
 
         public ushort GetVoxel(int3 pos)
         {
-            return _data.Get(_chunkSize.Flatten(pos.x, pos.y, pos.z));
+            return GetVoxel(pos.x, pos.y, pos.z);
         }
 
         public void Dispose()
