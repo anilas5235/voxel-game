@@ -165,6 +165,7 @@ namespace Runtime.Engine.Jobs.Chunk
             public Biome Biome;
         }
 
+        // ########## FIX 1: KOMPLETT ERSETZTE FUNKTION ##########
         private void PrepareChunkMaps(int3 origin, int waterLevel, NativeArray<int> ground, NativeArray<byte> biomeMap,
             NativeArray<byte> riverMap)
         {
@@ -178,37 +179,55 @@ namespace Runtime.Engine.Jobs.Chunk
                 int wx = origin.x + x;
                 int wz = origin.z + z;
 
-                // Height from layered noise (continents/hills/detail) -> flatter world
-                float continent = noise.snoise(new float2(wx * ContinentScale, wz * ContinentScale));
-                float hills = noise.snoise(new float2(wx * HillScale, wz * HillScale));
-                float detail = noise.snoise(new float2(wx * DetailScale, wz * DetailScale));
-                float elev = continent * 0.7f + hills * 0.18f + detail * 0.12f; // -1..1
-                elev = elev * 0.5f + 0.5f; // 0..1
-                // Pull towards mid-level to flatten
-                elev = math.lerp(elev, 0.5f, 0.55f);
+                // --- KORRIGIERTE HÖHENLOGIK ---
+
+                // 1. Berechne Kontinent-Noise ZUERST
+                // *** DER ENTSCHEIDENDE FIX IST HIER: (noise.snoise * 2f) - 1f ***
+                // Dies erzwingt, dass der Noise von [0, 1] auf [-1, 1] gemappt wird.
+                float continent = (noise.snoise(new float2(wx * ContinentScale, wz * ContinentScale)) * 2f) - 1f; // Ergibt -1..1
+                
+                // Passe diesen Schwellenwert an, um Ozeangröße zu ändern (z.B. -0.2f für kleinere Ozeane)
+                bool isOcean = continent < -0.15f; 
+
+                float elev; // Dies wird unsere normalisierte Höhe -1..1
+
+                // 2. Berechne Höhe basierend auf Land ODER Ozean
+                if (isOcean)
+                {
+                    // OZEAN-HÖHE:
+                    // Der Ozeanboden ist nicht flach, er folgt dem Kontinent-Noise
+                    // Wir mappen den Noise-Bereich [-1, -0.15] auf einen niedrigen Höhenbereich
+                    elev = -0.5f + (continent + 0.15f) * 0.5f; // Ergibt einen Bereich von ca. -0.5f (tief) bis -0.4f (flach)
+                }
+                else
+                {
+                    // LAND-HÖHE: (Deine alte Formel, jetzt nur für Land)
+                    float hills = (noise.snoise(new float2(wx * HillScale, wz * HillScale)) * 2f) - 1f; // AUCH HIER ANWENDEN
+                    float detail = (noise.snoise(new float2(wx * DetailScale, wz * DetailScale)) * 2f) - 1f; // AUCH HIER ANWENDEN
+                    elev = continent * 0.7f + hills * 0.18f + detail * 0.12f;
+                }
+
+                // 3. Normalisiere die Höhe (0..1) und berechne groundY
+                elev = elev * 0.5f + 0.5f; // Mappt -1..1 zu 0..1
+                elev = math.lerp(elev, 0.5f, 0.55f); // Abflachen (angewendet auf Land UND Ozean)
                 int groundY = math.clamp((int)math.round(elev * (sy - 1)), 1, sy - 1);
 
-                // Biome fields
-                float temp = noise.snoise(new float2((wx + 10000) * BiomeScale, (wz + 10000) * BiomeScale)) * 0.5f +
-                             0.5f;
-                float hum = noise.snoise(new float2((wx - 10000) * BiomeScale, (wz - 10000) * BiomeScale)) * 0.5f +
-                            0.5f;
+                // --- BIOME-BERECHNUNG (Jetzt funktioniert sie) ---
+
+                // 4. Biome-Noise berechnen (AUCH HIER ANWENDEN)
+                float temp = (noise.snoise(new float2((wx + 10000) * BiomeScale, (wz + 10000) * BiomeScale)) * 0.5f + 0.5f);
+                float hum = (noise.snoise(new float2((wx - 10000) * BiomeScale, (wz - 10000) * BiomeScale)) * 0.5f + 0.5f);
                 temp = math.clamp(math.smoothstep(0f, 1f, temp) - 0.5f, -0.5f, 0.5f) * BiomeExaggeration + 0.5f;
                 hum = math.clamp(math.smoothstep(0f, 1f, hum) - 0.5f, -0.5f, 0.5f) * (BiomeExaggeration * 0.9f) + 0.5f;
                 float elev01 = sy > 1 ? math.saturate(groundY / (float)(sy - 1)) : 0f;
 
-                // River mask
-                float rv = noise.snoise(new float2(wx * RiverScale, wz * RiverScale));
-                bool isRiver = rv < RiverThreshold;
-
-                // Biome selection
+                // 5. BiomeHelper aufrufen
+                // Er bekommt jetzt eine KORREKTE niedrige 'groundY' in Ozeangebieten
                 Biome biome = BiomeHelper.SelectBiome(temp, hum, elev01, groundY, waterLevel);
-                if (biome == Biome.Ocean)
-                {
-                    // ensure ocean columns sit at or below water level so water covers them
-                    groundY = math.min(groundY, waterLevel - 1);
-                    elev01 = sy > 1 ? math.saturate(groundY / (float)(sy - 1)) : 0f;
-                }
+                
+                // 6. River mask (AUCH HIER ANWENDEN)
+                float rv = (noise.snoise(new float2(wx * RiverScale, wz * RiverScale)) * 2f) - 1f;
+                bool isRiver = rv < RiverThreshold;
 
                 int i = z + x * sz;
                 ground[i] = groundY;
@@ -217,8 +236,8 @@ namespace Runtime.Engine.Jobs.Chunk
             }
 
             // Post-process smoothing pass on ground heights to create gentler coastal transitions.
-            // Lower columns adjacent to lower neighbors (especially near water) by at most 1 block per pass.
-            for (int pass = 0; pass < 2; pass++)
+            // ########## FIX 2: ERHÖHTE GLÄTTUNGS-PÄSSE ##########
+            for (int pass = 0; pass < 30; pass++) // <-- VON 2 AUF 30 ERHÖHT
             {
                 NativeArray<int> copy = new NativeArray<int>(sx * sz, Allocator.Temp);
                 for (int i = 0; i < sx * sz; i++) copy[i] = ground[i];
@@ -262,6 +281,7 @@ namespace Runtime.Engine.Jobs.Chunk
             }
         }
 
+        // ########## FIX 3: KOMPLETT ERSETZTE FUNKTION ##########
         private void FillTerrain(NativeArray<ushort> vox, int waterLevel, NativeArray<int> ground,
             NativeArray<byte> biomeMap, NativeArray<byte> riverMap)
         {
@@ -280,7 +300,7 @@ namespace Runtime.Engine.Jobs.Chunk
                 int i = z + x * sz;
                 // use ground[] as the authoritative surface height (already smoothed in PrepareChunkMaps)
                 int gy = ground[i];
-                 bool river = riverMap[i] == 1;
+                 // bool river = riverMap[i] == 1; // Alte Logik wird nicht mehr gebraucht
                  Biome biome = (Biome)biomeMap[i];
 
                 SelectSurfaceMaterials(
@@ -290,18 +310,31 @@ namespace Runtime.Engine.Jobs.Chunk
                 if (under == 0) under = dirt;
                 if (top == 0) top = dirt;
 
+                // KORRIGIERTE FÜLL-LOGIK (Baut soliden Boden)
                 for (int y = 0; y < sy; y++)
                 {
                     ushort v;
-                    if (river)
+                    if (y < gy - 4)
                     {
-                        // flat river channel to water level-1 (use fallback waterBlock)
-                        v = (y <= waterLevel - 1 && waterBlock != 0) ? waterBlock : air;
+                        // 1. Tiefer Stein
+                        v = st;
                     }
-                    else if (y < gy - 4) v = st;
-                    else if (y < gy) v = under;
-                    else if (y == gy) v = (gy < waterLevel) ? waterBlock : top;
-                    else v = (y < waterLevel) ? waterBlock : air;
+                    else if (y < gy)
+                    {
+                        // 2. Untergrund (z.B. Dirt)
+                        v = under;
+                    }
+                    else if (y == gy)
+                    {
+                        // 3. Die feste Oberfläche (Sand, Gras, etc.)
+                        // Diese wird *immer* platziert, egal ob über oder unter Wasser.
+                        v = top;
+                    }
+                    else // y > gy (Alles über dem festen Boden)
+                    {
+                        // 4. Fülle mit Wasser bis zum Wasserlevel, darüber Luft
+                        v = (y < waterLevel) ? waterBlock : air;
+                    }
 
                     vox[Index(x, y, z, sy, sz)] = v;
                 }
@@ -358,9 +391,10 @@ namespace Runtime.Engine.Jobs.Chunk
                     float nearSurface = (y >= gy - 6) ? 1f : 0f;
 
                     // 3D noise thresholding: raise base threshold so isolated small pockets are rarer
-                    float n = noise.snoise(new float3((origin.x + x) * CaveScale, y * CaveScale,
-                        (origin.z + z) * CaveScale));
-                    float threshold = math.lerp(0.68f, 0.82f, nearSurface);
+                    // *** AUCH HIER DEN 0..1 -> -1..1 FIX ANWENDEN ***
+                    float n = (noise.snoise(new float3((origin.x + x) * CaveScale, y * CaveScale,
+                        (origin.z + z) * CaveScale)) * 2f) - 1f;
+                    float threshold = math.lerp(0.36f, 0.64f, nearSurface); // Schwellenwerte an -1..1 angepasst
                     bool isCave = n > threshold;
 
                     if (!isCave)
@@ -374,15 +408,15 @@ namespace Runtime.Engine.Jobs.Chunk
                             float t = math.clamp(math.dot(toP, w.Dir), 0f, w.Length);
                             float3 closest = w.Start + w.Dir * t;
                             float3 disp = new float3(
-                                noise.snoise(new float3(t * 0.2f, (origin.x + x) * 0.02f, (origin.z + z) * 0.02f)),
-                                noise.snoise(new float3(t * 0.15f, (origin.x + x) * 0.015f, (origin.z + z) * 0.015f)) *
+                                (noise.snoise(new float3(t * 0.2f, (origin.x + x) * 0.02f, (origin.z + z) * 0.02f)) * 2f) - 1f,
+                                ((noise.snoise(new float3(t * 0.15f, (origin.x + x) * 0.015f, (origin.z + z) * 0.015f)) * 2f) - 1f) *
                                 0.4f,
-                                noise.snoise(new float3(t * 0.2f + 37.1f, (origin.x + x) * 0.02f + 17.3f,
-                                    (origin.z + z) * 0.02f + 11.7f))
+                                (noise.snoise(new float3(t * 0.2f + 37.1f, (origin.x + x) * 0.02f + 17.3f,
+                                    (origin.z + z) * 0.02f + 11.7f)) * 2f) - 1f
                             ) * (w.Radius * 0.6f);
                             float3 center = closest + disp;
                             float dist = math.distance(p, center);
-                            float wobble = noise.snoise(new float3(t, (origin.x + x) * 0.01f, (origin.z + z) * 0.01f));
+                            float wobble = (noise.snoise(new float3(t, (origin.x + x) * 0.01f, (origin.z + z) * 0.01f)) * 2f) - 1f;
                             if (y < gy - 6 && dist < w.Radius * (0.6f + 0.4f * wobble))
                             {
                                 isCave = true;
@@ -412,7 +446,7 @@ namespace Runtime.Engine.Jobs.Chunk
                     int cx = (int)math.floor(center.x) - origin.x;
                     int cy = (int)math.floor(center.y);
                     int cz = (int)math.floor(center.z) - origin.z;
-                    int carveRadius = (int)math.ceil(w.Radius * (1.0f + 0.6f * noise.snoise(new float3(t * 0.1f, center.x * 0.01f, center.z * 0.01f))));
+                    int carveRadius = (int)math.ceil(w.Radius * (1.0f + 0.6f * ((noise.snoise(new float3(t * 0.1f, center.x * 0.01f, center.z * 0.01f)) * 2f) - 1f)));
 
                     for (int ox = -carveRadius; ox <= carveRadius; ox++)
                     for (int oz = -carveRadius; oz <= carveRadius; oz++)
@@ -473,7 +507,7 @@ namespace Runtime.Engine.Jobs.Chunk
                         // use Generator-configured water level as numeric water height check
                         if (y >= Config.WaterLevel - 8) continue;
                         // noise-based chance to fill with lava
-                        float p = math.abs(noise.snoise(new float3((origin.x + x) * 0.12f, y * 0.07f, (origin.z + z) * 0.12f)));
+                        float p = math.abs((noise.snoise(new float3((origin.x + x) * 0.12f, y * 0.07f, (origin.z + z) * 0.12f)) * 2f) - 1f);
                         if (p > 0.6f && rng.NextFloat() < 0.35f)
                         {
                             // replace a few cells in a small radius to form lakes
@@ -512,7 +546,8 @@ namespace Runtime.Engine.Jobs.Chunk
                     vox[Index(x, y, z - 1, sy, sz)] == 0;
 
                 float depthNorm = 1f - (y / (float)sy);
-                float oreNoise = math.abs(noise.snoise(new float3((x) * 0.12f, y * 0.12f, (z) * 0.12f)));
+                // *** AUCH HIER DEN 0..1 -> -1..1 FIX ANWENDEN ***
+                float oreNoise = math.abs((noise.snoise(new float3((x) * 0.12f, y * 0.12f, (z) * 0.12f)) * 2f) - 1f);
                 float roll = math.max(0f, oreNoise * depthNorm);
                 if (exposed) roll *= 1.6f;
 
@@ -559,6 +594,10 @@ namespace Runtime.Engine.Jobs.Chunk
 
                 Biome biome = (Biome)biomeMap[gi];
                 ushort surface = vox[Index(x, gy, z, sy, sz)];
+                
+                // *** WICHTIGE PRÜFUNG ***
+                // Springe, wenn die Oberfläche Luft (0) ODER Wasser ist.
+                // Dadurch wird verhindert, dass Bäume UNTER Wasser wachsen.
                 if (surface == 0 || (visibleWater != 0 && surface == visibleWater)) continue;
 
                 // Neu: nur auf erdeartigen Blöcken Vegetation platzieren
@@ -784,11 +823,15 @@ namespace Runtime.Engine.Jobs.Chunk
                 }
 
                 // Ocean shipwrecks slightly more frequent
-                if (biome == Biome.Ocean && visibleWater != 0 && surface == visibleWater)
+                // *** WICHTIGE PRÜFUNG ***
+                // Diese Prüfung muss `surface == visibleWater` sein, um Wracks UNTER Wasser zu platzieren
+                if (biome == Biome.Ocean && visibleWater != 0)
                 {
-                    if (rng.NextFloat() < 0.001f)
+                    // Finde den TATSÄCHLICHEN Oberflächenblock (könnte Wasser sein)
+                    ushort actualSurface = vox[Index(x, gy, z, sy, sz)];
+                    if (actualSurface == visibleWater && rng.NextFloat() < 0.001f)
                     {
-                        PlaceShipwreck(vox, x, gy + 1, z);
+                         PlaceShipwreck(vox, x, gy, z); // Hinweis: gy, nicht gy+1
                     }
                 }
              }
@@ -862,6 +905,7 @@ namespace Runtime.Engine.Jobs.Chunk
                         int idx = Index(bx, by + 1, bz, sy, sz);
                         // Neu: nur auf erdeartigen Böden Pilze platzieren und nicht auf bereits belegte Zellen
                         if (!InBounds(bx, by + 1, bz)) continue;
+                        if (vox[groundIdx] == 0) continue; // Verhindert Pilze auf Luft
                         if (!IsEarthLike(vox[groundIdx])) continue;
                         if (vox[idx] == 0)
                         {
@@ -891,6 +935,7 @@ namespace Runtime.Engine.Jobs.Chunk
             return x >= 0 && x < ChunkSize.x && z >= 0 && z < ChunkSize.z && y >= 0 && y < ChunkSize.y;
         }
 
+        // ########## FIX 4: KOMPLETT ERSETZTE FUNKTION ##########
         private void SelectSurfaceMaterials(in ColumnParams col, out ushort topBlock, out ushort underBlock,
             out ushort stone)
         {
@@ -914,6 +959,15 @@ namespace Runtime.Engine.Jobs.Chunk
                         ? Config.SandStoneRed
                         : (Config.SandStoneRedSandy != 0 ? Config.SandStoneRedSandy : underBlock);
                     break;
+                
+                // ### NEUER, WICHTIGER CASE ###
+                // Dies stellt sicher, dass der Ozeanboden Sand ist, KEIN Gras.
+                case Biome.Ocean:
+                    topBlock = (Config.Sand != 0 ? Config.Sand : (Config.SandGrey != 0 ? Config.SandGrey : dirt));
+                    underBlock = (Config.StoneSandy != 0 ? Config.StoneSandy : dirt);
+                    break;
+                // ### ENDE ###
+
                 case Biome.Beach:
                     topBlock = (Config.Sand != 0 ? Config.Sand : (Config.SandGrey != 0 ? Config.SandGrey : underBlock));
                     underBlock = Config.SandStoneRedSandy != 0 ? Config.SandStoneRedSandy : underBlock;
@@ -1076,25 +1130,28 @@ namespace Runtime.Engine.Jobs.Chunk
             for (int oz = -1; oz <= 1; oz++)
             {
                 int x = cx + ox;
-                int y = cy + 1;
+                int y = cy + 1; // Oase 1 Block über dem Boden
                 int z = cz + oz;
                 if (!InBounds(x, y, z)) continue;
+                // Stelle sicher, dass wir auf dem Boden sind
+                if (vox[Index(x, y - 1, z, sy, sz)] == 0) continue; 
+
                 vox[Index(x, y, z, sy, sz)] = water;
                 // surround with grass where possible
                 int sx0 = x + 1;
                 int sx1 = x - 1;
                 int sz0 = z + 1;
                 int sz1 = z - 1;
-                if (InBounds(sx0, y, z) && vox[Index(sx0, y, z, sy, sz)] == 0) vox[Index(sx0, y, z, sy, sz)] = grass;
-                if (InBounds(sx1, y, z) && vox[Index(sx1, y, z, sy, sz)] == 0) vox[Index(sx1, y, z, sy, sz)] = grass;
-                if (InBounds(x, y, sz0) && vox[Index(x, y, sz0, sy, sz)] == 0) vox[Index(x, y, sz0, sy, sz)] = grass;
-                if (InBounds(x, y, sz1) && vox[Index(x, y, sz1, sy, sz)] == 0) vox[Index(x, y, sz1, sy, sz)] = grass;
+                if (InBounds(sx0, y, z) && vox[Index(sx0, y, z, sy, sz)] == 0) vox[Index(sx0, y - 1, z, sy, sz)] = grass; // Gras auf Boden-Level
+                if (InBounds(sx1, y, z) && vox[Index(sx1, y, z, sy, sz)] == 0) vox[Index(sx1, y - 1, z, sy, sz)] = grass; // Gras auf Boden-Level
+                if (InBounds(x, y, sz0) && vox[Index(x, y, sz0, sy, sz)] == 0) vox[Index(x, y - 1, sz0, sy, sz)] = grass; // Gras auf Boden-Level
+                if (InBounds(x, y, sz1) && vox[Index(x, y, sz1, sy, sz)] == 0) vox[Index(x, y - 1, sz1, sy, sz)] = grass; // Gras auf Boden-Level
             }
             // plant a couple of small palm-like trees at edges
             var r1 = new Random((uint)(cx * 73856093 ^ cz * 19349663));
             var r2 = new Random((uint)((cx + 7) * 73856093 ^ (cz - 5) * 19349663));
-            PlacePalm(vox, cx - 2, cy + 1, cz, ref r1);
-            PlacePalm(vox, cx + 2, cy + 1, cz, ref r2);
+            PlacePalm(vox, cx - 2, cy, cz, ref r1); // cy statt cy+1
+            PlacePalm(vox, cx + 2, cy, cz, ref r2); // cy statt cy+1
         }
 
         private void PlaceIgloo(NativeArray<ushort> vox, int cx, int cy, int cz)
@@ -1114,13 +1171,15 @@ namespace Runtime.Engine.Jobs.Chunk
                 if (!InBounds(x, y, z)) continue;
                 // hollow interior
                 if (oy == 0 && ox == 0 && oz == 0) continue;
+                if (oy == 1 && ox == 0 && oz == 0) continue; // 1 hoch
                 vox[Index(x, y, z, sy, sz)] = snow;
             }
             // doorway
+            if (InBounds(cx, cy, cz - 1)) vox[Index(cx, cy, cz - 1, sy, sz)] = 0;
             if (InBounds(cx, cy + 1, cz - 1)) vox[Index(cx, cy + 1, cz - 1, sy, sz)] = 0;
         }
 
-        private void PlaceShipwreck(NativeArray<ushort> vox, int cx, int cy, int cz)
+        private void PlaceShipwreck(NativeArray<ushort> vox, int cx, int gy, int cz)
         {
             int sy = ChunkSize.y;
             int sz = ChunkSize.z;
@@ -1130,10 +1189,12 @@ namespace Runtime.Engine.Jobs.Chunk
             for (int oz = -1; oz <= 1; oz++)
             {
                 int x = cx + ox;
-                int y = cy + 1 + math.min(math.abs(ox),1);
+                int y = gy + 1 + math.min(math.abs(ox),1); // Auf gy+1 (dem Meeresboden) platzieren
                 int z = cz + oz;
                 if (!InBounds(x, y, z)) continue;
-                vox[Index(x, y, z, sy, sz)] = planks;
+                // Nur platzieren, wenn es Wasser ist (nicht in einer Unterwasserhöhle)
+                if(vox[Index(x, y, z, sy, sz)] == (Config.Water != 0 ? Config.Water : (Config.Ice != 0 ? Config.Ice : (ushort)0)))
+                    vox[Index(x, y, z, sy, sz)] = planks;
             }
         }
 
@@ -1149,6 +1210,8 @@ namespace Runtime.Engine.Jobs.Chunk
             {
                 int y = cy + i;
                 if (!InBounds(cx, y, cz)) break;
+                // Stelle sicher, dass wir nur Luft/Wasser ersetzen
+                if (vox[Index(cx, y, cz, sy, sz)] != 0 && vox[Index(cx, y, cz, sy, sz)] != (Config.Water != 0 ? Config.Water : (Config.Ice != 0 ? Config.Ice : (ushort)0))) break;
                 vox[Index(cx, y, cz, sy, sz)] = log;
             }
             if (leaves != 0)
@@ -1162,7 +1225,9 @@ namespace Runtime.Engine.Jobs.Chunk
                     int y = top + rng.NextInt(0,2);
                     int z = cz + oz;
                     if (!InBounds(x, y, z)) continue;
-                    vox[Index(x, y, z, sy, sz)] = leaves;
+                    // Stelle sicher, dass wir nur Luft/Wasser ersetzen
+                    if (vox[Index(x, y, z, sy, sz)] == 0 || vox[Index(x, y, z, sy, sz)] == (Config.Water != 0 ? Config.Water : (Config.Ice != 0 ? Config.Ice : (ushort)0)))
+                        vox[Index(x, y, z, sy, sz)] = leaves;
                 }
             }
         }
