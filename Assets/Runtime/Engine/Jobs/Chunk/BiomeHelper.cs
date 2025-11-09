@@ -8,10 +8,24 @@ namespace Runtime.Engine.Jobs.Chunk
         [BurstCompile]
         internal static Biome SelectBiome(float temp, float hum, float elev, int groundY, int waterThreshold)
         {
-            if (groundY < waterThreshold - 2) return Biome.Ocean;
+            // --- NEUE, KORREKTE BIOME-LOGIK ---
 
-            // Beach: near-water low elevation should become beach for smooth coastlines
-            if (elev < 0.18f && groundY <= waterThreshold + 1 && hum < 0.6f) return Biome.Beach;
+            // 1. OZEAN: Alles, was tief genug unter Wasser ist (z.B. mehr als 3 Blöcke tief)
+            if (groundY < waterThreshold - 3) return Biome.Ocean;
+
+            // 2. STRAND: Alles, was knapp unter, auf, oder knapp über dem Wasser ist.
+            //    (z.B. von 3 Blöcke tief bis 3 Blöcke hoch)
+            //    Dies fängt die "Rampe" ab, die deine Glättung erzeugt.
+            if (groundY <= waterThreshold + 3)
+            {
+                // Optional: Verhindere Eis-Strände
+                if (temp > 0.15f) 
+                    return Biome.Beach;
+                
+                // Wenn es zu kalt für Strand ist, wird es Eis oder Schnee
+            }
+
+            // --- Ab hier beginnt normales Land (groundY > waterThreshold + 3) ---
 
             // Ice biome: very cold and wet or very low temp
             if (temp < 0.12f && hum > 0.45f) return Biome.Ice;
