@@ -57,6 +57,7 @@
         public ushort StoneSandy;
         public ushort StoneSilverOre;
         public ushort StoneSnowy;
+        public ushort Snow;
         public ushort Water;
         public ushort WheatStage1;
         public ushort WheatStage2;

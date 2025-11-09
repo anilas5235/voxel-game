@@ -1083,9 +1083,7 @@ namespace Runtime.Engine.Jobs.Chunk
         {
             int sy = ChunkSize.y;
             int sz = ChunkSize.z;
-            ushort snow = Config.DirtSnowy != 0
-                ? Config.DirtSnowy
-                : (Config.StoneSnowy != 0 ? Config.StoneSnowy : (ushort)0);
+            ushort snow = Config.Snow;
             if (snow == 0) return;
             // simple 3x3 dome
             for (int ox = -1; ox <= 1; ox++)

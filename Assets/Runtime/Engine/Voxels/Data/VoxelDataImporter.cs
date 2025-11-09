@@ -119,6 +119,7 @@ namespace Runtime.Engine.Voxels.Data
                 StoneSandy = VoxelRegistry.GetId("std:StoneSandy"),
                 StoneSilverOre = VoxelRegistry.GetId("std:StoneSilverOre"),
                 StoneSnowy = VoxelRegistry.GetId("std:StoneSnowy"),
+                Snow = VoxelRegistry.GetId("std:Snow"),
                 Water = VoxelRegistry.GetId("std:Water"),
                 WheatStage1 = VoxelRegistry.GetId("std:WheatStage1"),
                 WheatStage2 = VoxelRegistry.GetId("std:WheatStage2"),
