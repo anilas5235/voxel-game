@@ -26,10 +26,10 @@ namespace Runtime.Engine.Components
 
         internal ChunkPool(Transform transform, VoxelEngineSettings settings)
         {
-            _chunkPoolSize = (settings.Chunk.DrawDistance + 2).CubedSize();
+            _chunkPoolSize = (settings.Chunk.DrawDistance + 2).SquareSize();
 
             _meshMap = new Dictionary<int3, ChunkBehaviour>(_chunkPoolSize);
-            _colliderSet = new HashSet<int3>((settings.Chunk.UpdateDistance + 2).CubedSize());
+            _colliderSet = new HashSet<int3>((settings.Chunk.UpdateDistance + 2).SquareSize());
             _queue = new SimpleFastPriorityQueue<int3, int>();
 
             _pool = new ObjectPool<ChunkBehaviour>( // pool size = x^2 + 1
@@ -64,6 +64,12 @@ namespace Runtime.Engine.Components
             }
         }
 
+
+        internal ChunkBehaviour GetOrClaim(int3 position)
+        {
+            return IsActive(position) ? _meshMap[position] : Claim(position);
+        }
+
         internal ChunkBehaviour Claim(int3 position)
         {
             if (_meshMap.ContainsKey(position))
@@ -88,7 +94,7 @@ namespace Runtime.Engine.Components
             ChunkBehaviour behaviour = _pool.Get();
 
             behaviour.transform.position = position.GetVector3();
-            behaviour.name = $"Chunk({position.x},{position.z})";
+            behaviour.name = $"Chunk({position.x},{position.y},{position.z})";
 
             _meshMap.Add(position, behaviour);
             _queue.Enqueue(position, -(position - _focus).SqrMagnitude());
@@ -113,16 +119,6 @@ namespace Runtime.Engine.Components
         internal void ColliderBaked(int3 position)
         {
             _colliderSet.Add(position);
-        }
-
-        internal ChunkBehaviour Get(int3 position)
-        {
-            if (!_meshMap.TryGetValue(position, out ChunkBehaviour chunk))
-            {
-                throw new InvalidOperationException($"Chunk ({position}) isn't active");
-            }
-
-            return chunk;
         }
     }
 }

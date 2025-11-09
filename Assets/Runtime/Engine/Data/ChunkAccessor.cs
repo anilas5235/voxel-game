@@ -5,10 +5,10 @@ using Unity.Mathematics;
 namespace Runtime.Engine.Data
 {
     [BurstCompile]
-    internal struct ChunkAccessor
+    internal readonly struct ChunkAccessor
     {
         private readonly NativeParallelHashMap<int3, Chunk>.ReadOnly _chunks;
-        private int3 _chunkSize;
+        private readonly int3 _chunkSize;
 
         internal ChunkAccessor(NativeParallelHashMap<int3, Chunk>.ReadOnly chunks, int3 chunkSize)
         {
@@ -18,6 +18,7 @@ namespace Runtime.Engine.Data
 
         internal ushort GetVoxelInChunk(int3 chunkPos, int3 voxelPos)
         {
+            if (voxelPos.y >= _chunkSize.y || voxelPos.y < 0) return 0;
             int3 key = int3.zero;
 
             for (int index = 0; index < 3; index++)
@@ -46,13 +47,6 @@ namespace Runtime.Engine.Data
             return _chunks.TryGetValue(px, out chunk);
         }
 
-        internal bool TryGetNeighborPy(int3 pos, out Chunk chunk)
-        {
-            int3 py = pos + new int3(0, 1, 0) * _chunkSize;
-
-            return _chunks.TryGetValue(py, out chunk);
-        }
-
         internal bool TryGetNeighborPz(int3 pos, out Chunk chunk)
         {
             int3 pz = pos + new int3(0, 0, 1) * _chunkSize;
@@ -67,14 +61,6 @@ namespace Runtime.Engine.Data
             return _chunks.TryGetValue(nx, out chunk);
         }
 
-        internal bool TryGetNeighborNy(int3 pos, out Chunk chunk)
-        {
-            int3 ny = pos + new int3(0, -1, 0) * _chunkSize;
-
-            return _chunks.TryGetValue(ny, out chunk);
-        }
-
-
         internal bool TryGetNeighborNz(int3 pos, out Chunk chunk)
         {
             int3 nz = pos + new int3(0, 0, -1) * _chunkSize;
@@ -83,5 +69,12 @@ namespace Runtime.Engine.Data
         }
 
         #endregion
+
+        public bool InChunkBounds(int3 chunkItr)
+        {
+            return chunkItr.x >= 0 && chunkItr.x < _chunkSize.x &&
+                   chunkItr.y >= 0 && chunkItr.y < _chunkSize.y &&
+                   chunkItr.z >= 0 && chunkItr.z < _chunkSize.z;
+        }
     }
 }

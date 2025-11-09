@@ -29,7 +29,7 @@ namespace Runtime.Engine.Components
         internal ChunkManager(VoxelEngineSettings settings)
         {
             _chunkSize = settings.Chunk.ChunkSize;
-            _chunkStoreSize = (settings.Chunk.LoadDistance + 2).CubedSize();
+            _chunkStoreSize = (settings.Chunk.LoadDistance + 2).SquareSize();
 
             _reMeshChunks = new HashSet<int3>();
             _reCollideChunks = new HashSet<int3>();
@@ -50,8 +50,13 @@ namespace Runtime.Engine.Components
             int3 chunkPos = VoxelUtils.GetChunkCoords(position);
             int3 blockPos = VoxelUtils.GetVoxelIndex(position);
 
+            if (blockPos.y < 0 || blockPos.y >= _chunkSize.y)
+            {
+                return 0;
+            }
+
             if (_chunks.TryGetValue(chunkPos, out Chunk chunk)) return chunk.GetVoxel(blockPos);
-            
+
             VoxelEngineLogger.Warn<ChunkManager>($"Chunk : {chunkPos} not loaded");
             return 0;
         }
@@ -74,6 +79,12 @@ namespace Runtime.Engine.Components
                 return false;
             }
 
+            if (_reMeshChunks.Contains(chunkPos))
+            {
+                VoxelEngineLogger.Warn<ChunkManager>($"Chunk : {chunkPos} is pending remesh, cannot set voxel now");
+                return false;
+            }
+
             bool result = chunk.SetVoxel(blockPos, voxelId);
 
             _chunks[chunkPos] = chunk;
@@ -91,8 +102,6 @@ namespace Runtime.Engine.Components
 
         internal bool ShouldReMesh(int3 position) => _reMeshChunks.Contains(position);
         internal bool ShouldReCollide(int3 position) => _reCollideChunks.Contains(position);
-
-        internal void RemoveChunk(int3 position) => _chunks.Remove(position);
 
         internal void Dispose()
         {
@@ -128,13 +137,18 @@ namespace Runtime.Engine.Components
 
                 if (_queue.Count >= _chunkStoreSize)
                 {
-                    _chunks.Remove(_queue.Dequeue());
-                    // if dirty save chunk
+                    RemoveChunkData(_queue.Dequeue());
                 }
 
                 _chunks.Add(position, chunk);
                 _queue.Enqueue(position, -(position - _focus).SqrMagnitude());
             }
+        }
+
+        private void RemoveChunkData(int3 position)
+        {
+            _chunks.Remove(position);
+            //TODO: at this point a chunk is evicted from store/memory, if persistence is needed it should be saved here
         }
 
         internal ChunkAccessor GetAccessor(List<int3> positions)
@@ -145,9 +159,8 @@ namespace Runtime.Engine.Components
             {
                 for (int x = -1; x <= 1; x++)
                 for (int z = -1; z <= 1; z++)
-                for (int y = -1; y <= 1; y++)
                 {
-                    int3 pos = position + _chunkSize.MemberMultiply(x, y, z);
+                    int3 pos = position + _chunkSize.MemberMultiply(x, 0, z);
 
                     if (!_chunks.TryGetValue(pos, out Chunk chunk))
                     {
@@ -162,23 +175,21 @@ namespace Runtime.Engine.Components
             return new ChunkAccessor(_accessorMap.AsReadOnly(), _chunkSize);
         }
 
-        internal bool ReMeshedChunk(int3 position)
+        internal void ReMeshedChunk(int3 position)
         {
-            if (!_reMeshChunks.Contains(position)) return false;
+            if (!_reMeshChunks.Contains(position)) return;
 
             _reMeshChunks.Remove(position);
+            VoxelEngineLogger.Info<ChunkManager>(
+                $"Chunk : {position} has been remeshed;{Time.realtimeSinceStartupAsDouble}");
             _reCollideChunks.Add(position);
-
-            return true;
         }
 
-        internal bool ReCollideChunk(int3 position)
+        internal void ReCollidedChunk(int3 position)
         {
-            if (!_reCollideChunks.Contains(position)) return false;
+            if (!_reCollideChunks.Contains(position)) return;
 
             _reCollideChunks.Remove(position);
-
-            return true;
         }
 
         private void ReMeshChunks(int3 blockPosition)
@@ -187,6 +198,9 @@ namespace Runtime.Engine.Components
             {
                 _reMeshChunks.Add(VoxelUtils.GetChunkCoords(blockPosition + dir));
             }
+
+            VoxelEngineLogger.Info<ChunkManager>(
+                $"ReMeshChunks called at {blockPosition}, total {_reMeshChunks.Count} chunks to remesh;{Time.realtimeSinceStartupAsDouble}");
         }
     }
 }

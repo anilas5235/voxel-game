@@ -14,6 +14,11 @@ namespace Runtime.Engine.Voxels.Editor
             serializedObject.Update();
 
             EditorGUILayout.PropertyField(serializedObject.FindProperty("meshLayer"));
+            if(voxelDef.meshLayer == MeshLayer.Solid)
+            {
+                voxelDef.voxelType = VoxelType.Full;
+            }
+            
             if (voxelDef.voxelType != VoxelType.Flora)
             {
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("textureMode"));
@@ -23,11 +28,19 @@ namespace Runtime.Engine.Voxels.Editor
                 voxelDef.TextureMode = VoxelDefinition.VoxelTexMode.AllSame;
             }
 
+            if (voxelDef.voxelType != VoxelType.Flora)
+            {
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("alwaysRenderAllFaces"));
+            }
+            else
+            {
+                voxelDef.alwaysRenderAllFaces = false;
+            }
+
             if (voxelDef.meshLayer == MeshLayer.Transparent)
             {
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("voxelType"));
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("depthFadeDistance"));
-                EditorGUILayout.PropertyField(serializedObject.FindProperty("overrideColor"));
                 if (voxelDef.voxelType == VoxelType.Liquid)
                 {
                     EditorGUILayout.PropertyField(serializedObject.FindProperty("postProcess"));

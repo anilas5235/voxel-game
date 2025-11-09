@@ -14,12 +14,12 @@ namespace Runtime.Engine.Voxels.Data
             VoxelRenderDefs.Dispose();
         }
 
-        public MeshLayer GetMeshLayer(ushort voxelId)
+        public readonly MeshLayer GetMeshLayer(ushort voxelId)
         {
             return VoxelRenderDefs[voxelId].MeshLayer;
         }
 
-        public VoxelRenderDef GetRenderDef(ushort maskVoxelId)
+        public readonly VoxelRenderDef GetRenderDef(ushort maskVoxelId)
         {
             return VoxelRenderDefs[maskVoxelId];
         }

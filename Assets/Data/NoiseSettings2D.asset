@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: NoiseSettings2D
   m_EditorClassIdentifier: 
   Height: 256
-  WaterLevel: 96
-  Seed: 777
+  WaterLevel: 56
+  SeedString: fdshjukgul
   Scale: 256
   Persistance: 0.5
   Lacunarity: 2

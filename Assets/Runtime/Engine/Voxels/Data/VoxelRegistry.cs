@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
@@ -27,7 +29,7 @@ namespace Runtime.Engine.Voxels.Data
         {
             if (_initialized) return;
             _initialized = true;
-            Register("air", new VoxelRenderDef
+            Register("std:air", new VoxelRenderDef
             {
                 MeshLayer = MeshLayer.Air,
                 Collision = false,
@@ -46,9 +48,9 @@ namespace Runtime.Engine.Voxels.Data
             VoxelRenderDef type = new()
             {
                 MeshLayer = definition.meshLayer,
+                AlwaysRenderAllFaces = definition.alwaysRenderAllFaces,
                 VoxelType = definition.voxelType,
                 DepthFadeDistance = definition.depthFadeDistance,
-                OverrideColor = ConvertColor(definition.overrideColor),
                 Collision = definition.collision,
                 TexUp = RegisterTexture(definition, Direction.Up),
                 TexDown = RegisterTexture(definition, Direction.Down),
@@ -61,11 +63,6 @@ namespace Runtime.Engine.Voxels.Data
             ushort id = Register(packagePrefix + ":" + definition.name, type);
             if (id == 0) return;
             _idToVoxelDefinition.Add(id, definition);
-        }
-
-        private static float4 ConvertColor(Color color)
-        {
-            return new float4(color.r, color.g, color.b, color.a);
         }
 
         private ushort Register(string name, VoxelRenderDef renderDef)
@@ -96,6 +93,7 @@ namespace Runtime.Engine.Voxels.Data
         }
 
         public bool GetId(string name, out ushort id) => _nameToId.TryGetValue(name, out id);
+        public ushort GetId(string name) => _nameToId.GetValueOrDefault(name, (ushort)0);
 
         public bool GetName(ushort id, out string name) => _idToName.TryGetValue(id, out name);
 
@@ -160,6 +158,11 @@ namespace Runtime.Engine.Voxels.Data
             {
                 Debug.LogWarning("Voxel material is null, cannot assign texture array.");
             }
+        }
+
+        public List<KeyValuePair<ushort, string>> GetAllEntries()
+        {
+            return _idToName.ToList();
         }
     }
 }

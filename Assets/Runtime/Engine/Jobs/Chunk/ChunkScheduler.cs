@@ -13,33 +13,42 @@ using UnityEngine;
 namespace Runtime.Engine.Jobs.Chunk {
 
     public class ChunkScheduler : JobScheduler {
-        private int3 _chunkSize;
-        private ChunkManager _chunkStore;
-        private NoiseProfile _noiseProfile;
+        private readonly int3 _chunkSize;
+        private readonly ChunkManager _chunkStore;
+        private readonly NoiseProfile _noiseProfile;
 
         private JobHandle _handle;
         
-        // can be native arrays
         private NativeList<int3> _jobs;
         private NativeParallelHashMap<int3, Data.Chunk> _results;
+        
+        private readonly GeneratorConfig _config;
 
         public ChunkScheduler(
             VoxelEngineSettings settings,
             ChunkManager chunkStore,
-            NoiseProfile noiseProfile
+            NoiseProfile noiseProfile,
+            GeneratorConfig config
         ) {
             _chunkSize = settings.Chunk.ChunkSize;
             _chunkStore = chunkStore;
             _noiseProfile = noiseProfile;
+            _config = config;
 
             _jobs = new NativeList<int3>(Allocator.Persistent);
             _results = new NativeParallelHashMap<int3, Data.Chunk>(
-                settings.Chunk.LoadDistance.CubedSize(), 
+                settings.Chunk.LoadDistance.SquareSize(), 
                 Allocator.Persistent
             );
         }
 
         internal bool IsReady = true;
+
+        public ChunkScheduler(NativeParallelHashMap<int3, Data.Chunk> results)
+        {
+            _results = results;
+        }
+
         internal bool IsComplete => _handle.IsCompleted;
 
         internal void Start(List<int3> jobs) {
@@ -57,9 +66,10 @@ namespace Runtime.Engine.Jobs.Chunk {
                 ChunkSize = _chunkSize,
                 NoiseProfile = _noiseProfile,
                 Results = _results.AsParallelWriter(),
-                RandomSeed = (uint)UnityEngine.Random.Range(1, int.MaxValue)
+                RandomSeed = _config.GlobalSeed,
+                Config = _config
             };
-            
+
             _handle = job.Schedule(_jobs.Length, 1);
         }
 

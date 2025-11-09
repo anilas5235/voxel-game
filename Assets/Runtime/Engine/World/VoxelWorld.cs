@@ -113,7 +113,8 @@ namespace Runtime.Engine.World
 
             _chunkScheduler = VoxelEngineProvider.Current.ChunkDataScheduler(
                 ChunkManager,
-                NoiseProfile
+                NoiseProfile,
+                VoxelDataImporter.Instance.CreateConfig()
             );
 
             _colliderBuildScheduler = VoxelEngineProvider.Current.ColliderBuildScheduler(

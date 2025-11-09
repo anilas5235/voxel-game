@@ -31,8 +31,9 @@ namespace Runtime.Engine.Jobs.Mesh
             UnityEngine.Mesh.MeshData mesh = MeshDataArray[index];
             UnityEngine.Mesh.MeshData colliderMesh = ColliderMeshDataArray[index];
             int3 position = Jobs[index];
-
-            MeshBuffer meshBuffer = GreedyMesher.GenerateMesh(Accessor, position, ChunkSize, VoxelEngineRenderGenData);
+            
+            GreedyMesher greedyMesher = new(Accessor, position, ChunkSize, VoxelEngineRenderGenData);
+            MeshBuffer meshBuffer = greedyMesher.GenerateMesh();
 
             // Render mesh
             int vertexCount = meshBuffer.VertexBuffer.Length;

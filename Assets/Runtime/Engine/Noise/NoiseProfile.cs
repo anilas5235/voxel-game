@@ -19,7 +19,7 @@ namespace Runtime.Engine.Noise
         {
             Position = position,
             WaterLevel = _waterLevel,
-            Height = ComputeNoise(position),
+            Height = (int)math.round((ComputeNoise(position) * _halfHeight) + _halfHeight)
         };
 
         public NoiseProfile(Settings settings)
@@ -32,10 +32,10 @@ namespace Runtime.Engine.Noise
             }
 
             _halfHeight = _settings.Height / 2;
-            _waterLevel = _settings.WaterLevel - _halfHeight;
+            _waterLevel = _settings.WaterLevel;
         }
 
-        private int ComputeNoise(int3 position)
+        public float ComputeNoise(float3 position)
         {
             float amplitude = 1;
             float frequency = 1;
@@ -54,8 +54,7 @@ namespace Runtime.Engine.Noise
                 frequency *= _settings.Lacunarity;
             }
 
-            // Note the height shift here
-            return math.clamp((int)math.round(height * _halfHeight), -_halfHeight, _halfHeight);
+            return height;
         }
 
         public struct Settings

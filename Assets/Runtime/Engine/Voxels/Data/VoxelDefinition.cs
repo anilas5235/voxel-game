@@ -18,8 +18,8 @@ namespace Runtime.Engine.Voxels.Data
         public MeshLayer meshLayer;
         
         public VoxelType voxelType;
-        public Color overrideColor = Color.white;
-        public float depthFadeDistance;
+        public bool alwaysRenderAllFaces;
+        public float depthFadeDistance = -1f;
         public VoxelPostProcessData postProcess = new();
 
         public Texture2D top;

@@ -15,18 +15,15 @@ namespace Runtime.Engine.Utils
         public static int3 GetChunkCoords(int3 position)
         {
             int modX = position.x % ChunkSize.x;
-            int modY = position.y % ChunkSize.y;
             int modZ = position.z % ChunkSize.z;
 
             int x = position.x - modX;
-            int y = position.y - modY;
             int z = position.z - modZ;
 
             x = position.x < 0 && modX != 0 ? x - ChunkSize.x : x;
-            y = position.y < 0 && modY != 0 ? y - ChunkSize.y : y;
             z = position.z < 0 && modZ != 0 ? z - ChunkSize.z : z;
 
-            return new int3(x, y, z);
+            return new int3(x, 0, z);
         }
 
         public static int3 GetVoxelIndex(Vector3 position) => GetVoxelIndex(Vector3Int.FloorToInt(position));
