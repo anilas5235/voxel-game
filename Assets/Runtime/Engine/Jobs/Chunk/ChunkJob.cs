@@ -214,30 +214,6 @@ namespace Runtime.Engine.Jobs.Chunk
                 bool isRiver = rv < RiverThreshold;
                 riverMap[i] = (byte)(isRiver ? 1 : 0);
             }
-
-            // ### SCHRITT 4: FLÜSSE SCHNITZEN ###
-            for (int x = 1; x < sx - 1; x++)
-            for (int z = 1; z < sz - 1; z++)
-            {
-                int i = z + x * sz;
-                if (riverMap[i] == 1)
-                {
-                    // Flüsse sollten keine Strände sein
-                    if (biomeMap[i] == (byte)Biome.Beach) 
-                        biomeMap[i] = (byte)Biome.Plains; 
-
-                    ground[i] = math.min(ground[i], waterLevel - 2);
-                    
-                    int left = z + (x - 1) * sz;
-                    int right = z + (x + 1) * sz;
-                    int up = (z - 1) + x * sz;
-                    int down = (z + 1) + x * sz;
-                    ground[left] = math.min(ground[left], ground[i] + 1);
-                    ground[right] = math.min(ground[right], ground[i] + 1);
-                    ground[up] = math.min(ground[up], ground[i] + 1);
-                    ground[down] = math.min(ground[down], ground[i] + 1);
-                }
-            }
         }
 
         // ########## FIX 2: KOMPLETT ERSETZTE FUNKTION ##########
