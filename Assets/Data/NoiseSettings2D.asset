@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c3b2e488ee8f4f838bfbe8664412fa7b, type: 3}
   m_Name: NoiseSettings2D
   m_EditorClassIdentifier: 
-  WaterLevel: 96
+  WaterLevel: 124
   Scale: 256
   Persistance: 0.5
   Lacunarity: 2

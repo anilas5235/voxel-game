@@ -1,5 +1,4 @@
 ﻿using Runtime.Engine.Noise;
-using Runtime.Engine.Utils.Extensions;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
@@ -26,7 +25,7 @@ namespace Runtime.Engine.Jobs.Chunk
         private const float BiomeScale = 0.0012f;
         private const float BiomeExaggeration = 1.8f;
         private const float MountainSnowline = 0.75f; // normalized elevation
-        
+
 
         // use a lower scale for caves so noise varies slower -> larger cave features
         private const float CaveScale = 0.03f; // 3D noise scale for caves
@@ -40,8 +39,6 @@ namespace Runtime.Engine.Jobs.Chunk
 
         private struct ChunkColumn
         {
-            public float Humidity;
-            public float Temperature;
             public int Height;
             public Biome Biome;
         }
@@ -71,7 +68,7 @@ namespace Runtime.Engine.Jobs.Chunk
             PlaceOres(vox);
 
             // Step E: vegetation and micro-structures on surface
-            PlaceVegetationAndStructures(vox, chunkColumns,chunkWordPos);
+            PlaceVegetationAndStructures(vox, chunkColumns, chunkWordPos);
 
             // Defensive validation: remove any surface-vegetation that ended up not being on a valid earth-like surface
             ValidateSurfaceVegetation(vox, chunkColumns);
@@ -184,20 +181,19 @@ namespace Runtime.Engine.Jobs.Chunk
             {
                 int i = z + x * sz;
                 float2 worldPos = new(chunkWordPos.x + x, chunkWordPos.z + z);
-                
+
                 float humidity = noise.cnoise((worldPos - 789f) * BiomeScale);
                 float temperature = noise.cnoise((worldPos + 543) * BiomeScale);
 
                 float rawHeight = NoiseProfile.GetNoise(worldPos);
 
-                int height = math.clamp((int)(rawHeight * ChunkSize.y / 2f) + ChunkSize.y / 2,
+                int height = math.clamp(
+                    (int)(rawHeight * (ChunkSize.y * (.5f + humidity * temperature))) + ChunkSize.y / 3,
                     1,
                     ChunkSize.y - 1);
 
                 chunkColumns[i] = new ChunkColumn()
                 {
-                    Humidity = humidity,
-                    Temperature = temperature,
                     Height = height,
                     Biome = BiomeHelper.SelectBiome(humidity, temperature,
                         rawHeight / sy, height, Config.WaterLevel)
@@ -326,7 +322,7 @@ namespace Runtime.Engine.Jobs.Chunk
                     {
                         int idx = Index(x, y, z, sy, sz);
                         if (vox[idx] != 0 && vox[idx] !=
-                            (Config.Water != 0 ? Config.Water : (Config.Ice != 0 ? Config.Ice : (ushort)0)))
+                            (Config.Water != 0 ? Config.Water : (Config.Ice != 0 ? Config.Ice : 0)))
                             vox[idx] = 0;
                     }
                 }
@@ -363,7 +359,7 @@ namespace Runtime.Engine.Jobs.Chunk
                             int idx = Index(tx, ty, tz, sy, sz);
                             if (vox[idx] != 0 && vox[idx] != (Config.Water != 0
                                     ? Config.Water
-                                    : (Config.Ice != 0 ? Config.Ice : (ushort)0))) vox[idx] = 0;
+                                    : (Config.Ice != 0 ? Config.Ice : 0))) vox[idx] = 0;
                         }
                     }
                 }
@@ -462,7 +458,8 @@ namespace Runtime.Engine.Jobs.Chunk
             }
         }
 
-        private void PlaceVegetationAndStructures(NativeArray<ushort> vox, NativeArray<ChunkColumn> chunkColumns, int3 origin)
+        private void PlaceVegetationAndStructures(NativeArray<ushort> vox, NativeArray<ChunkColumn> chunkColumns,
+            int3 origin)
         {
             int sx = ChunkSize.x;
             int sz = ChunkSize.z;
@@ -487,7 +484,7 @@ namespace Runtime.Engine.Jobs.Chunk
             ushort visibleWater = Config.Water != 0 ? Config.Water : (Config.Ice != 0 ? Config.Ice : (ushort)0);
 
             // Deterministic per-chunk RNG: combine global seed with origin so different seeds produce different worlds
-            uint seed = (uint)((origin.x * 73856093) ^ (origin.z * 19349663) ^ (int)RandomSeed ^ 0x85ebca6b);
+            uint seed = (uint)((origin.x * 73856093) ^ (origin.z * 19349663) ^ RandomSeed ^ 0x85ebca6b);
             Random rng = new(seed == 0 ? 1u : seed);
 
             for (int x = 1; x < sx - 1; x++)
@@ -512,7 +509,7 @@ namespace Runtime.Engine.Jobs.Chunk
                         if (surface == grass && rng.NextFloat() < 0.22f)
                         {
                             int h = rng.NextInt(5, 9);
-                            ushort chosenLog = (ushort)(rng.NextInt(0, 100) < 75 ? logOak : logBirch);
+                            ushort chosenLog = rng.NextInt(0, 100) < 75 ? logOak : logBirch;
                             if (CanPlaceTree(vox, x, gy + 1, z, sx, sy, sz, logOak, logBirch))
                             {
                                 PlaceTree(vox, x, gy + 1, z, h, chosenLog, leaves, ref rng);
@@ -532,7 +529,7 @@ namespace Runtime.Engine.Jobs.Chunk
                         if (surface == grass && rng.NextFloat() < 0.015f)
                         {
                             int h = rng.NextInt(6, 10);
-                            ushort chosenLog = (ushort)(rng.NextInt(0, 100) < 80 ? logOak : logBirch);
+                            ushort chosenLog = rng.NextInt(0, 100) < 80 ? logOak : logBirch;
                             if (CanPlaceTree(vox, x, gy + 1, z, sx, sy, sz, logOak, logBirch))
                             {
                                 PlaceTree(vox, x, gy + 1, z, h, chosenLog, leaves, ref rng);
@@ -559,6 +556,7 @@ namespace Runtime.Engine.Jobs.Chunk
 
                         break;
                     case Biome.Desert:
+                        // cacti in desert
                         if ((surface == sand || surface == dirt) && rng.NextFloat() < 0.035f && cactus != 0)
                         {
                             // ensure base is still correct and above-block is empty before placing column
@@ -617,13 +615,19 @@ namespace Runtime.Engine.Jobs.Chunk
                                 PlaceColumn(vox, x, gy + 1, z, cactus, rng.NextInt(1, 6));
                         }
 
+                        if ((surface == sand || surface == dirt) && Config.GrassFDry != 0 && rng.NextFloat() < 0.12f)
+                        {
+                            int tIdx = Index(x, gy + 1, z, sy, sz);
+                            if (InBounds(x, gy + 1, z) && vox[tIdx] == 0) vox[tIdx] = Config.GrassFDry;
+                        }
+
                         // keep pyramids/oases very rare here (we place better controlled versions later)
-                        if (rng.NextFloat() < 0.00005f)
+                        if (rng.NextFloat() < 0.000005f)
                         {
                             PlacePyramid(vox, x, gy + 1, z, 3, Config.SandRed != 0 ? Config.SandRed : Config.Sand);
                         }
 
-                        if (rng.NextFloat() < 0.00002f)
+                        if (rng.NextFloat() < 0.000002f)
                         {
                             PlaceOasis(vox, x, gy, z);
                         }
@@ -648,6 +652,17 @@ namespace Runtime.Engine.Jobs.Chunk
                         if (rng.NextFloat() < 0.0007f)
                         {
                             PlaceIgloo(vox, x, gy + 1, z);
+                        }
+
+                        break;
+                    case Biome.Tundra:
+                        if ((surface == sand || surface == dirt) && rng.NextFloat() < 0.08f && Config.GrassFDry != 0)
+                        {
+                            int targetIdx = Index(x, gy + 1, z, sy, sz);
+                            if (InBounds(x, gy + 1, z) && vox[targetIdx] == 0 &&
+                                vox[Index(x, gy, z, sy, sz)] == surface && IsEarthLike(surface)
+                                && SurfaceHasNeighbor(vox, x, gy, z, sx, sy, sz, visibleWater))
+                                vox[targetIdx] = Config.GrassFDead;
                         }
 
                         break;
@@ -732,13 +747,6 @@ namespace Runtime.Engine.Jobs.Chunk
                     if (rng.NextFloat() < 0.0002f)
                     {
                         PlaceOasis(vox, x, gy, z);
-                    }
-
-                    // dead/dry bushes (use GrassFDry if configured)
-                    if ((surface == sand || surface == dirt) && Config.GrassFDry != 0 && rng.NextFloat() < 0.12f)
-                    {
-                        int tIdx = Index(x, gy + 1, z, sy, sz);
-                        if (InBounds(x, gy + 1, z) && vox[tIdx] == 0) vox[tIdx] = Config.GrassFDry;
                     }
 
                     // occasional small pyramid (still rare)
@@ -917,9 +925,7 @@ namespace Runtime.Engine.Jobs.Chunk
                     underBlock = stone;
                     break;
                 case Biome.Tundra:
-                    topBlock = Config.GrassFDead != 0
-                        ? Config.GrassFDead
-                        : (Config.DirtSnowy != 0 ? Config.DirtSnowy : topBlock);
+                    topBlock = Config.DirtSnowy != 0 ? Config.DirtSnowy : topBlock;
                     underBlock = dirt;
                     break;
             }
