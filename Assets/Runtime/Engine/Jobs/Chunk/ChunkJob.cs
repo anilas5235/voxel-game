@@ -1087,7 +1087,7 @@ namespace Runtime.Engine.Jobs.Chunk
         {
             int sy = ChunkSize.y;
             int sz = ChunkSize.z;
-            ushort snow = Config.DirtSnowy != 0 ? Config.DirtSnowy : (Config.StoneSnowy != 0 ? Config.StoneSnowy : (ushort)0);
+            ushort snow = Config.Snow != 0 ? Config.Snow : (Config.StoneSnowy != 0 ? Config.StoneSnowy : (ushort)0);
             if (snow == 0) return;
             for (int ox = -1; ox <= 1; ox++)
             for (int oz = -1; oz <= 1; oz++)
