@@ -1,66 +1,59 @@
-﻿using System.Runtime.InteropServices;
+﻿// csharp
+
+using System;
+using System.Runtime.InteropServices;
 using Unity.Burst;
 using Unity.Mathematics;
+using static Unity.Mathematics.noise;
 
 namespace Runtime.Engine.Noise
 {
-    /// <summary>
-    /// ! Height is shifted by h - h/2 to make 0 actual 0
-    /// </summary>
     [BurstCompile]
     public readonly struct NoiseProfile
     {
         private readonly Settings _settings;
 
-        private readonly int _halfHeight;
-        private readonly int _waterLevel;
-
-        public NoiseValue GetNoise(int3 position) => new()
-        {
-            Position = position,
-            WaterLevel = _waterLevel,
-            Height = (int)math.round((ComputeNoise(position) * _halfHeight) + _halfHeight)
-        };
-
         public NoiseProfile(Settings settings)
         {
-            _settings = settings;
-
-            if (_settings.Scale <= 0)
+            // Kopiere settings, bevor Felder verändert werden (vermeidet Mutation eines readonly-Felds)
+            Settings s = settings;
+            if (s.Scale <= 0f)
             {
-                _settings.Scale = 0.0001f;
+                s.Scale = 0.0001f;
             }
 
-            _halfHeight = _settings.Height / 2;
-            _waterLevel = _settings.WaterLevel;
+            _settings = s;
         }
 
-        public float ComputeNoise(float3 position)
+        public float GetNoise(float2 position)
         {
-            float amplitude = 1;
-            float frequency = 1;
-            float height = 0;
+            return ComputeNoise(position) * 0.5f + 0.5f;
+        }
 
-            float sampleX = (position.x + _settings.Seed) / _settings.Scale;
-            float sampleZ = (position.z + _settings.Seed) / _settings.Scale;
+        private float ComputeNoise(float2 position)
+        {
+            float amplitude = 1f;
+            float frequency = 1f;
+            float noiseSum = 0f;
+
+            // Seed als Float hinzufügen
+            float2 samplePos = (position + _settings.Seed) / _settings.Scale;
 
             for (int i = 0; i < _settings.Octaves; i++)
             {
-                float noise = Unity.Mathematics.noise.cnoise(new float2(sampleX * frequency, sampleZ * frequency));
-
-                height += noise * amplitude;
+                float n = cnoise(samplePos * frequency);
+                noiseSum += n * amplitude;
 
                 amplitude *= _settings.Persistance;
                 frequency *= _settings.Lacunarity;
             }
 
-            return height;
+            return noiseSum;
         }
 
+        [Serializable]
         public struct Settings
         {
-            public int Height;
-            public int WaterLevel;
             public int Seed;
             public float Scale;
             public float Persistance;
@@ -73,8 +66,8 @@ namespace Runtime.Engine.Noise
     [StructLayout(LayoutKind.Sequential)]
     public struct NoiseValue
     {
-        public int3 Position;
-        public int WaterLevel;
-        public int Height;
+        public float Humidity;
+        public float Temperature;
+        public float Height;
     }
 }

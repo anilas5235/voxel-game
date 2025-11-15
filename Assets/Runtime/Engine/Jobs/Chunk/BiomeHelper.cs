@@ -49,10 +49,5 @@ namespace Runtime.Engine.Jobs.Chunk
 
             return Biome.Plains;
         }
-
-        public static Biome SelectBiome(NoiseData noiseDataEntry, int groundY, int waterThreshold)
-        {
-            return SelectBiome(noiseDataEntry.temperature, noiseDataEntry.humidity, noiseDataEntry.height, groundY, waterThreshold);
-        }
     }
 }
