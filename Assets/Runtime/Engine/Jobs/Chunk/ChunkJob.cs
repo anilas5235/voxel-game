@@ -204,15 +204,19 @@ namespace Runtime.Engine.Jobs.Chunk
                 float rawHeight = NoiseProfile.GetNoise(worldPos);
 
                 int height = math.clamp(
-                    (int)(rawHeight * (ChunkSize.y * (.5f + humidity * temperature))) + ChunkSize.y / 3,
+                    (int)(math.lerp(1 / 3f, .85f,
+                        rawHeight * math.min(1f, 1f - temperature) * math.min(1f, 1f - humidity)) * ChunkSize.y),
                     1,
                     ChunkSize.y - 1);
+
+                humidity = humidity * .5f + .5f;
+                temperature = temperature * .5f + .5f;
 
                 chunkColumns[i] = new ChunkColumn()
                 {
                     Height = height,
-                    Biome = BiomeHelper.SelectBiome(humidity, temperature,
-                        rawHeight / sy, height, Config.WaterLevel)
+                    Biome = BiomeHelper.SelectBiome(temperature, humidity,
+                        (float)height / sy, height, Config.WaterLevel)
                 };
             }
         }
@@ -284,7 +288,8 @@ namespace Runtime.Engine.Jobs.Chunk
                     float sCaveNoise = noise.snoise(noiseSamplePos) * .5f + .5f;
                     float cellNoise = noise.cellular(noiseSamplePos).x * .5f + .5f;
 
-                    bool sCarve = sCaveNoise * cellNoise > math.lerp(.4f, .6f, math.square(y / (float)height));
+                    bool sCarve = math.square(sCaveNoise) + math.square(cellNoise) >
+                                  math.lerp(.8f, 1.3f, math.square(y / (float)height));
 
                     // carve if noise below threshold
                     if (sCarve)
@@ -385,7 +390,7 @@ namespace Runtime.Engine.Jobs.Chunk
                 {
                     case Biome.Forest:
                         // less dense forest: reduce chance and increase size variability
-                        if (surface == grass && rng.NextFloat() < 0.22f)
+                        if (surface == grass && rng.NextFloat() < 0.12f)
                         {
                             int h = rng.NextInt(5, 9);
                             ushort chosenLog = rng.NextInt(0, 100) < 75 ? logOak : logBirch;
@@ -800,16 +805,20 @@ namespace Runtime.Engine.Jobs.Chunk
                     break;
                 case Biome.Mountain:
                     topBlock = col.Height >= MountainSnowline
-                        ? Config.StoneSnowy != 0 ? Config.StoneSnowy : stone
+                        ? Config.StoneSnowy
                         : stone;
                     underBlock = stone;
                     break;
                 case Biome.HighStone:
-                    topBlock = Config.StoneGrey != 0 ? Config.StoneGrey : stone;
+                    topBlock = col.Height >= MountainSnowline
+                        ? Config.Snow
+                        : Config.StoneGrey;
                     underBlock = stone;
                     break;
                 case Biome.GreyMountain:
-                    topBlock = Config.StoneGrey != 0 ? Config.StoneGrey : stone;
+                    topBlock = col.Height >= MountainSnowline
+                        ? Config.Snow
+                        : Config.StoneGrey;
                     underBlock = stone;
                     break;
                 case Biome.Tundra:
