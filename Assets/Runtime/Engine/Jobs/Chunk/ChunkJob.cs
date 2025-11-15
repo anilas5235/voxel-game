@@ -29,7 +29,8 @@ namespace Runtime.Engine.Jobs.Chunk
 
 
         // use a lower scale for caves so noise varies slower -> larger cave features
-        private const float CaveScale = 0.03f; // 3D noise scale for caves
+        private const float CaveScale = 0.04f; // 3D noise scale for caves
+        private const int LavaLevel = 5;
 
         public void Execute(int index)
         {
@@ -62,7 +63,7 @@ namespace Runtime.Engine.Jobs.Chunk
             // Step B: terrain fill (stone/dirt/top/water) into vox buffer
             FillTerrain(vox, chunkWordPos, waterLevel, chunkColumns);
 
-            // Step C: carve caves (3D snoise + worm tunnels)
+            // Step C: carve caves
             CarveCaves(vox, chunkWordPos, chunkColumns);
 
             // Step D: place ores based on depth and exposure
@@ -113,7 +114,6 @@ namespace Runtime.Engine.Jobs.Chunk
         }
 
         // Helper to check if a surface column has at least one neighboring top-block (non-air, non-water).
-        // Static to avoid capturing 'this' inside the struct job.
         private static bool SurfaceHasNeighbor(NativeArray<ushort> vox, int cx, int cy, int cz, int3 chunkSize,
             ushort waterId)
         {
@@ -126,7 +126,7 @@ namespace Runtime.Engine.Jobs.Chunk
                 if (voxel != 0 && voxel != waterId)
                     neighbors++;
             }
-            
+
             pos = new int3(cx + 1, cy, cz);
             // +x
             if (PositionIsInChunk(pos, chunkSize))
@@ -163,13 +163,6 @@ namespace Runtime.Engine.Jobs.Chunk
                    pos.y >= 0 && pos.y < chunkSize.y &&
                    pos.z >= 0 && pos.z < chunkSize.z;
         }
-        
-        private static bool PositionIsInChunk(int x, int y, int z, int3 chunkSize)
-        {
-            return x >= 0 && x < chunkSize.x &&
-                   y >= 0 && y < chunkSize.y &&
-                   z >= 0 && z < chunkSize.z;
-        }
 
         // Ensure a tree trunk at (cx,cy,cz) would have at least 1 block empty around it (no adjacent trunks).
         private static bool CanPlaceTree(NativeArray<ushort> vox, int cx, int cy, int cz, int3 chunkSize, ushort logA,
@@ -203,8 +196,10 @@ namespace Runtime.Engine.Jobs.Chunk
                 int i = GetColumIdx(x, z, sz);
                 float2 worldPos = new(chunkWordPos.x + x, chunkWordPos.z + z);
 
-                float humidity = noise.cnoise((worldPos - 789f) * BiomeScale);
-                float temperature = noise.cnoise((worldPos + 543) * BiomeScale);
+                float2 noiseSamplePos = worldPos + new float2(-RandomSeed, RandomSeed);
+
+                float humidity = noise.cnoise((noiseSamplePos - 789f) * BiomeScale);
+                float temperature = noise.cnoise((noiseSamplePos + 543) * BiomeScale);
 
                 float rawHeight = NoiseProfile.GetNoise(worldPos);
 
@@ -271,8 +266,8 @@ namespace Runtime.Engine.Jobs.Chunk
         private void CarveCaves(NativeArray<ushort> vox, int3 origin, NativeArray<ChunkColumn> chunkColumns)
         {
             int sx = ChunkSize.x;
+            int sy = ChunkSize.y;
             int sz = ChunkSize.z;
-            ushort stone = Config.Stone;
 
             for (int x = 0; x < sx; x++)
             for (int z = 0; z < sz; z++)
@@ -282,17 +277,23 @@ namespace Runtime.Engine.Jobs.Chunk
                 {
                     ChunkSize.Flatten(x, y, z);
                     int idx = ChunkSize.Flatten(x, y, z);
-                    if (vox[idx] != stone) continue;
 
-                    float caveNoise = noise.snoise(new float3(
-                        (origin.x + x) * CaveScale,
-                        (origin.y + y) * CaveScale,
-                        (origin.z + z) * CaveScale));
+                    float3 noiseSamplePos = (origin + new float3(x + RandomSeed, y - RandomSeed, z + RandomSeed)) *
+                                            CaveScale;
+
+                    float sCaveNoise = noise.snoise(noiseSamplePos) * .5f + .5f;
+                    float cellNoise = noise.cellular(noiseSamplePos).x * .5f + .5f;
+
+                    bool sCarve = sCaveNoise * cellNoise > math.lerp(.4f, .6f, math.square(y / (float)height));
 
                     // carve if noise below threshold
-                    if (caveNoise < -0.4f)
+                    if (sCarve)
                     {
                         vox[idx] = 0;
+                        if (y <= LavaLevel)
+                        {
+                            vox[idx] = Config.Lava;
+                        }
                     }
                 }
             }
@@ -318,7 +319,8 @@ namespace Runtime.Engine.Jobs.Chunk
                 if (vox[idx] != stone) continue;
 
                 float depthNorm = 1f - y / (float)sy;
-                float oreNoise = math.abs(noise.snoise(new float3(x * 0.12f, y * 0.12f, z * 0.12f)));
+                float oreNoise = math.abs(noise.snoise(new float3(RandomSeed + x, RandomSeed + y,
+                    RandomSeed - z) * 0.12f));
                 float roll = math.max(0f, oreNoise * depthNorm);
 
                 vox[idx] = roll switch
@@ -352,19 +354,13 @@ namespace Runtime.Engine.Jobs.Chunk
                 : Config.LeavesOrange != 0
                     ? Config.LeavesOrange
                     : (ushort)0;
-            ushort logOak = Config.LogOak != 0 ? Config.LogOak : Config.Planks;
-            ushort logBirch = Config.LogBirch != 0 ? Config.LogBirch : Config.PlanksRed;
+            ushort logOak = Config.LogOak;
+            ushort logBirch = Config.LogBirch;
             ushort cactus = Config.Cactus;
-            // pick a default mushroom id: Brown > Red > Tan
-            ushort mushroom = Config.MushroomBrown != 0
-                ? Config.MushroomBrown
-                : Config.MushroomRed != 0
-                    ? Config.MushroomRed
-                    : Config.MushroomTan;
-            ushort grassF = Config.GrassF != 0 ? Config.GrassF : Config.GrassFDry;
-            ushort snowyDirt = Config.DirtSnowy != 0 ? Config.DirtSnowy : dirt;
-            // visible water id (fallback to ice if Water unset)
-            ushort visibleWater = Config.Water != 0 ? Config.Water : Config.Ice != 0 ? Config.Ice : (ushort)0;
+            ushort mushroom = Config.MushroomBrown;
+            ushort grassF = Config.GrassF;
+            ushort snowyDirt = Config.DirtSnowy;
+            ushort visibleWater = Config.Water;
 
             // Deterministic per-chunk RNG: combine global seed with origin so different seeds produce different worlds
             uint seed = (uint)((origin.x * 73856093) ^ (origin.z * 19349663) ^ RandomSeed ^ 0x85ebca6b);
