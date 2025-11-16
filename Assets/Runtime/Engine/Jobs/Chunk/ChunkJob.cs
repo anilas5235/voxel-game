@@ -23,7 +23,7 @@ namespace Runtime.Engine.Jobs.Chunk
 
         // Biome noise tuning
         // make biomes larger (lower frequency) and increase separation
-        private const float BiomeScale = 0.0012f;
+        
         private const float BiomeExaggeration = 1.8f;
 
 
@@ -51,7 +51,7 @@ namespace Runtime.Engine.Jobs.Chunk
             NativeArray<ChunkGenerationTerrain.ChunkColumn> chunkColumns = new(surfaceArea, Allocator.Temp);
 
             ChunkGenerationTerrain.PrepareChunkMaps(ref ChunkSize, ref NoiseProfile, RandomSeed, ref Config,
-                ref chunkWordPos, chunkColumns, BiomeScale);
+                ref chunkWordPos, chunkColumns);
 
             ChunkGenerationTerrain.FillTerrain(ref ChunkSize, vox, waterLevel, chunkColumns, ref Config);
 
