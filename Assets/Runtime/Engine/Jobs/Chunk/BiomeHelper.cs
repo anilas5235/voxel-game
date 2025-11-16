@@ -1,4 +1,8 @@
 ﻿using Unity.Burst;
+#if UNITY_EDITOR
+using System;
+using System.Collections.Generic;
+#endif
 
 namespace Runtime.Engine.Jobs.Chunk
 {
@@ -8,46 +12,105 @@ namespace Runtime.Engine.Jobs.Chunk
         [BurstCompile]
         internal static Biome SelectBiome(float temp, float hum, float elev, int groundY, int waterThreshold)
         {
-            // --- NEUE, KORREKTE BIOME-LOGIK ---
-
-            // 1. OZEAN: Alles, was tief genug unter Wasser ist (z.B. mehr als 3 Blöcke tief)
+            // Water first
             if (groundY < waterThreshold - 3) return Biome.Ocean;
 
-            // 2. STRAND: Alles, was knapp unter, auf, oder knapp über dem Wasser ist.
-            //    (z.B. von 3 Blöcke tief bis 3 Blöcke hoch)
-            //    Dies fängt die "Rampe" ab, die deine Glättung erzeugt.
             if (groundY <= waterThreshold + 3)
             {
-                // Optional: Verhindere Eis-Strände
-                if (temp > 0.15f) 
+                // Verhindere Eis-Strände: nur bei ausreichend warmer Temperatur wird Strand gewählt
+                if (temp > 0.15f)
                     return Biome.Beach;
-                
-                // Wenn es zu kalt für Strand ist, wird es Eis oder Schnee
+                // sonst weiter entscheiden (kalte Küsten können Schnee/Eis/Tundra sein)
             }
 
-            // --- Ab hier beginnt normales Land (groundY > waterThreshold + 3) ---
+            switch (elev)
+            {
+                // 1) Elevation zuerst
+                // Hinweis: Aufgrund der Höhengenerierung liegt elev effektiv im Bereich ~0.33 bis <0.85.
+                // Daher war 0.90 nie erreichbar. Wir setzen HighStone leicht unter das Maximum.
+                case >= 0.84f: return Biome.HighStone;
+                case >= 0.78f: return Biome.GreyMountain;
+                // Schneekappen auf kühleren Bergen, sonst normales Gebirge
+                case >= 0.70f when temp <= 0.12f && hum > 0.45f: return Biome.Ice;
+                case >= 0.70f when temp <= 0.15f: return Biome.Snow;
+                case >= 0.70f: return Biome.Mountain;
+            }
 
-            // Ice biome: very cold and wet or very low temp
-            if (temp < 0.12f && hum > 0.45f) return Biome.Ice;
-            if (temp < 0.10f) return Biome.Snow;
+            // 2) Temperatur danach
+            if (temp <= 0.10f)
+            {
+                // sehr kalt: feucht -> Eis, sonst Schnee
+                return hum > 0.45f ? Biome.Ice : Biome.Snow;
+            }
 
-            // Red desert variant: hot and very dry, prefer at lower humidity
-            if (temp > 0.82f && hum < 0.22f && temp - 0.5f > 0.25f) return Biome.RedDesert;
-            if (temp > 0.82f && hum < 0.30f && temp - 0.5f > 0.25f) return Biome.Desert;
+            if (temp < 0.18f)
+            {
+                // kalt: trocken -> Tundra, sonst Ebene
+                return hum < 0.38f ? Biome.Tundra : Biome.Plains;
+            }
 
-            if (temp > 0.86f && hum > 0.66f && temp - 0.5f > 0.30f) return Biome.Jungle;
-            if (temp > 0.60f && hum > 0.5f && temp - 0.5f > 0.08f) return Biome.Forest;
+            if (temp < 0.30f)
+            {
+                // kühl bis mild: keine speziellen Biome außer evtl. Sumpf (kommt über Feuchte später)
+                // Platzhalter: Ebene
+                // (Sumpf wird etwas weiter unten über Humidity entschieden, um Reihenfolge T->H zu wahren)
+                // Wir entscheiden hier noch nicht final, sondern fallen weiter.
+            }
 
-            // High, rocky peaks: prefer when elevation is very high
-            if (elev > 0.90f && temp < 0.62f) return Biome.HighStone;
-            if (elev > 0.78f && temp < 0.56f) return Biome.GreyMountain;
+            if (temp < 0.60f)
+            {
+                // 3) Feuchte zuletzt: in diesem Temp-Bereich kann Sumpf entstehen
+                if (hum >= 0.70f) return Biome.Swamp;
+                return Biome.Plains;
+            }
 
-            // cold variants
-            if (temp < 0.18f && hum < 0.38f && 0.5f - temp > 0.25f) return Biome.Tundra;
-            if (temp < 0.32f && elev > 0.7f) return Biome.Mountain;
-            if (hum > 0.7f && temp > 0.3f && temp < 0.6f) return Biome.Swamp;
+            if (temp < 0.82f)
+            {
+                // warm: feucht -> Wald, sonst Ebene
+                return hum > 0.50f ? Biome.Forest : Biome.Plains;
+            }
 
-            return Biome.Plains;
+            // sehr warm/heiß (temp >= 0.82)
+            if (temp >= 0.86f && hum > 0.66f) return Biome.Jungle;
+            return hum switch
+            {
+                < 0.22f => Biome.RedDesert,
+                < 0.30f => Biome.Desert,
+                > 0.50f => Biome.Forest,
+                _ => Biome.Plains
+            };
         }
+
+#if UNITY_EDITOR
+        // Kleines Diagnose-Tool: prüft über ein Raster, welche Biome erreichbar sind.
+        internal static Dictionary<Biome, int> SampleCoverage()
+        {
+            var counts = new Dictionary<Biome, int>();
+            foreach (Biome b in Enum.GetValues(typeof(Biome))) counts[b] = 0;
+
+            // Wir samplen einen Parameterraum; groundY und waterThreshold werden so gewählt,
+            // dass sowohl tiefes Wasser, Küste als auch Inland vorkommen können.
+            int water = 64;
+            for (int gy = 56; gy <= 72; gy += 4) // unter Wasser, Küste, über Wasser
+            {
+                for (int ei = 33; ei <= 85; ei += 4) // Elevation ca. 0.33 .. 0.85
+                {
+                    float elev = ei / 100f;
+                    for (int ti = 0; ti <= 100; ti += 10)
+                    {
+                        float temp = ti / 100f;
+                        for (int hi = 0; hi <= 100; hi += 10)
+                        {
+                            float hum = hi / 100f;
+                            var b = SelectBiome(temp, hum, elev, gy, water);
+                            counts[b]++;
+                        }
+                    }
+                }
+            }
+
+            return counts;
+        }
+#endif
     }
 }

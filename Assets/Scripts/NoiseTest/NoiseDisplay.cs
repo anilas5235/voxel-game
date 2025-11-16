@@ -17,6 +17,8 @@ namespace NoiseTest
         private Texture2D _noiseTexture;
         [SerializeField] private NoiseProfile.Settings settings;
         public float biomeScale = 0.0012f;
+        public float caveScale = 0.03f; 
+        public float pow = 3f;
         public bool showHumidity = true;
         public bool showTemperature = true;
         public bool showHeight = true;
@@ -40,9 +42,12 @@ namespace NoiseTest
                     float tHeight = noiseProfile.GetNoise(pos);
                     float humidity = noise.cnoise((pos + 789f) * biomeScale);
                     float temperature = noise.cnoise((pos - 543f) * biomeScale);
+                    float2 cave = noise.cellular2x2(new float2(pos.x * caveScale, pos.y * caveScale));
 
-                    Color color = new(showHeight ? tHeight : 0f,
-                        showHumidity ? humidity : 0f,
+                    humidity = math.pow(humidity, pow);
+
+                    Color color = new(showHeight ? cave.x is > .75f and < .8f ? 1 :0f : 0f,
+                        showHumidity ? cave.y is > .75f and < .8f ? 1 :0f  : 0f,
                         showTemperature ? temperature : 0f);
                     _noiseTexture.SetPixel(x, y, color);
                 }
