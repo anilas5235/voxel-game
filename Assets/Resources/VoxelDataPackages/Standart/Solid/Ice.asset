@@ -14,8 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   textureMode: 0
   meshLayer: 0
-  voxelType: 0
-  overrideColor: {r: 1, g: 1, b: 1, a: 1}
+  voxelType: 0  
   top: {fileID: 2800000, guid: 70d41c3cee9596846b7da4bc2baf8cf1, type: 3}
   bottom: {fileID: 2800000, guid: 408781616bfb6ec4fbdd9f5056b35a19, type: 3}
   front: {fileID: 0}

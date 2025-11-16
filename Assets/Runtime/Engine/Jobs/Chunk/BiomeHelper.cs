@@ -1,4 +1,5 @@
 ﻿using Unity.Burst;
+using Unity.Mathematics;
 #if UNITY_EDITOR
 using System;
 using System.Collections.Generic;
@@ -10,75 +11,109 @@ namespace Runtime.Engine.Jobs.Chunk
     public static class BiomeHelper
     {
         [BurstCompile]
-        internal static Biome SelectBiome(float temp, float hum, float elev, int groundY, int waterThreshold)
+        internal static Biome SelectBiome(float temp, float hum, float elev, int groundY, int waterThreshold,
+            float continentality, float mountainMask)
         {
-            // Water first
+            // --- 0) Wasser & Strand (harte Extrema) ---
             if (groundY < waterThreshold - 3) return Biome.Ocean;
+            if (groundY <= waterThreshold + 3 && temp > 0.15f) return Biome.Beach;
 
-            if (groundY <= waterThreshold + 3)
+            // --- 1) Höhenextreme / Gebirge ---
+            float elevEffective = elev + mountainMask * 0.04f;
+            if (elevEffective > 1f) elevEffective = 1f;
+
+            if (elevEffective >= 0.90f) return Biome.HighStone;
+            if (elevEffective >= 0.84f) return Biome.GreyMountain;
+            if (elevEffective >= 0.76f)
             {
-                // Verhindere Eis-Strände: nur bei ausreichend warmer Temperatur wird Strand gewählt
-                if (temp > 0.15f)
-                    return Biome.Beach;
-                // sonst weiter entscheiden (kalte Küsten können Schnee/Eis/Tundra sein)
+                if (temp <= 0.12f && hum > 0.45f) return Biome.Ice;
+                if (temp <= 0.18f) return Biome.Snow;
+                return Biome.Mountain;
             }
 
-            switch (elev)
+            // --- 2) Klimaextreme (sehr kalt / sehr heiß) ---
+            bool nearWater = groundY <= waterThreshold + 10;
+            float var = Variation(temp, hum, elev, continentality);
+
+            // 2a) Sehr kalt (temp <= 0.15)
+            if (temp <= 0.15f)
             {
-                // 1) Elevation zuerst
-                // Hinweis: Aufgrund der Höhengenerierung liegt elev effektiv im Bereich ~0.33 bis <0.85.
-                // Daher war 0.90 nie erreichbar. Wir setzen HighStone leicht unter das Maximum.
-                case >= 0.84f: return Biome.HighStone;
-                case >= 0.78f: return Biome.GreyMountain;
-                // Schneekappen auf kühleren Bergen, sonst normales Gebirge
-                case >= 0.70f when temp <= 0.12f && hum > 0.45f: return Biome.Ice;
-                case >= 0.70f when temp <= 0.15f: return Biome.Snow;
-                case >= 0.70f: return Biome.Mountain;
+                if (hum > 0.70f) return Biome.Ice;     // extrem kalt + sehr feucht
+                if (hum > 0.50f) return Biome.Snow;    // sehr kalt + feucht
+                if (hum < 0.30f) return Biome.Tundra;  // sehr kalt + trocken
+                // Übergangsbereich
+                return var > 0.5f ? Biome.Snow : Biome.Tundra;
             }
 
-            // 2) Temperatur danach
-            if (temp <= 0.10f)
+            // 2b) Sehr heiß (temp >= 0.85)
+            if (temp >= 0.8f)
             {
-                // sehr kalt: feucht -> Eis, sonst Schnee
-                return hum > 0.45f ? Biome.Ice : Biome.Snow;
+                if (hum > 0.70f) return Biome.Jungle; // heiß + sehr feucht
+
+                // sehr trocken & weit im Binnenland -> rote Wüste
+                if (hum < 0.2f) return Biome.RedDesert;
+
+                if (hum < 0.45f) return Biome.Desert; // heiß + trocken
+
+                // moderat feucht
+                return hum >= 0.50f ? Biome.Forest : Biome.Plains;
             }
 
-            if (temp < 0.18f)
+            // --- 3) gemäßigt-kalte Zonen (0.15 < temp < 0.40) ---
+            if (temp < 0.40f)
             {
-                // kalt: trocken -> Tundra, sonst Ebene
-                return hum < 0.38f ? Biome.Tundra : Biome.Plains;
+                // sehr feucht in Wassernähe -> Sumpf
+                if (hum > 0.80f && nearWater) return Biome.Swamp;
+
+                if (hum > 0.60f) return Biome.Forest; // feucht -> Wald
+
+                if (hum < 0.4f) return Biome.Tundra; // trocken + kühl
+
+                // Übergangsband: leichte Mischung Forest/Plains
+                return var > 0.6f ? Biome.Forest : Biome.Plains;
             }
 
-            if (temp < 0.30f)
+            // --- 4) gemäßigt-warme Zonen (0.40 <= temp < 0.70) ---
+            if (temp < 0.70f )
             {
-                // kühl bis mild: keine speziellen Biome außer evtl. Sumpf (kommt über Feuchte später)
-                // Platzhalter: Ebene
-                // (Sumpf wird etwas weiter unten über Humidity entschieden, um Reihenfolge T->H zu wahren)
-                // Wir entscheiden hier noch nicht final, sondern fallen weiter.
+                if (hum > 0.7f && nearWater) return Biome.Swamp;
+
+                if (hum > 0.62f) return Biome.Forest; // feucht -> Wald
+
+                // leicht trocken -> Plains mit etwas Forest
+                if (hum < 0.2f && temp > .6f) return Biome.Desert; 
+
+                // trocken, aber nicht heiß genug für echte Wüste
+                return var > 0.65f ? Biome.Forest : Biome.Plains;
             }
 
-            if (temp < 0.60f)
+            // --- 5) warme Zonen (0.70 <= temp < 0.8) ---
             {
-                // 3) Feuchte zuletzt: in diesem Temp-Bereich kann Sumpf entstehen
-                if (hum >= 0.70f) return Biome.Swamp;
-                return Biome.Plains;
-            }
+                if (hum > 0.76f && nearWater) return Biome.Swamp;
 
-            if (temp < 0.82f)
-            {
-                // warm: feucht -> Wald, sonst Ebene
-                return hum > 0.50f ? Biome.Forest : Biome.Plains;
-            }
+                // Trockene, warme Binnenregionen -> Wüste
+                if (continentality >= 0.40f)
+                {
+                    switch (hum)
+                    {
+                        case < .2f:
+                            return Biome.RedDesert;
+                        case < .4f:
+                            return Biome.Desert;
+                    }
+                }
 
-            // sehr warm/heiß (temp >= 0.82)
-            if (temp >= 0.86f && hum > 0.66f) return Biome.Jungle;
-            return hum switch
-            {
-                < 0.22f => Biome.RedDesert,
-                < 0.30f => Biome.Desert,
-                > 0.50f => Biome.Forest,
-                _ => Biome.Plains
-            };
+                // Übergangsband
+                return var > 0.55f ? Biome.Forest : Biome.Plains;
+            }
+        }
+
+        // Deterministische, Burst-freundliche Variation 0..1 basierend auf den Eingangsparametern
+        private static float Variation(float a, float b, float c, float d)
+        {
+            float t = a * 12.9898f + b * 78.233f + c * 37.719f + d * 11.123f;
+            float s = math.sin(t) * 43758.5453f;
+            return math.frac(s);
         }
 
 #if UNITY_EDITOR
@@ -88,12 +123,10 @@ namespace Runtime.Engine.Jobs.Chunk
             var counts = new Dictionary<Biome, int>();
             foreach (Biome b in Enum.GetValues(typeof(Biome))) counts[b] = 0;
 
-            // Wir samplen einen Parameterraum; groundY und waterThreshold werden so gewählt,
-            // dass sowohl tiefes Wasser, Küste als auch Inland vorkommen können.
             int water = 64;
-            for (int gy = 56; gy <= 72; gy += 4) // unter Wasser, Küste, über Wasser
+            for (int gy = 56; gy <= 72; gy += 4)
             {
-                for (int ei = 33; ei <= 85; ei += 4) // Elevation ca. 0.33 .. 0.85
+                for (int ei = 33; ei <= 85; ei += 4)
                 {
                     float elev = ei / 100f;
                     for (int ti = 0; ti <= 100; ti += 10)
@@ -102,7 +135,7 @@ namespace Runtime.Engine.Jobs.Chunk
                         for (int hi = 0; hi <= 100; hi += 10)
                         {
                             float hum = hi / 100f;
-                            var b = SelectBiome(temp, hum, elev, gy, water);
+                            var b = SelectBiome(temp, hum, elev, gy, water, 1f, 0f);
                             counts[b]++;
                         }
                     }

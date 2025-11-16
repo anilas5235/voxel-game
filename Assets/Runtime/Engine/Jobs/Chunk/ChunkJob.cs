@@ -23,9 +23,8 @@ namespace Runtime.Engine.Jobs.Chunk
 
         // Biome noise tuning
         // make biomes larger (lower frequency) and increase separation
-        private const float BiomeScale = 0.0012f;
+        
         private const float BiomeExaggeration = 1.8f;
-        private const int MountainSnowline = 215;
 
 
         // use a lower scale for caves so noise varies slower -> larger cave features
@@ -39,12 +38,6 @@ namespace Runtime.Engine.Jobs.Chunk
             Results.TryAdd(position, chunk);
         }
 
-        private struct ChunkColumn
-        {
-            public int Height;
-            public Biome Biome;
-        }
-
         private Data.Chunk GenerateChunkData(int3 chunkWordPos)
         {
             int volume = ChunkSize.x * ChunkSize.y * ChunkSize.z;
@@ -55,19 +48,17 @@ namespace Runtime.Engine.Jobs.Chunk
 
             // Temporary buffers for this chunk
             NativeArray<ushort> vox = new(volume, Allocator.Temp);
-            NativeArray<ChunkColumn> chunkColumns = new(surfaceArea, Allocator.Temp);
+            NativeArray<ChunkGenerationTerrain.ChunkColumn> chunkColumns = new(surfaceArea, Allocator.Temp);
 
-            // Step A: prepare per-column maps (height, biome, river)
-            PrepareChunkMaps(chunkWordPos, chunkColumns);
+            ChunkGenerationTerrain.PrepareChunkMaps(ref ChunkSize, ref NoiseProfile, RandomSeed, ref Config,
+                ref chunkWordPos, chunkColumns);
 
-            // Step B: terrain fill (stone/dirt/top/water) into vox buffer
-            FillTerrain(vox, chunkWordPos, waterLevel, chunkColumns);
+            ChunkGenerationTerrain.FillTerrain(ref ChunkSize, vox, waterLevel, chunkColumns, ref Config);
 
-            // Step C: carve caves
-            CarveCaves(vox, chunkWordPos, chunkColumns);
+            ChunkGenerationCavesOres.CarveCaves(ChunkSize, vox, chunkWordPos, chunkColumns, Config, RandomSeed,
+                CaveScale, LavaLevel);
 
-            // Step D: place ores based on depth and exposure
-            PlaceOres(vox);
+            ChunkGenerationCavesOres.PlaceOres(ChunkSize, vox, Config, RandomSeed);
 
             // Step E: vegetation and micro-structures on surface
             PlaceVegetationAndStructures(vox, chunkColumns, chunkWordPos);
@@ -184,162 +175,7 @@ namespace Runtime.Engine.Jobs.Chunk
             return true;
         }
 
-        private void PrepareChunkMaps(int3 chunkWordPos, NativeArray<ChunkColumn> chunkColumns)
-        {
-            int sx = ChunkSize.x;
-            int sz = ChunkSize.z;
-            int sy = ChunkSize.y;
-
-            for (int x = 0; x < sx; x++)
-            for (int z = 0; z < sz; z++)
-            {
-                int i = GetColumIdx(x, z, sz);
-                float2 worldPos = new(chunkWordPos.x + x, chunkWordPos.z + z);
-
-                float2 noiseSamplePos = worldPos + new float2(-RandomSeed, RandomSeed);
-
-                float humidity = noise.cnoise((noiseSamplePos - 789f) * BiomeScale);
-                float temperature = noise.cnoise((noiseSamplePos + 543) * BiomeScale);
-
-                float rawHeight = NoiseProfile.GetNoise(worldPos);
-
-                int height = math.clamp(
-                    (int)(math.lerp(1 / 3f, .85f,
-                        rawHeight * math.min(1f, 1f - temperature) * math.min(1f, 1f - humidity)) * ChunkSize.y),
-                    1,
-                    ChunkSize.y - 1);
-
-                humidity = humidity * .5f + .5f;
-                temperature = temperature * .5f + .5f;
-
-                chunkColumns[i] = new ChunkColumn()
-                {
-                    Height = height,
-                    Biome = BiomeHelper.SelectBiome(temperature, humidity,
-                        (float)height / sy, height, Config.WaterLevel)
-                };
-            }
-        }
-
-        private void FillTerrain(NativeArray<ushort> vox, int3 chunkWorldPos, int waterLevel,
-            NativeArray<ChunkColumn> chunkColumns)
-        {
-            int sx = ChunkSize.x;
-            int sz = ChunkSize.z;
-            int sy = ChunkSize.y;
-            const ushort air = 0;
-            ushort waterBlock = Config.Water;
-            ushort stone = Config.Stone;
-            ushort dirt = Config.Dirt;
-
-            uint seed = (uint)((chunkWorldPos.x * 73856093) ^ (chunkWorldPos.z * 19349663) ^ RandomSeed ^ 0x85ebca6b);
-            Random rng = new(seed == 0 ? 1u : seed);
-
-            for (int x = 0; x < sx; x++)
-            for (int z = 0; z < sz; z++)
-            {
-                int i = GetColumIdx(x, z, sz);
-
-                ChunkColumn col = chunkColumns[i];
-
-                SelectSurfaceMaterials(col, ref rng, out ushort top, out ushort under, out ushort st);
-                if (st == 0) st = stone;
-                if (under == 0) under = dirt;
-                if (top == 0) top = dirt;
-
-                int gy = col.Height;
-
-                for (int y = 0; y < sy; y++)
-                {
-                    ushort v;
-                    if (y < gy - 4) v = st;
-                    else if (y < gy) v = under;
-                    else if (y == gy) v = gy < waterLevel ? waterBlock : top;
-                    else v = y < waterLevel ? waterBlock : air;
-
-                    vox[ChunkSize.Flatten(x, y, z)] = v;
-                }
-            }
-        }
-
-        private static int GetColumIdx(int x, int z, int sz)
-        {
-            return z + x * sz;
-        }
-
-        private void CarveCaves(NativeArray<ushort> vox, int3 origin, NativeArray<ChunkColumn> chunkColumns)
-        {
-            int sx = ChunkSize.x;
-            int sy = ChunkSize.y;
-            int sz = ChunkSize.z;
-
-            for (int x = 0; x < sx; x++)
-            for (int z = 0; z < sz; z++)
-            {
-                int height = chunkColumns[GetColumIdx(x, z, sz)].Height;
-                for (int y = 2; y <= height; y++)
-                {
-                    ChunkSize.Flatten(x, y, z);
-                    int idx = ChunkSize.Flatten(x, y, z);
-
-                    float3 noiseSamplePos = (origin + new float3(x + RandomSeed, y - RandomSeed, z + RandomSeed)) *
-                                            CaveScale;
-
-                    float sCaveNoise = noise.snoise(noiseSamplePos) * .5f + .5f;
-                    float cellNoise = noise.cellular(noiseSamplePos).x * .5f + .5f;
-
-                    bool sCarve = math.square(sCaveNoise) + math.square(cellNoise) >
-                                  math.lerp(.8f, 1.3f, math.square(y / (float)height));
-
-                    // carve if noise below threshold
-                    if (sCarve)
-                    {
-                        vox[idx] = 0;
-                        if (y <= LavaLevel)
-                        {
-                            vox[idx] = Config.Lava;
-                        }
-                    }
-                }
-            }
-        }
-
-        private void PlaceOres(NativeArray<ushort> vox)
-        {
-            int sx = ChunkSize.x;
-            int sz = ChunkSize.z;
-            int sy = ChunkSize.y;
-            ushort stone = Config.Stone;
-            ushort oreCoal = Config.StoneCoalOre;
-            ushort oreIron = Config.StoneIronGreenOre;
-            ushort oreGold = Config.StoneGoldOre;
-            ushort oreDiamond = Config.StoneDiamondOre;
-
-            for (int x = 1; x < sx - 1; x++)
-            for (int z = 1; z < sz - 1; z++)
-            for (int y = 2; y < sy - 2; y++)
-            {
-                ChunkSize.Flatten(x, y, z);
-                int idx = ChunkSize.Flatten(x, y, z);
-                if (vox[idx] != stone) continue;
-
-                float depthNorm = 1f - y / (float)sy;
-                float oreNoise = math.abs(noise.snoise(new float3(RandomSeed + x, RandomSeed + y,
-                    RandomSeed - z) * 0.12f));
-                float roll = math.max(0f, oreNoise * depthNorm);
-
-                vox[idx] = roll switch
-                {
-                    > 0.85f when y < sy * 0.15f => oreDiamond,
-                    > 0.7f when y < sy * 0.35f => oreGold,
-                    > 0.6f => oreIron,
-                    > 0.45f => oreCoal,
-                    _ => vox[idx]
-                };
-            }
-        }
-
-        private void PlaceVegetationAndStructures(NativeArray<ushort> vox, NativeArray<ChunkColumn> chunkColumns,
+        private void PlaceVegetationAndStructures(NativeArray<ushort> vox, NativeArray<ChunkGenerationTerrain.ChunkColumn> chunkColumns,
             int3 origin)
         {
             int sx = ChunkSize.x;
@@ -375,7 +211,7 @@ namespace Runtime.Engine.Jobs.Chunk
             for (int z = 1; z < sz - 1; z++)
             {
                 int gi = GetColumIdx(x, z, sz);
-                ChunkColumn chunkCol = chunkColumns[gi];
+                ChunkGenerationTerrain.ChunkColumn chunkCol = chunkColumns[gi];
                 int gy = chunkCol.Height;
                 if (gy <= 0 || gy >= sy - 2) continue;
 
@@ -750,87 +586,7 @@ namespace Runtime.Engine.Jobs.Chunk
             return x >= 0 && x < ChunkSize.x && z >= 0 && z < ChunkSize.z && y >= 0 && y < ChunkSize.y;
         }
 
-        private void SelectSurfaceMaterials(in ChunkColumn col, ref Random rng, out ushort topBlock,
-            out ushort underBlock,
-            out ushort stone)
-        {
-            stone = Config.Stone != 0 ? Config.Stone : Config.Rock;
-            ushort dirt = Config.Dirt != 0 ? Config.Dirt : Config.StoneSandy != 0 ? Config.StoneSandy : stone;
-
-            topBlock = Config.Grass != 0 ? Config.Grass : dirt;
-            underBlock = dirt;
-
-            switch (col.Biome)
-            {
-                case Biome.Desert:
-                    topBlock = Config.SandRed != 0 ? Config.SandRed : Config.Sand != 0 ? Config.Sand : underBlock;
-                    underBlock = Config.SandStoneRed != 0
-                        ? Config.SandStoneRed
-                        : Config.SandStoneRedSandy != 0
-                            ? Config.SandStoneRedSandy
-                            : underBlock;
-                    break;
-                case Biome.RedDesert:
-                    topBlock = Config.SandRed != 0 ? Config.SandRed : Config.Sand != 0 ? Config.Sand : underBlock;
-                    underBlock = Config.SandStoneRed != 0
-                        ? Config.SandStoneRed
-                        : Config.SandStoneRedSandy != 0
-                            ? Config.SandStoneRedSandy
-                            : underBlock;
-                    break;
-                case Biome.Beach:
-                    topBlock = Config.Sand != 0 ? Config.Sand : Config.SandGrey != 0 ? Config.SandGrey : underBlock;
-                    underBlock = Config.SandStoneRedSandy != 0 ? Config.SandStoneRedSandy : underBlock;
-                    break;
-                case Biome.Ice:
-                    // cold rocky/icy surfaces use snowy dirt or stone
-                    topBlock = Config.DirtSnowy != 0
-                        ? Config.DirtSnowy
-                        : Config.StoneSnowy != 0
-                            ? Config.StoneSnowy
-                            : topBlock;
-                    underBlock = dirt;
-                    break;
-                case Biome.Snow:
-                    topBlock = Config.DirtSnowy != 0
-                        ? Config.DirtSnowy
-                        : Config.StoneSnowy != 0
-                            ? Config.StoneSnowy
-                            : topBlock;
-                    underBlock = dirt;
-                    break;
-                case Biome.Swamp:
-                    topBlock = dirt;
-                    underBlock = dirt;
-                    break;
-                case Biome.Mountain:
-                    topBlock = col.Height >= MountainSnowline
-                        ? Config.StoneSnowy
-                        : stone;
-                    underBlock = stone;
-                    break;
-                case Biome.HighStone:
-                    topBlock = col.Height >= MountainSnowline
-                        ? Config.Snow
-                        : Config.StoneGrey;
-                    underBlock = stone;
-                    break;
-                case Biome.GreyMountain:
-                    topBlock = col.Height >= MountainSnowline
-                        ? Config.Snow
-                        : Config.StoneGrey;
-                    underBlock = stone;
-                    break;
-                case Biome.Tundra:
-                    topBlock = rng.NextFloat() < .1f ? Config.Dirt :
-                        Config.DirtSnowy != 0 ? Config.DirtSnowy : topBlock;
-                    underBlock = dirt;
-                    break;
-            }
-        }
-
-        // Remove surface vegetation blocks that are not placed directly above a valid ground block (ground + 1)
-        private void ValidateSurfaceVegetation(NativeArray<ushort> vox, NativeArray<ChunkColumn> chunkColumns)
+        private void ValidateSurfaceVegetation(NativeArray<ushort> vox, NativeArray<ChunkGenerationTerrain.ChunkColumn> chunkColumns)
         {
             int sx = ChunkSize.x;
             int sz = ChunkSize.z;
@@ -917,6 +673,11 @@ namespace Runtime.Engine.Jobs.Chunk
                     }
                 }
             }
+        }
+
+        private static int GetColumIdx(int x, int z, int sz)
+        {
+            return z + x * sz;
         }
 
         // Simple helper: place a small square pyramid centered on (cx,cy,cz)
@@ -1062,3 +823,4 @@ namespace Runtime.Engine.Jobs.Chunk
         }
     }
 }
+
