@@ -68,115 +68,66 @@ namespace Runtime.Engine.Voxels.Data
         {
             GeneratorConfig config = new()
             {
-                BrickGrey = VoxelRegistry.GetId("std:BrickGrey"),
-                BrickRed = VoxelRegistry.GetId("std:BrickRed"),
-                Cactus = VoxelRegistry.GetId("std:Cactus"),
-                CottonBlue = VoxelRegistry.GetId("std:CottonBlue"),
-                CottonGreen = VoxelRegistry.GetId("std:CottonGreen"),
-                CottonRed = VoxelRegistry.GetId("std:CottonRed"),
-                CottonTan = VoxelRegistry.GetId("std:CottonTan"),
-                Dirt = VoxelRegistry.GetId("std:Dirt"),
-                DirtGravel = VoxelRegistry.GetId("std:DirtGravel"),
-                DirtSandy = VoxelRegistry.GetId("std:DirtSandy"),
-                DirtSnowy = VoxelRegistry.GetId("std:DirtSnowy"),
-                Flowers = VoxelRegistry.GetId("std:Flowers"),
-                Glass = VoxelRegistry.GetId("std:Glass"),
-                Grass = VoxelRegistry.GetId("std:Grass"),
-                GrassF = VoxelRegistry.GetId("std:GrassF"),
-                GrassFDead = VoxelRegistry.GetId("std:GrassFDead"),
-                GrassFDry = VoxelRegistry.GetId("std:GrassFDry"),
-                GreystoneRubyOre = VoxelRegistry.GetId("std:GreystoneRubyOre"),
-                Ice = VoxelRegistry.GetId("std:Ice"),
-                Lava = VoxelRegistry.GetId("std:Lava"),
-                Leaves = VoxelRegistry.GetId("std:Leaves"),
-                LeavesOrange = VoxelRegistry.GetId("std:LeavesOrange"),
-                LogBirch = VoxelRegistry.GetId("std:LogBirch"),
-                LogOak = VoxelRegistry.GetId("std:LogOak"),
-                MushroomBrown = VoxelRegistry.GetId("std:MushroomBrown"),
-                MushroomRed = VoxelRegistry.GetId("std:MushroomRed"),
-                MushroomTan = VoxelRegistry.GetId("std:MushroomTan"),
-                Oven = VoxelRegistry.GetId("std:Oven"),
-                Planks = VoxelRegistry.GetId("std:Planks"),
-                PlanksRed = VoxelRegistry.GetId("std:PlanksRed"),
-                Rock = VoxelRegistry.GetId("std:Rock"),
-                RockMossy = VoxelRegistry.GetId("std:RockMossy"),
-                Sand = VoxelRegistry.GetId("std:Sand"),
-                SandGrey = VoxelRegistry.GetId("std:SandGrey"),
-                SandRed = VoxelRegistry.GetId("std:SandRed"),
-                SandStoneRed = VoxelRegistry.GetId("std:SandStoneRed"),
-                SandStoneRedElm = VoxelRegistry.GetId("std:SandStoneRedElm"),
-                SandStoneRedSandy = VoxelRegistry.GetId("std:SandStoneRedSandy"),
-                Stone = VoxelRegistry.GetId("std:Stone"),
-                StoneCoalOre = VoxelRegistry.GetId("std:StoneCoalOre"),
-                StoneDiamondOre = VoxelRegistry.GetId("std:StoneDiamondOre"),
-                StoneGoldOre = VoxelRegistry.GetId("std:StoneGoldOre"),
-                StoneGrassy = VoxelRegistry.GetId("std:StoneGrassy"),
-                StoneGravel = VoxelRegistry.GetId("std:StoneGravel"),
-                StoneGrey = VoxelRegistry.GetId("std:StoneGrey"),
-                StoneGreySandy = VoxelRegistry.GetId("std:StoneGreySandy"),
-                StoneIronBrownOre = VoxelRegistry.GetId("std:StoneIronBrownOre"),
-                StoneIronGreenOre = VoxelRegistry.GetId("std:StoneIronGreenOre"),
-                StoneSandy = VoxelRegistry.GetId("std:StoneSandy"),
-                StoneSilverOre = VoxelRegistry.GetId("std:StoneSilverOre"),
-                StoneSnowy = VoxelRegistry.GetId("std:StoneSnowy"),
-                Snow = VoxelRegistry.GetId("std:Snow"),
-                Water = VoxelRegistry.GetId("std:Water"),
-                WheatStage1 = VoxelRegistry.GetId("std:WheatStage1"),
-                WheatStage2 = VoxelRegistry.GetId("std:WheatStage2"),
-                WheatStage3 = VoxelRegistry.GetId("std:WheatStage3"),
-                WheatStage4 = VoxelRegistry.GetId("std:WheatStage4"),
-                Workbench = VoxelRegistry.GetId("std:Workbench"),
+                BrickGrey = VoxelRegistry.GetIdOrThrow("std:BrickGrey"),
+                BrickRed = VoxelRegistry.GetIdOrThrow("std:BrickRed"),
+                Cactus = VoxelRegistry.GetIdOrThrow("std:Cactus"),
+                CottonBlue = VoxelRegistry.GetIdOrThrow("std:CottonBlue"),
+                CottonGreen = VoxelRegistry.GetIdOrThrow("std:CottonGreen"),
+                CottonRed = VoxelRegistry.GetIdOrThrow("std:CottonRed"),
+                CottonTan = VoxelRegistry.GetIdOrThrow("std:CottonTan"),
+                Dirt = VoxelRegistry.GetIdOrThrow("std:Dirt"),
+                DirtGravel = VoxelRegistry.GetIdOrThrow("std:DirtGravel"),
+                DirtSandy = VoxelRegistry.GetIdOrThrow("std:DirtSandy"),
+                DirtSnowy = VoxelRegistry.GetIdOrThrow("std:DirtSnowy"),
+                Flowers = VoxelRegistry.GetIdOrThrow("std:Flowers"),
+                Glass = VoxelRegistry.GetIdOrThrow("std:Glass"),
+                Grass = VoxelRegistry.GetIdOrThrow("std:Grass"),
+                GrassF = VoxelRegistry.GetIdOrThrow("std:GrassF"),
+                GrassFDead = VoxelRegistry.GetIdOrThrow("std:GrassFDead"),
+                GrassFDry = VoxelRegistry.GetIdOrThrow("std:GrassFDry"),
+                GreystoneRubyOre = VoxelRegistry.GetIdOrThrow("std:GreystoneRubyOre"),
+                Ice = VoxelRegistry.GetIdOrThrow("std:Ice"),
+                Lava = VoxelRegistry.GetIdOrThrow("std:Lava"),
+                Leaves = VoxelRegistry.GetIdOrThrow("std:Leaves"),
+                LeavesOrange = VoxelRegistry.GetIdOrThrow("std:LeavesOrange"),
+                LogBirch = VoxelRegistry.GetIdOrThrow("std:LogBirch"),
+                LogOak = VoxelRegistry.GetIdOrThrow("std:LogOak"),
+                MushroomBrown = VoxelRegistry.GetIdOrThrow("std:MushroomBrown"),
+                MushroomRed = VoxelRegistry.GetIdOrThrow("std:MushroomRed"),
+                MushroomTan = VoxelRegistry.GetIdOrThrow("std:MushroomTan"),
+                Oven = VoxelRegistry.GetIdOrThrow("std:Oven"),
+                Planks = VoxelRegistry.GetIdOrThrow("std:Planks"),
+                PlanksRed = VoxelRegistry.GetIdOrThrow("std:PlanksRed"),
+                Rock = VoxelRegistry.GetIdOrThrow("std:Rock"),
+                RockMossy = VoxelRegistry.GetIdOrThrow("std:RockMossy"),
+                Sand = VoxelRegistry.GetIdOrThrow("std:Sand"),
+                SandGrey = VoxelRegistry.GetIdOrThrow("std:SandGrey"),
+                SandRed = VoxelRegistry.GetIdOrThrow("std:SandRed"),
+                SandStoneRed = VoxelRegistry.GetIdOrThrow("std:SandStoneRed"),
+                SandStoneRedElm = VoxelRegistry.GetIdOrThrow("std:SandStoneRedEmeraldOre"),
+                SandStoneRedSandy = VoxelRegistry.GetIdOrThrow("std:SandStoneRedSandy"),
+                Stone = VoxelRegistry.GetIdOrThrow("std:Stone"),
+                StoneCoalOre = VoxelRegistry.GetIdOrThrow("std:StoneCoalOre"),
+                StoneDiamondOre = VoxelRegistry.GetIdOrThrow("std:StoneDiamondOre"),
+                StoneGoldOre = VoxelRegistry.GetIdOrThrow("std:StoneGoldOre"),
+                StoneGrassy = VoxelRegistry.GetIdOrThrow("std:StoneGrassy"),
+                StoneGravel = VoxelRegistry.GetIdOrThrow("std:StoneGravel"),
+                StoneGrey = VoxelRegistry.GetIdOrThrow("std:StoneGrey"),
+                StoneGreySandy = VoxelRegistry.GetIdOrThrow("std:StoneGreySandy"),
+                StoneIronBrownOre = VoxelRegistry.GetIdOrThrow("std:StoneIronBrownOre"),
+                StoneIronGreenOre = VoxelRegistry.GetIdOrThrow("std:StoneIronGreenOre"),
+                StoneSandy = VoxelRegistry.GetIdOrThrow("std:StoneSandy"),
+                StoneSilverOre = VoxelRegistry.GetIdOrThrow("std:StoneSilverOre"),
+                StoneSnowy = VoxelRegistry.GetIdOrThrow("std:StoneSnowy"),
+                Snow = VoxelRegistry.GetIdOrThrow("std:Snow"),
+                Water = VoxelRegistry.GetIdOrThrow("std:Water"),
+                WheatStage1 = VoxelRegistry.GetIdOrThrow("std:WheatStage1"),
+                WheatStage2 = VoxelRegistry.GetIdOrThrow("std:WheatStage2"),
+                WheatStage3 = VoxelRegistry.GetIdOrThrow("std:WheatStage3"),
+                WheatStage4 = VoxelRegistry.GetIdOrThrow("std:WheatStage4"),
+                Workbench = VoxelRegistry.GetIdOrThrow("std:Workbench"),
             };
-
-            // Debug logging: dump the important mappings to help locate misplaced blocks
-            void LogId(string name, ushort id)
-            {
-                if (id == 0) Debug.LogWarning($"VoxelRegistry: '{name}' not found (id=0)");
-                else if (VoxelRegistry.GetName(id, out string resolved)) Debug.Log($"VoxelRegistry: '{name}' => id={id}, resolvedName='{resolved}'");
-                else Debug.Log($"VoxelRegistry: '{name}' => id={id} (no resolved name)");
-            }
-
-            LogId("std:Flowers", config.Flowers);
-            LogId("std:Grass", config.Grass);
-            LogId("std:GrassF", config.GrassF);
-            LogId("std:GrassFDry", config.GrassFDry);
-            LogId("std:WheatStage1", config.WheatStage1);
-            LogId("std:WheatStage2", config.WheatStage2);
-            LogId("std:WheatStage3", config.WheatStage3);
-            LogId("std:WheatStage4", config.WheatStage4);
-
-            // Validate mappings: ensure critical roles point to expected voxel names
-            bool EnsureEndsWith(ref ushort id, string expectedSuffix, string logicalName)
-            {
-                if (id == 0) return false;
-                if (VoxelRegistry.GetName(id, out string resolved))
-                {
-                    if (!resolved.EndsWith(":" + expectedSuffix))
-                    {
-                        Debug.LogError($"VoxelDataImporter: expected {logicalName} to map to *:{expectedSuffix} but got '{resolved}' (id={id}). Clearing mapping to avoid accidental placement.");
-                        id = 0;
-                        return false;
-                    }
-                    return true;
-                }
-                else
-                {
-                    Debug.LogWarning($"VoxelDataImporter: could not resolve name for id={id} when validating {logicalName}. Clearing mapping.");
-                    id = 0;
-                    return false;
-                }
-            }
-
-            // Flowers and grass must map correctly; otherwise clear them so generation falls back to safe defaults.
-            EnsureEndsWith(ref config.Flowers, "Flowers", "Flowers");
-            EnsureEndsWith(ref config.Grass, "Grass", "Grass");
-            EnsureEndsWith(ref config.GrassF, "GrassF", "GrassF");
-            EnsureEndsWith(ref config.GrassFDry, "GrassFDry", "GrassFDry");
-            EnsureEndsWith(ref config.WheatStage1, "WheatStage1", "WheatStage1");
-            EnsureEndsWith(ref config.WheatStage2, "WheatStage2", "WheatStage2");
-            EnsureEndsWith(ref config.WheatStage3, "WheatStage3", "WheatStage3");
-            EnsureEndsWith(ref config.WheatStage4, "WheatStage4", "WheatStage4");
-
+            
              return config;
          }
      }
