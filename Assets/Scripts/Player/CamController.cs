@@ -16,6 +16,9 @@ namespace Player
         [Range(1f,89f)] public float maxLookAngle = 80f;
         private Camera _camera;
         public Rigidbody rigidbodyCam;
+        
+        private bool _jumpInput;
+        private bool _crouchInput;
 
         private void OnEnable()
         {
@@ -42,6 +45,16 @@ namespace Player
         {
             _sprintInput = value.isPressed;
         }
+        
+        public void OnJump(InputValue value)
+        {
+            _jumpInput = value.isPressed;
+        }
+
+        public void OnCrouch(InputValue value)
+        {
+            _crouchInput = value.isPressed;
+        }
 
         private void Update()
         {
@@ -62,10 +75,9 @@ namespace Player
         private void FixedUpdate()
         {
             rigidbodyCam.angularVelocity = Vector3.zero;
-            // Handle vertical movement with E (up) and Q (down) keys
             _verticalInput = 0f;
-            if (Keyboard.current.spaceKey.isPressed) _verticalInput += 1f;
-            if (Keyboard.current.leftCtrlKey.isPressed) _verticalInput -= 1f;
+            if (_jumpInput) _verticalInput += 1f;
+            if (_crouchInput) _verticalInput -= 1f;
             float speedModifier = 1f;
             if (_sprintInput) speedModifier = 2f; // Shift
 
