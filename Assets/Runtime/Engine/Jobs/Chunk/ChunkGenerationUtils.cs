@@ -13,12 +13,17 @@ namespace Runtime.Engine.Jobs.Chunk
         }
 
         [BurstCompile]
-        public static bool PositionIsInChunk(ref int3 pos, ref int3 chunkSize)
+        public static bool InChunk(ref int3 pos, ref int3 chunkSize)
         {
-            return pos.x >= 0 && pos.x < chunkSize.x &&
-                   pos.y >= 0 && pos.y < chunkSize.y &&
-                   pos.z >= 0 && pos.z < chunkSize.z;
+            return InChunk(pos.x, pos.y, pos.z, ref chunkSize);
+        }
+
+        [BurstCompile]
+        public static bool InChunk(int x, int y, int z, ref int3 chunkSize)
+        {
+            return x >= 0 && x < chunkSize.x &&
+                   y >= 0 && y < chunkSize.y &&
+                   z >= 0 && z < chunkSize.z;
         }
     }
 }
-

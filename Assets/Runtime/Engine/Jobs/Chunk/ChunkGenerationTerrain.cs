@@ -13,17 +13,6 @@ namespace Runtime.Engine.Jobs.Chunk
 
         private const int MountainSnowline = 215;
 
-        public struct ChunkColumn
-        {
-            public int Height;
-            public Biome Biome;
-            public ushort TopBlock;
-            public ushort UnderBlock;
-            public ushort StoneBlock;
-            public float Temperature;
-            public float Humidity;
-        }
-
         public static void PrepareChunkMaps(ref int3 chunkSize, ref NoiseProfile noiseProfile, int randomSeed,
             ref GeneratorConfig config, ref int3 chunkWordPos, NativeArray<ChunkColumn> chunkColumns)
         {

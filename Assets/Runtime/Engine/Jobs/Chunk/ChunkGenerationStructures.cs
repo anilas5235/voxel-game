@@ -1,0 +1,202 @@
+﻿using Runtime.Engine.Utils.Extensions;
+using Unity.Burst;
+using Unity.Collections;
+using Unity.Mathematics;
+using Random = Unity.Mathematics.Random;
+
+namespace Runtime.Engine.Jobs.Chunk
+{
+    [BurstCompile]
+    internal static class ChunkGenerationStructures
+    {
+        [BurstCompile]
+        public static void PlaceStructures(ref NativeArray<ushort> vox,
+            ref NativeArray<ChunkColumn> chunkColumns, ref int3 chunkWordPos, ref int3 chunkSize,
+            int randomSeed, ref GeneratorConfig config)
+        {
+            int sx = chunkSize.x;
+            int sz = chunkSize.z;
+            int sy = chunkSize.y;
+
+            uint seed = (uint)((chunkWordPos.x * 43524) ^ (chunkWordPos.z * 7856) ^ randomSeed ^ 0x85ebca6b);
+            Random rng = new(seed == 0 ? 1u : seed);
+
+            for (int x = 1; x < sx - 1; x++)
+            for (int z = 1; z < sz - 1; z++)
+            {
+                int gi = ChunkGenerationUtils.GetColumnIdx(x, z, sz);
+                ChunkColumn chunkCol = chunkColumns[gi];
+                int gy = chunkCol.Height;
+                if (gy <= 0 || gy >= sy - 2) continue;
+
+                Biome biome = chunkCol.Biome;
+                ushort surface = vox[chunkSize.Flatten(x, gy, z)];
+                if (surface == 0) continue;
+
+                switch (biome)
+                {
+                    case Biome.Desert:
+                        if (rng.NextFloat() < 0.00005f)
+                        {
+                            PlacePyramid(ref vox, x, gy + 1, z, 5, config.SandStoneRed, ref chunkSize);
+                        }
+                        else if (rng.NextFloat() < 0.000002f)
+                        {
+                            PlaceOasis(ref vox, x, gy, z, ref chunkSize, ref config, ref rng);
+                        }
+
+                        break;
+                    case Biome.Ice:
+                        if (rng.NextFloat() < 0.0007f)
+                        {
+                            PlaceIgloo(ref vox, x, gy + 1, z, ref chunkSize, ref config);
+                        }
+
+                        break;
+                    case Biome.Ocean:
+                        if (surface == config.Water && rng.NextFloat() < 0.00001f)
+                        {
+                            PlaceShipwreck(ref vox, x, config.WaterLevel - 1, z, ref chunkSize, ref config);
+                        }
+
+                        break;
+                }
+
+                if (biome is Biome.Plains or Biome.Forest or Biome.Mountain or Biome.HighStone &&
+                    rng.NextFloat() < 0.0009f)
+                {
+                    PlaceMineShaft(ref vox, x, gy, z, ref chunkSize, ref config, rng.NextInt(6, 20));
+                }
+            }
+        }
+
+        private static void PlacePyramid(ref NativeArray<ushort> vox, int cx, int cy, int cz, int radius, ushort block,
+            ref int3 chunkSize)
+        {
+            for (int layer = 0; layer <= radius; layer++)
+            {
+                int r = radius - layer;
+                for (int ox = -r; ox <= r; ox++)
+                for (int oz = -r; oz <= r; oz++)
+                {
+                    int x = cx + ox;
+                    int y = cy + layer;
+                    int z = cz + oz;
+                    if (!ChunkGenerationUtils.InChunk(x, y, z, ref chunkSize)) continue;
+                    vox[chunkSize.Flatten(x, y, z)] = block;
+                }
+            }
+        }
+
+        private static void PlaceOasis(ref NativeArray<ushort> vox, int cx, int cy, int cz, ref int3 chunkSize,
+            ref GeneratorConfig config, ref Random rng)
+        {
+            ushort water = config.Water;
+            ushort grass = config.Grass;
+            for (int ox = -1; ox <= 1; ox++)
+            for (int oz = -1; oz <= 1; oz++)
+            {
+                int x = cx + ox;
+                int y = cy + 1;
+                int z = cz + oz;
+                if (!ChunkGenerationUtils.InChunk(x, y, z, ref chunkSize)) continue;
+                vox[chunkSize.Flatten(x, y, z)] = water;
+                int sx0 = x + 1;
+                int sx1 = x - 1;
+                int sz0 = z + 1;
+                int sz1 = z - 1;
+                if (ChunkGenerationUtils.InChunk(sx0, y, z, ref chunkSize) &&
+                    vox[chunkSize.Flatten(sx0, y, z)] == 0)
+                    vox[chunkSize.Flatten(sx0, y, z)] = grass;
+                if (ChunkGenerationUtils.InChunk(sx1, y, z, ref chunkSize) &&
+                    vox[chunkSize.Flatten(sx1, y, z)] == 0)
+                    vox[chunkSize.Flatten(sx1, y, z)] = grass;
+                if (ChunkGenerationUtils.InChunk(x, y, sz0, ref chunkSize) &&
+                    vox[chunkSize.Flatten(x, y, sz0)] == 0)
+                    vox[chunkSize.Flatten(x, y, sz0)] = grass;
+                if (ChunkGenerationUtils.InChunk(x, y, sz1, ref chunkSize) &&
+                    vox[chunkSize.Flatten(x, y, sz1)] == 0)
+                    vox[chunkSize.Flatten(x, y, sz1)] = grass;
+            }
+
+            PlacePalm(ref vox, cx - 2, cy + 1, cz, ref rng, ref chunkSize, ref config);
+            PlacePalm(ref vox, cx + 2, cy + 1, cz, ref rng, ref chunkSize, ref config);
+        }
+
+        private static void PlaceIgloo(ref NativeArray<ushort> vox, int cx, int cy, int cz, ref int3 chunkSize,
+            ref GeneratorConfig config)
+        {
+            ushort snow = config.Snow;
+            for (int ox = -1; ox <= 1; ox++)
+            for (int oz = -1; oz <= 1; oz++)
+            for (int oy = 0; oy <= 2; oy++)
+            {
+                int x = cx + ox;
+                int y = cy + oy;
+                int z = cz + oz;
+                if (!ChunkGenerationUtils.InChunk(x, y, z, ref chunkSize)) continue;
+                if (ox == 0 && (oy == 0 && oz == 0) || (oy == 1 && oz == -1) || (oy == 0 && oz == -1)) continue;
+                vox[chunkSize.Flatten(x, y, z)] = snow;
+            }
+        }
+
+        private static void PlaceShipwreck(ref NativeArray<ushort> vox, int cx, int cy, int cz, ref int3 chunkSize,
+            ref GeneratorConfig config)
+        {
+            ushort planks = config.Planks;
+            for (int ox = -2; ox <= 2; ox++)
+            for (int oz = -1; oz <= 1; oz++)
+            {
+                int x = cx + ox;
+                int y = cy + 1 + math.min(math.abs(ox), 1);
+                int z = cz + oz;
+                if (!ChunkGenerationUtils.InChunk(x, y, z, ref chunkSize)) continue;
+                vox[chunkSize.Flatten(x, y, z)] = planks;
+            }
+        }
+
+        private static void PlacePalm(ref NativeArray<ushort> vox, int cx, int cy, int cz, ref Random rng, ref int3 chunkSize,
+            ref GeneratorConfig config)
+        {
+            ushort log = config.LogOak;
+            ushort leaves = config.Leaves;
+            int h = rng.NextInt(3, 6);
+            for (int i = 0; i < h; i++)
+            {
+                int y = cy + i;
+                if (!ChunkGenerationUtils.InChunk(cx, y, cz, ref chunkSize)) break;
+                vox[chunkSize.Flatten(cx, y, cz)] = log;
+            }
+
+            int top = cy + h - 1;
+            for (int ox = -2; ox <= 2; ox++)
+            for (int oz = -2; oz <= 2; oz++)
+            {
+                if (math.abs(ox) + math.abs(oz) > 3) continue;
+                int x = cx + ox;
+                int y = top + rng.NextInt(0, 2);
+                int z = cz + oz;
+                if (!ChunkGenerationUtils.InChunk(x, y, z, ref chunkSize)) continue;
+                vox[chunkSize.Flatten(x, y, z)] = leaves;
+            }
+        }
+
+        private static void PlaceMineShaft(ref NativeArray<ushort> vox, int cx, int groundY, int cz, ref int3 chunkSize,
+            ref GeneratorConfig config, int depth)
+        {
+            ushort planks = config.Planks;
+            for (int y = groundY; y > math.max(1, groundY - depth); y--)
+            {
+                if (!ChunkGenerationUtils.InChunk(cx, y, cz, ref chunkSize)) continue;
+                vox[chunkSize.Flatten(cx, y, cz)] = 0;
+                if ((groundY - y) % 3 == 0 && ChunkGenerationUtils.InChunk(cx + 1, y, cz, ref chunkSize))
+                    vox[chunkSize.Flatten(cx + 1, y, cz)] = planks;
+                if ((groundY - y) % 5 == 0 && ChunkGenerationUtils.InChunk(cx - 1, y, cz, ref chunkSize))
+                    vox[chunkSize.Flatten(cx - 1, y, cz)] = planks;
+            }
+
+            if (ChunkGenerationUtils.InChunk(cx, groundY + 1, cz, ref chunkSize))
+                vox[chunkSize.Flatten(cx, groundY + 1, cz)] = 0;
+        }
+    }
+}

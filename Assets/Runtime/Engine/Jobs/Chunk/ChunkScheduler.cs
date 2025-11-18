@@ -81,7 +81,7 @@ namespace Runtime.Engine.Jobs.Chunk {
             
             double totalTime = (Time.realtimeSinceStartupAsDouble - start) * 1000;
             
-            if (totalTime >= 0.8)
+            if (totalTime >= 1)
             {
                 VoxelEngineLogger.Info<ChunkScheduler>(
                     $"Built {_jobs.Length} ChunkData, Collected Results in <color=red>{totalTime:0.000}</color>ms"

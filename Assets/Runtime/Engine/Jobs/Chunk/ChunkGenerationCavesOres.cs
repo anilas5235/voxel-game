@@ -9,11 +9,10 @@ namespace Runtime.Engine.Jobs.Chunk
     internal static class ChunkGenerationCavesOres
     {
         public static void CarveCaves(int3 chunkSize, NativeArray<ushort> vox, int3 origin,
-            NativeArray<ChunkGenerationTerrain.ChunkColumn> chunkColumns, GeneratorConfig config, int randomSeed,
+            NativeArray<ChunkColumn> chunkColumns, GeneratorConfig config, int randomSeed,
             float caveScale, int lavaLevel)
         {
             int sx = chunkSize.x;
-            int sy = chunkSize.y;
             int sz = chunkSize.z;
 
             for (int x = 0; x < sx; x++)
