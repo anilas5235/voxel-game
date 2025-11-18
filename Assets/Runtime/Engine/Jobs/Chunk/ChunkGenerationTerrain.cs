@@ -66,7 +66,7 @@ namespace Runtime.Engine.Jobs.Chunk
 
                 // Basis-Höhenanteil (klima-unabhängig)
                 const float minHeightFrac = 0.36f;
-                const float maxHeightFrac = 0.8f;
+                const float maxHeightFrac = 0.86f;
                 float baseHeightFrac = math.lerp(minHeightFrac, maxHeightFrac, rawHeight01);
 
                 // Kontinentaler Bias: hebt/senkt Landmassen leicht
@@ -77,9 +77,9 @@ namespace Runtime.Engine.Jobs.Chunk
                 baseHeightFrac *= math.lerp(1f, mountainHeightMultiplier, mountainFactor);
 
                 // Leichter Klima-Einfluss auf die Höhe (Option B)
-                const float climateHeightInfluence = 0.06f; // etwas geringer
+                const float climateHeightInfluence = 0.1f; // etwas geringer
                 const float temperatureHeightBias = 0.5f; // kälter -> etwas höher
-                const float humidityHeightBias = -0.3f; // trockener -> etwas höher
+                const float humidityHeightBias = -0.4f; // trockener -> etwas höher
 
                 float tempDeviation = temperature - 0.5f; // -0.5 .. 0.5
                 float humDeviation = humidity - 0.5f; // -0.5 .. 0.5
@@ -156,9 +156,9 @@ namespace Runtime.Engine.Jobs.Chunk
                     else if (y < gy) v = under;
                     else if (y == gy) v = gy < waterLevel ? waterBlock : top;
                     else v = y < waterLevel ? waterBlock : air;
-
-                    if (v == waterBlock && y == waterLevel && col.Temperature < .3f) v = config.Ice;
-
+                    
+                    if(y == waterLevel && v== waterBlock && col.Temperature < .2f) v = config.Ice;
+                    
                     vox[chunkSize.Flatten(x, y, z)] = v;
                 }
             }

@@ -15,20 +15,25 @@ namespace Runtime.Engine.Jobs.Chunk
             float continentality, float mountainMask)
         {
             // --- 0) Wasser & Strand (harte Extrema) ---
-            if (groundY < waterThreshold - 3) return Biome.Ocean;
-            if (groundY <= waterThreshold + 3 && temp > 0.15f) return Biome.Beach;
+            if (groundY < waterThreshold - 8) return Biome.Ocean;
+            if (groundY <= waterThreshold + 2 && temp > 0.35f) return Biome.Beach;
 
             // --- 1) Höhenextreme / Gebirge ---
             float elevEffective = elev + mountainMask * 0.04f;
             if (elevEffective > 1f) elevEffective = 1f;
 
-            if (elevEffective >= 0.90f) return Biome.HighStone;
-            if (elevEffective >= 0.84f) return Biome.GreyMountain;
-            if (elevEffective >= 0.76f)
+            switch (elevEffective)
             {
-                if (temp <= 0.12f && hum > 0.45f) return Biome.Ice;
-                if (temp <= 0.18f) return Biome.Snow;
-                return Biome.Mountain;
+                case >= 0.90f:
+                    return Biome.HighStone;
+                case >= 0.84f:
+                    return Biome.GreyMountain;
+                case >= 0.76f when temp <= 0.12f && hum > 0.45f:
+                    return Biome.Ice;
+                case >= 0.76f when temp <= 0.18f:
+                    return Biome.Snow;
+                case >= 0.76f:
+                    return Biome.Mountain;
             }
 
             // --- 2) Klimaextreme (sehr kalt / sehr heiß) ---
@@ -38,53 +43,53 @@ namespace Runtime.Engine.Jobs.Chunk
             // 2a) Sehr kalt (temp <= 0.15)
             if (temp <= 0.15f)
             {
-                if (hum > 0.70f) return Biome.Ice;     // extrem kalt + sehr feucht
-                if (hum > 0.50f) return Biome.Snow;    // sehr kalt + feucht
-                if (hum < 0.30f) return Biome.Tundra;  // sehr kalt + trocken
+                return hum switch
+                {
+                    > 0.70f => Biome.Ice,
+                    > 0.50f => Biome.Snow,
+                    < 0.30f => Biome.Tundra,
+                    _ => var > 0.5f ? Biome.Snow : Biome.Tundra
+                };
                 // Übergangsbereich
-                return var > 0.5f ? Biome.Snow : Biome.Tundra;
             }
 
             // 2b) Sehr heiß (temp >= 0.85)
             if (temp >= 0.8f)
             {
-                if (hum > 0.70f) return Biome.Jungle; // heiß + sehr feucht
-
-                // sehr trocken & weit im Binnenland -> rote Wüste
-                if (hum < 0.2f) return Biome.RedDesert;
-
-                if (hum < 0.45f) return Biome.Desert; // heiß + trocken
-
-                // moderat feucht
-                return hum >= 0.50f ? Biome.Forest : Biome.Plains;
+                return hum switch
+                {
+                    > 0.70f => Biome.Jungle,
+                    // sehr trocken & weit im Binnenland -> rote Wüste
+                    < 0.2f => Biome.RedDesert,
+                    < 0.45f => Biome.Desert,
+                    _ => hum >= 0.50f ? Biome.Forest : Biome.Plains
+                };
             }
 
             // --- 3) gemäßigt-kalte Zonen (0.15 < temp < 0.40) ---
             if (temp < 0.40f)
             {
-                // sehr feucht in Wassernähe -> Sumpf
-                if (hum > 0.80f && nearWater) return Biome.Swamp;
-
-                if (hum > 0.60f) return Biome.Forest; // feucht -> Wald
-
-                if (hum < 0.4f) return Biome.Tundra; // trocken + kühl
-
-                // Übergangsband: leichte Mischung Forest/Plains
-                return var > 0.6f ? Biome.Forest : Biome.Plains;
+                return hum switch
+                {
+                    // sehr feucht in Wassernähe -> Sumpf
+                    > 0.80f when nearWater => Biome.Swamp,
+                    > 0.60f => Biome.Forest,
+                    < 0.4f => Biome.Tundra,
+                    _ => var > 0.6f ? Biome.Forest : Biome.Plains
+                };
             }
 
             // --- 4) gemäßigt-warme Zonen (0.40 <= temp < 0.70) ---
             if (temp < 0.70f )
             {
-                if (hum > 0.7f && nearWater) return Biome.Swamp;
-
-                if (hum > 0.62f) return Biome.Forest; // feucht -> Wald
-
-                // leicht trocken -> Plains mit etwas Forest
-                if (hum < 0.2f && temp > .6f) return Biome.Desert; 
-
-                // trocken, aber nicht heiß genug für echte Wüste
-                return var > 0.65f ? Biome.Forest : Biome.Plains;
+                return hum switch
+                {
+                    > 0.7f when nearWater => Biome.Swamp,
+                    > 0.62f => Biome.Forest,
+                    // leicht trocken -> Plains mit etwas Forest
+                    < 0.2f when temp > .6f => Biome.Desert,
+                    _ => var > 0.65f ? Biome.Forest : Biome.Plains
+                };
             }
 
             // --- 5) warme Zonen (0.70 <= temp < 0.8) ---
@@ -92,19 +97,14 @@ namespace Runtime.Engine.Jobs.Chunk
                 if (hum > 0.76f && nearWater) return Biome.Swamp;
 
                 // Trockene, warme Binnenregionen -> Wüste
-                if (continentality >= 0.40f)
-                {
-                    switch (hum)
-                    {
-                        case < .2f:
-                            return Biome.RedDesert;
-                        case < .4f:
-                            return Biome.Desert;
-                    }
-                }
+                if (!(continentality >= 0.40f)) return var > 0.55f ? Biome.Forest : Biome.Plains;
 
-                // Übergangsband
-                return var > 0.55f ? Biome.Forest : Biome.Plains;
+                return hum switch
+                {
+                    < .2f => Biome.RedDesert,
+                    < .4f => Biome.Desert,
+                    _ => var > 0.55f ? Biome.Forest : Biome.Plains
+                };
             }
         }
 

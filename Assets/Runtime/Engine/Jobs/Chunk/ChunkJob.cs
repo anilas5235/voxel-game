@@ -4,6 +4,7 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
+using Random = Unity.Mathematics.Random;
 
 namespace Runtime.Engine.Jobs.Chunk
 {
@@ -20,11 +21,6 @@ namespace Runtime.Engine.Jobs.Chunk
         [ReadOnly] public int RandomSeed;
 
         [ReadOnly] public GeneratorConfig Config;
-
-        // Biome noise tuning
-        // make biomes larger (lower frequency) and increase separation
-        
-        private const float BiomeExaggeration = 1.8f;
 
 
         // use a lower scale for caves so noise varies slower -> larger cave features
@@ -60,12 +56,9 @@ namespace Runtime.Engine.Jobs.Chunk
 
             ChunkGenerationCavesOres.PlaceOres(ChunkSize, vox, Config, RandomSeed);
 
+            PlaceStructures(vox, chunkColumns, chunkWordPos, ChunkSize, RandomSeed, ref Config);
             // Step E: vegetation and micro-structures on surface
-            PlaceVegetationAndStructures(vox, chunkColumns, chunkWordPos);
-
-            // Defensive validation: remove any surface-vegetation that ended up not being on a valid earth-like surface
-            ValidateSurfaceVegetation(vox, chunkColumns);
-
+            PlaceVegetation(vox, chunkColumns, chunkWordPos, ChunkSize, RandomSeed, ref Config);
 
             Data.Chunk data = WriteToChunkData(vox, chunkWordPos);
 
@@ -111,7 +104,7 @@ namespace Runtime.Engine.Jobs.Chunk
             int neighbors = 0;
             // -x
             int3 pos = new(cx - 1, cy, cz);
-            if (PositionIsInChunk(pos, chunkSize))
+            if (InBounds(pos, chunkSize))
             {
                 ushort voxel = vox[chunkSize.Flatten(pos)];
                 if (voxel != 0 && voxel != waterId)
@@ -120,7 +113,7 @@ namespace Runtime.Engine.Jobs.Chunk
 
             pos = new int3(cx + 1, cy, cz);
             // +x
-            if (PositionIsInChunk(pos, chunkSize))
+            if (InBounds(pos, chunkSize))
             {
                 ushort voxel = vox[chunkSize.Flatten(pos)];
                 if (voxel != 0 && voxel != waterId)
@@ -129,7 +122,7 @@ namespace Runtime.Engine.Jobs.Chunk
 
             pos = new int3(cx, cy, cz + 1);
             // +z
-            if (PositionIsInChunk(pos, chunkSize))
+            if (InBounds(pos, chunkSize))
             {
                 ushort voxel = vox[chunkSize.Flatten(pos)];
                 if (voxel != 0 && voxel != waterId)
@@ -138,7 +131,7 @@ namespace Runtime.Engine.Jobs.Chunk
 
             pos = new int3(cx, cy, cz - 1);
             // -z
-            if (PositionIsInChunk(pos, chunkSize))
+            if (InBounds(pos, chunkSize))
             {
                 ushort voxel = vox[chunkSize.Flatten(pos)];
                 if (voxel != 0 && voxel != waterId)
@@ -148,11 +141,16 @@ namespace Runtime.Engine.Jobs.Chunk
             return neighbors > 0;
         }
 
-        private static bool PositionIsInChunk(int3 pos, int3 chunkSize)
+        private static bool InBounds(int3 pos, int3 chunkSize)
         {
-            return pos.x >= 0 && pos.x < chunkSize.x &&
-                   pos.y >= 0 && pos.y < chunkSize.y &&
-                   pos.z >= 0 && pos.z < chunkSize.z;
+            return InBounds(pos.x, pos.y, pos.z, chunkSize);
+        }
+
+        private static bool InBounds(int x, int y, int z, int3 chunkSize)
+        {
+            return x >= 0 && x < chunkSize.x &&
+                   z >= 0 && z < chunkSize.z &&
+                   y >= 0 && y < chunkSize.y;
         }
 
         // Ensure a tree trunk at (cx,cy,cz) would have at least 1 block empty around it (no adjacent trunks).
@@ -167,7 +165,7 @@ namespace Runtime.Engine.Jobs.Chunk
                 int tx = cx + ox;
                 int tz = cz + oz;
 
-                if (!PositionIsInChunk(new int3(tx, cy, tz), chunkSize)) continue;
+                if (!InBounds(new int3(tx, cy, tz), chunkSize)) continue;
                 ushort v = vox[chunkSize.Flatten(tx, cy, tz)];
                 if (v == logA || v == logB) return false;
             }
@@ -175,36 +173,16 @@ namespace Runtime.Engine.Jobs.Chunk
             return true;
         }
 
-        private void PlaceVegetationAndStructures(NativeArray<ushort> vox, NativeArray<ChunkGenerationTerrain.ChunkColumn> chunkColumns,
-            int3 origin)
+        private static void PlaceStructures(NativeArray<ushort> vox,
+            NativeArray<ChunkGenerationTerrain.ChunkColumn> chunkColumns, int3 chunkWordPos, int3 chunkSize,
+            int randomSeed, ref GeneratorConfig config)
         {
-            int sx = ChunkSize.x;
-            int sz = ChunkSize.z;
-            int sy = ChunkSize.y;
-            ushort grass = Config.Grass;
-            ushort sand = Config.Sand != 0 ? Config.Sand : Config.SandGrey;
-            ushort dirt = Config.Dirt != 0
-                ? Config.Dirt
-                : Config.StoneSandy != 0
-                    ? Config.StoneSandy
-                    : Config.Stone != 0
-                        ? Config.Stone
-                        : Config.Rock;
-            ushort leaves = Config.Leaves != 0
-                ? Config.Leaves
-                : Config.LeavesOrange != 0
-                    ? Config.LeavesOrange
-                    : (ushort)0;
-            ushort logOak = Config.LogOak;
-            ushort logBirch = Config.LogBirch;
-            ushort cactus = Config.Cactus;
-            ushort mushroom = Config.MushroomBrown;
-            ushort grassF = Config.GrassF;
-            ushort snowyDirt = Config.DirtSnowy;
-            ushort visibleWater = Config.Water;
+            int sx = chunkSize.x;
+            int sz = chunkSize.z;
+            int sy = chunkSize.y;
 
             // Deterministic per-chunk RNG: combine global seed with origin so different seeds produce different worlds
-            uint seed = (uint)((origin.x * 73856093) ^ (origin.z * 19349663) ^ RandomSeed ^ 0x85ebca6b);
+            uint seed = (uint)((chunkWordPos.x * 43524) ^ (chunkWordPos.z * 7856) ^ randomSeed ^ 0x85ebca6b);
             Random rng = new(seed == 0 ? 1u : seed);
 
             for (int x = 1; x < sx - 1; x++)
@@ -216,174 +194,33 @@ namespace Runtime.Engine.Jobs.Chunk
                 if (gy <= 0 || gy >= sy - 2) continue;
 
                 Biome biome = chunkCol.Biome;
-                ushort surface = vox[ChunkSize.Flatten(x, gy, z)];
-                if (surface == 0 || (visibleWater != 0 && surface == visibleWater)) continue;
-
-                // Neu: nur auf erdeartigen Blöcken Vegetation platzieren
-                if (!IsEarthLike(surface)) continue;
+                ushort surface = vox[chunkSize.Flatten(x, gy, z)];
+                if (surface == 0) continue;
 
                 switch (biome)
                 {
-                    case Biome.Forest:
-                        // less dense forest: reduce chance and increase size variability
-                        if (surface == grass && rng.NextFloat() < 0.12f)
-                        {
-                            int h = rng.NextInt(5, 9);
-                            ushort chosenLog = rng.NextInt(0, 100) < 75 ? logOak : logBirch;
-                            if (CanPlaceTree(vox, x, gy + 1, z, ChunkSize, logOak, logBirch))
-                            {
-                                PlaceTree(vox, x, gy + 1, z, h, chosenLog, leaves, ref rng);
-                            }
-                        }
-                        else if (surface == grass && rng.NextFloat() < 0.12f && grassF != 0)
-                        {
-                            int targetIdx = ChunkSize.Flatten(x, gy + 1, z);
-                            // Guard: ensure the surface cell still matches expected surface and target is free
-                            if (InBounds(x, gy + 1, z) && vox[targetIdx] == 0 &&
-                                vox[ChunkSize.Flatten(x, gy, z)] == surface && IsEarthLike(surface)
-                                && SurfaceHasNeighbor(vox, x, gy, z, ChunkSize, visibleWater)) vox[targetIdx] = grassF;
-                        }
-
-                        break;
-                    case Biome.Plains:
-                        if (surface == grass && rng.NextFloat() < 0.015f)
-                        {
-                            int h = rng.NextInt(6, 10);
-                            ushort chosenLog = rng.NextInt(0, 100) < 80 ? logOak : logBirch;
-                            if (CanPlaceTree(vox, x, gy + 1, z, ChunkSize, logOak, logBirch))
-                            {
-                                PlaceTree(vox, x, gy + 1, z, h, chosenLog, leaves, ref rng);
-                            }
-                        }
-                        else if (surface == grass && rng.NextFloat() < 0.05f && grassF != 0)
-                        {
-                            int targetIdx = ChunkSize.Flatten(x, gy + 1, z);
-                            if (InBounds(x, gy + 1, z) && vox[targetIdx] == 0 &&
-                                vox[ChunkSize.Flatten(x, gy, z)] == surface && IsEarthLike(surface)
-                                && SurfaceHasNeighbor(vox, x, gy, z, ChunkSize, visibleWater)) vox[targetIdx] = grassF;
-                        }
-
-                        break;
-                    case Biome.Jungle:
-                        if (surface == grass && rng.NextFloat() < 0.6f)
-                        {
-                            int h = rng.NextInt(7, 11);
-                            if (CanPlaceTree(vox, x, gy + 1, z, ChunkSize, logOak, logBirch))
-                            {
-                                PlaceTree(vox, x, gy + 1, z, h, logOak, leaves, ref rng);
-                            }
-                        }
-
-                        break;
                     case Biome.Desert:
-                        // cacti in desert
-                        if ((surface == sand || surface == dirt) && rng.NextFloat() < 0.035f && cactus != 0)
+                        if (rng.NextFloat() < 0.00005f)
                         {
-                            // ensure base is still correct and above-block is empty before placing column
-                            if (InBounds(x, gy + 1, z) && vox[ChunkSize.Flatten(x, gy, z)] == surface &&
-                                IsEarthLike(surface) && vox[ChunkSize.Flatten(x, gy + 1, z)] == 0)
-                                PlaceColumn(vox, x, gy + 1, z, cactus, rng.NextInt(1, 5));
+                            PlacePyramid(vox, x, gy + 1, z, 5, config.SandStoneRed, chunkSize);
                         }
-
-                        // dry shrubs / dead bushes in desert
-                        if ((surface == sand || surface == dirt) && rng.NextFloat() < 0.08f && Config.GrassFDry != 0)
+                        else if (rng.NextFloat() < 0.000002f)
                         {
-                            int targetIdx = ChunkSize.Flatten(x, gy + 1, z);
-                            if (InBounds(x, gy + 1, z) && vox[targetIdx] == 0 &&
-                                vox[ChunkSize.Flatten(x, gy, z)] == surface && IsEarthLike(surface)
-                                && SurfaceHasNeighbor(vox, x, gy, z, ChunkSize, visibleWater))
-                                vox[targetIdx] = Config.GrassFDry;
-                        }
-
-                        break;
-                    case Biome.Swamp:
-                        if (rng.NextFloat() < 0.06f && mushroom != 0)
-                        {
-                            // only place a mushroom if the target cell above ground is empty (no floating mushrooms)
-                            int targetIdx = ChunkSize.Flatten(x, gy + 1, z);
-                            if (InBounds(x, gy + 1, z) && vox[targetIdx] == 0 &&
-                                vox[ChunkSize.Flatten(x, gy, z)] == surface && IsEarthLike(surface)
-                                && SurfaceHasNeighbor(vox, x, gy, z, ChunkSize, visibleWater))
-                            {
-                                // choose among mushroom variants
-                                int m = rng.NextInt(0, 100);
-                                if (m < 50 && Config.MushroomBrown != 0) vox[targetIdx] = Config.MushroomBrown;
-                                else if (m < 80 && Config.MushroomRed != 0) vox[targetIdx] = Config.MushroomRed;
-                                else if (Config.MushroomTan != 0) vox[targetIdx] = Config.MushroomTan;
-                            }
-                        }
-
-                        break;
-                    case Biome.HighStone:
-                    case Biome.GreyMountain:
-                        // sparse vegetation on high rocky biomes
-                        if (rng.NextFloat() < 0.02f && surface == dirt && grassF != 0)
-                        {
-                            int targetIdx = ChunkSize.Flatten(x, gy + 1, z);
-                            if (InBounds(x, gy + 1, z) && vox[targetIdx] == 0 &&
-                                vox[ChunkSize.Flatten(x, gy, z)] == surface && IsEarthLike(surface)
-                                && SurfaceHasNeighbor(vox, x, gy, z, ChunkSize, visibleWater)) vox[targetIdx] = grassF;
-                        }
-
-                        break;
-                    case Biome.RedDesert:
-                        // red desert: more cacti (we add more later), but keep big structures rare here
-                        if ((surface == sand || surface == dirt) && rng.NextFloat() < 0.02f && cactus != 0)
-                        {
-                            if (InBounds(x, gy + 1, z) && vox[ChunkSize.Flatten(x, gy, z)] == surface &&
-                                IsEarthLike(surface) && vox[ChunkSize.Flatten(x, gy + 1, z)] == 0)
-                                PlaceColumn(vox, x, gy + 1, z, cactus, rng.NextInt(1, 6));
-                        }
-
-                        if ((surface == sand || surface == dirt) && Config.GrassFDry != 0 && rng.NextFloat() < 0.12f)
-                        {
-                            int tIdx = ChunkSize.Flatten(x, gy + 1, z);
-                            if (InBounds(x, gy + 1, z) && vox[tIdx] == 0) vox[tIdx] = Config.GrassFDry;
-                        }
-
-                        // keep pyramids/oases very rare here (we place better controlled versions later)
-                        if (rng.NextFloat() < 0.000005f)
-                        {
-                            PlacePyramid(vox, x, gy + 1, z, 3, Config.SandRed != 0 ? Config.SandRed : Config.Sand);
-                        }
-
-                        if (rng.NextFloat() < 0.000002f)
-                        {
-                            PlaceOasis(vox, x, gy, z);
-                        }
-
-                        break;
-                    case Biome.Beach:
-                        // place occasional palm and driftwood
-                        if (rng.NextFloat() < 0.02f && InBounds(x, gy + 1, z) &&
-                            vox[ChunkSize.Flatten(x, gy + 1, z)] == 0)
-                        {
-                            PlacePalm(vox, x, gy + 1, z, ref rng);
+                            PlaceOasis(vox, x, gy, z, chunkSize, ref config, ref rng);
                         }
 
                         break;
                     case Biome.Ice:
-                        // freeze surface water and occasionally spawn igloos
-                        if (visibleWater != 0 && surface == visibleWater && InBounds(x, gy, z))
-                        {
-                            // freeze the surface cell
-                            vox[ChunkSize.Flatten(x, gy, z)] = Config.Ice;
-                        }
-
                         if (rng.NextFloat() < 0.0007f)
                         {
-                            PlaceIgloo(vox, x, gy + 1, z);
+                            PlaceIgloo(vox, x, gy + 1, z, chunkSize, ref config);
                         }
 
                         break;
-                    case Biome.Tundra:
-                        if (surface == snowyDirt && rng.NextFloat() < 0.08f && Config.GrassFDead != 0)
+                    case Biome.Ocean:
+                        if (surface == config.Water && rng.NextFloat() < 0.00001f)
                         {
-                            int targetIdx = ChunkSize.Flatten(x, gy + 1, z);
-                            if (InBounds(x, gy + 1, z) && vox[targetIdx] == 0 &&
-                                vox[ChunkSize.Flatten(x, gy, z)] == surface && IsEarthLike(surface)
-                                && SurfaceHasNeighbor(vox, x, gy, z, ChunkSize, visibleWater))
-                                vox[targetIdx] = Config.GrassFDead;
+                            PlaceShipwreck(vox, x, config.WaterLevel - 1, z, chunkSize, ref config);
                         }
 
                         break;
@@ -393,136 +230,230 @@ namespace Runtime.Engine.Jobs.Chunk
                 if (biome is Biome.Plains or Biome.Forest or Biome.Mountain or Biome.HighStone &&
                     rng.NextFloat() < 0.0009f)
                 {
-                    PlaceMineShaft(vox, x, gy, z, rng.NextInt(6, 20));
+                    PlaceMineShaft(vox, x, gy, z, chunkSize, config, rng.NextInt(6, 20));
                 }
+            }
+        }
 
-                // Only place flowers in Plains and only on actual grass blocks (avoid caves/other biomes)
-                // Also guard against ID collisions with wheat stages.
-                if (biome == Biome.Plains && Config.Flowers != 0 && surface == grass
-                    && Config.Flowers != Config.WheatStage1 && Config.Flowers != Config.WheatStage2
-                    && Config.Flowers != Config.WheatStage3 && Config.Flowers != Config.WheatStage4)
-                {
-                    int targetIdx = ChunkSize.Flatten(x, gy + 1, z);
-                    // slightly higher chance specifically for plains
-                    const float flowerChancePlains = 0.06f;
-                    if (InBounds(x, gy + 1, z) && vox[targetIdx] == 0 && vox[ChunkSize.Flatten(x, gy, z)] == surface &&
-                        IsEarthLike(surface)
-                        && rng.NextFloat() < flowerChancePlains &&
-                        SurfaceHasNeighbor(vox, x, gy, z, ChunkSize, visibleWater))
-                    {
-                        vox[targetIdx] = Config.Flowers;
-                    }
-                }
 
-                // Wheat clusters near water in plains
-                if (biome == Biome.Plains && surface == grass && Config.WheatStage1 != 0 &&
-                    SurfaceHasNeighbor(vox, x, gy, z, ChunkSize, visibleWater))
-                {
-                    // reduce overall wheat frequency
-                    if (rng.NextFloat() < 0.02f)
+        private static void PlaceVegetation(NativeArray<ushort> vox,
+            NativeArray<ChunkGenerationTerrain.ChunkColumn> chunkColumns,
+            int3 chunkWordPos, int3 chunkSize, int randomSeed, ref GeneratorConfig config)
+        {
+            int sx = chunkSize.x;
+            int sz = chunkSize.z;
+            int sy = chunkSize.y;
+
+            // Deterministic per-chunk RNG: combine global seed with origin so different seeds produce different worlds
+            uint seed = (uint)((chunkWordPos.x * 73856093) ^ (chunkWordPos.z * 19349663) ^ randomSeed ^ 0x85ebca6b);
+            Random rng = new(seed == 0 ? 1u : seed);
+
+            for (int x = 1; x < sx - 1; x++)
+            for (int z = 1; z < sz - 1; z++)
+            {
+                int gi = GetColumIdx(x, z, sz);
+                ChunkGenerationTerrain.ChunkColumn chunkCol = chunkColumns[gi];
+                int gy = chunkCol.Height;
+                if (gy <= 0 || gy >= sy - 2) continue;
+
+                Biome biome = chunkCol.Biome;
+                ushort surface = vox[chunkSize.Flatten(x, gy, z)];
+                if (surface == 0) continue;
+
+                TryPlaceBiomVegetation(vox, chunkColumns, chunkSize, ref config, surface, x, gy, z, biome, ref rng);
+            }
+        }
+
+        private static void TryPlaceBiomVegetation(NativeArray<ushort> vox,
+            NativeArray<ChunkGenerationTerrain.ChunkColumn> chunkColumns, int3 chunkSize,
+            ref GeneratorConfig config, ushort surface, int x, int gy, int z, Biome biome, ref Random rng)
+        {
+            // nur auf erdeartigen Blöcken Vegetation platzieren
+            if (!IsEarthLike(surface, ref config)) return;
+            // only place vegetation if the block above ground is empty
+            if (!InBounds(x, gy + 1, z, chunkSize) || vox[chunkSize.Flatten(x, gy + 1, z)] != 0) return;
+
+            int oneAboveIdx = chunkSize.Flatten(x, gy + 1, z);
+
+            switch (biome)
+            {
+                case Biome.Forest:
+                    if (surface != config.Grass) break;
+                    // less dense forest: reduce chance and increase size variability
+                    if (rng.NextFloat() < 0.1f)
                     {
-                        int cluster = rng.NextInt(1, 4);
-                        for (int wx = -cluster; wx <= cluster; wx++)
-                        for (int wz = -cluster; wz <= cluster; wz++)
+                        int h = rng.NextInt(5, 9);
+                        ushort chosenLog = rng.NextInt(0, 100) < 75 ? config.LogOak : config.LogBirch;
+                        if (CanPlaceTree(vox, x, gy + 1, z, chunkSize, config.LogOak, config.LogBirch))
                         {
-                            int tx = x + wx;
-                            int tz = z + wz;
-                            if (tx < 0 || tx >= sx || tz < 0 || tz >= sz) continue;
-                            int tgi = GetColumIdx(tx, tz, sz);
-                            int tgy = chunkColumns[tgi].Height;
-                            // require that target column's ground is earth-like and not underwater
-                            if (tgy <= 0 || tgy >= sy - 1) continue;
-                            int belowIdx = ChunkSize.Flatten(tx, tgy, tz);
-                            ushort below = vox[belowIdx];
-                            if (!IsEarthLike(below)) continue;
-                            int tIdx = ChunkSize.Flatten(tx, tgy + 1, tz);
-                            if (vox[tIdx] == 0)
-                            {
-                                int stage = rng.NextInt(1, 5);
-                                ushort id = stage switch
-                                {
-                                    1 => Config.WheatStage1,
-                                    2 => Config.WheatStage2,
-                                    3 => Config.WheatStage3,
-                                    _ => Config.WheatStage4
-                                };
-                                vox[tIdx] = id;
-                            }
+                            PlaceTree(vox, x, gy + 1, z, h, chosenLog, ref rng, ref config, chunkSize);
                         }
                     }
-                }
+                    else if (rng.NextFloat() < 0.12f)
+                    {
+                        vox[oneAboveIdx] = config.GrassF;
+                    }
 
-                // Slightly increase chances for some structures so they are more likely to appear during testing
-                // RedDesert: pyramids and oases
-                if (biome == Biome.RedDesert)
+                    break;
+                case Biome.Plains:
+                    if (surface != config.Grass) break;
+                    if (rng.NextFloat() < 0.015f)
+                    {
+                        int h = rng.NextInt(6, 10);
+                        ushort chosenLog = rng.NextInt(0, 100) < 80 ? config.LogOak : config.LogBirch;
+                        if (CanPlaceTree(vox, x, gy + 1, z, chunkSize, config.LogOak, config.LogBirch))
+                        {
+                            PlaceTree(vox, x, gy + 1, z, h, chosenLog, ref rng, ref config, chunkSize);
+                        }
+                    }
+                    else if (rng.NextFloat() < 0.06f)
+                    {
+                        // slightly higher chance specifically for plains
+                        vox[oneAboveIdx] = config.Flowers;
+                    }
+                    else if (SurfaceHasNeighbor(vox, x, gy, z, chunkSize, config.Water) && rng.NextFloat() < 0.002f)
+                    {
+                        SpawnWheatCluster(vox, chunkColumns, chunkSize, ref config, ref rng, x, z);
+                    }
+                    else if (rng.NextFloat() < 0.05f)
+                    {
+                        vox[oneAboveIdx] = config.GrassF;
+                    }
+
+                    break;
+                case Biome.Jungle:
+                    if (surface == config.Grass && rng.NextFloat() < 0.6f)
+                    {
+                        int h = rng.NextInt(7, 11);
+                        if (CanPlaceTree(vox, x, gy + 1, z, chunkSize, config.LogOak, config.LogBirch))
+                        {
+                            PlaceTree(vox, x, gy + 1, z, h, config.LogOak, ref rng, ref config, chunkSize);
+                        }
+                    }
+
+                    break;
+                case Biome.Desert:
+                    // cacti in desert
+                    if (surface == config.Sand && rng.NextFloat() < 0.015f)
+                    {
+                        PlaceColumn(vox, x, gy + 1, z, chunkSize, config.Cactus, rng.NextInt(1, 5));
+                    }
+                    else if ((surface == config.Sand || surface == config.Dirt) && rng.NextFloat() < 0.08f)
+                    {
+                        vox[oneAboveIdx] = config.GrassFDry;
+                    }
+
+                    break;
+                case Biome.Swamp:
+                    if (rng.NextFloat() < 0.06f)
+                    {
+                        int m = rng.NextInt(0, 100);
+                        vox[oneAboveIdx] = m switch
+                        {
+                            < 50 => config.MushroomBrown,
+                            < 80 => config.MushroomRed,
+                            _ => config.MushroomTan
+                        };
+                    }
+
+                    break;
+                case Biome.HighStone:
+                case Biome.GreyMountain:
+                    // sparse vegetation on high rocky biomes
+                    if (rng.NextFloat() < 0.02f && surface == config.Dirt)
+                    {
+                        vox[oneAboveIdx] = config.GrassF;
+                    }
+
+                    break;
+                case Biome.RedDesert:
+                    if (surface != config.SandRed) break;
+                    // red desert: more cacti (we add more later), but keep big structures rare here
+                    if (rng.NextFloat() < 0.004f)
+                    {
+                        PlaceColumn(vox, x, gy + 1, z, chunkSize, config.Cactus, rng.NextInt(1, 6));
+                    }
+
+                    break;
+                case Biome.Beach:
+                    // place occasional palm trees
+                    if (rng.NextFloat() < 0.02f)
+                    {
+                        PlacePalm(vox, x, gy + 1, z, ref rng, chunkSize, ref config);
+                    }
+
+                    break;
+                case Biome.Tundra:
+                    if (surface == config.DirtSnowy && rng.NextFloat() < 0.08f)
+                    {
+                        vox[oneAboveIdx] = config.GrassFDead;
+                    }
+
+                    break;
+            }
+        }
+
+        private static void SpawnWheatCluster(NativeArray<ushort> vox,
+            NativeArray<ChunkGenerationTerrain.ChunkColumn> chunkColumns, int3 chunkSize,
+            ref GeneratorConfig config, ref Random rng, int x, int z)
+        {
+            int cluster = rng.NextInt(1, 4);
+            for (int wx = -cluster; wx <= cluster; wx++)
+            for (int wz = -cluster; wz <= cluster; wz++)
+            {
+                int tx = x + wx;
+                int tz = z + wz;
+                if (tx < 0 || tx >= chunkSize.x || tz < 0 || tz >= chunkSize.z) continue;
+                int tgi = GetColumIdx(tx, tz, chunkSize.z);
+                int tgy = chunkColumns[tgi].Height;
+                // require that target column's ground is earth-like and not underwater
+                if (tgy <= 0 || tgy >= chunkSize.y - 1) continue;
+                int belowIdx = chunkSize.Flatten(tx, tgy, tz);
+                ushort below = vox[belowIdx];
+                if (!IsEarthLike(below, ref config)) continue;
+                int tIdx = chunkSize.Flatten(tx, tgy + 1, tz);
+                if (vox[tIdx] == 0)
                 {
-                    // more cacti
-                    if ((surface == sand || surface == dirt) && rng.NextFloat() < 0.06f && cactus != 0)
+                    int stage = rng.NextInt(1, 5);
+                    ushort id = stage switch
                     {
-                        if (InBounds(x, gy + 1, z) && vox[ChunkSize.Flatten(x, gy, z)] == surface &&
-                            IsEarthLike(surface) &&
-                            vox[ChunkSize.Flatten(x, gy + 1, z)] == 0)
-                            PlaceColumn(vox, x, gy + 1, z, cactus, rng.NextInt(1, 6));
-                    }
-
-                    // fewer oases
-                    if (rng.NextFloat() < 0.0002f)
-                    {
-                        PlaceOasis(vox, x, gy, z);
-                    }
-
-                    // occasional small pyramid (still rare)
-                    if (rng.NextFloat() < 0.001f)
-                    {
-                        PlacePyramid(vox, x, gy + 1, z, 3, Config.SandRed != 0 ? Config.SandRed : Config.Sand);
-                    }
-                }
-
-                // Ocean shipwrecks slightly more frequent
-                if (biome == Biome.Ocean && visibleWater != 0 && surface == visibleWater)
-                {
-                    if (rng.NextFloat() < 0.001f)
-                    {
-                        PlaceShipwreck(vox, x, gy + 1, z);
-                    }
+                        1 => config.WheatStage1,
+                        2 => config.WheatStage2,
+                        3 => config.WheatStage3,
+                        _ => config.WheatStage4
+                    };
+                    vox[tIdx] = id;
                 }
             }
         }
 
-        // Helper: returns true if the given block id is an earth-like ground block suitable for vegetation
-        private bool IsEarthLike(ushort id)
+        private static bool IsEarthLike(ushort id, ref GeneratorConfig config)
         {
             if (id == 0) return false;
-            if (id == Config.Grass) return true;
-            if (id == Config.Dirt) return true;
-            if (Config.DirtSnowy != 0 && id == Config.DirtSnowy) return true;
-            if (id == Config.Sand || id == Config.SandGrey || (Config.SandRed != 0 && id == Config.SandRed))
-                return true;
-            if (Config.StoneSandy != 0 && id == Config.StoneSandy) return true;
-            if (Config.SandStoneRed != 0 && id == Config.SandStoneRed) return true;
-            if (Config.SandStoneRedSandy != 0 && id == Config.SandStoneRedSandy) return true;
-            // treat grass-like fertile surfaces as earth
-            if (Config.GrassF != 0 && id == Config.GrassF) return true;
-            if (Config.GrassFDry != 0 && id == Config.GrassFDry) return true;
-            return false;
+            return id == config.Grass ||
+                   id == config.Dirt ||
+                   id == config.DirtSnowy ||
+                   id == config.Sand ||
+                   id == config.SandGrey ||
+                   id == config.SandRed ||
+                   id == config.StoneSandy;
         }
 
-        private void PlaceTree(NativeArray<ushort> vox, int x, int y, int z, int height, int idLog, int idLeaves,
-            ref Random rng)
+        private static void PlaceTree(NativeArray<ushort> vox, int x, int y, int z, int height, ushort idLog,
+            ref Random rng, ref GeneratorConfig config, int3 chunkSize)
         {
-            // If this is a birch trunk, prefer orange leaves when configured
-            if (idLog == Config.LogBirch && Config.LeavesOrange != 0)
+            ushort idLeaves = config.Leaves;
+            if (idLog == config.LogBirch)
             {
-                idLeaves = Config.LeavesOrange;
+                idLeaves = config.LeavesOrange;
             }
 
-            if (idLog == 0 || idLeaves == 0) return;
-            int sy = ChunkSize.y;
+            int sy = chunkSize.y;
             // Trunk: ensure inside chunk before writing
             for (int i = 0; i < height && y + i < sy - 1; i++)
             {
-                if (!InBounds(x, y + i, z)) break;
-                vox[ChunkSize.Flatten(x, y + i, z)] = (ushort)idLog;
+                if (!InBounds(x, y + i, z, chunkSize)) break;
+                vox[chunkSize.Flatten(x, y + i, z)] = idLog;
             }
 
             const int radius = 2;
@@ -537,141 +468,49 @@ namespace Runtime.Engine.Jobs.Chunk
                     int yy = top + oy;
                     int tx = x + ox;
                     int tz = z + oz;
-                    if (!InBounds(tx, yy, tz)) continue;
-                    vox[ChunkSize.Flatten(tx, yy, tz)] = (ushort)idLeaves;
+                    if (!InBounds(tx, yy, tz, chunkSize)) continue;
+                    vox[chunkSize.Flatten(tx, yy, tz)] = idLeaves;
                 }
             }
 
             // If birch trunk, sometimes spawn mushrooms near the base (various types)
-            if (idLog == Config.LogBirch)
+            if (idLog != config.LogBirch) return;
+
+            for (int ox = -2; ox <= 2; ox++)
+            for (int oz = -2; oz <= 2; oz++)
             {
-                for (int ox = -2; ox <= 2; ox++)
-                for (int oz = -2; oz <= 2; oz++)
+                if (!(rng.NextFloat() < 0.12f)) continue;
+                
+                int bx = x + ox;
+                int bz = z + oz;
+                int by = y - 1;
+                if (!InBounds(bx, by, bz, chunkSize)) continue;
+                int groundIdx = chunkSize.Flatten(bx, by, bz);
+                int idx = chunkSize.Flatten(bx, by + 1, bz);
+
+
+                if (vox[idx] != 0 ||
+                    InBounds(bx, by + 1, bz, chunkSize) ||
+                    !IsEarthLike(vox[groundIdx], ref config)) continue;
+
+                int m = rng.NextInt(0, 100);
+                vox[idx] = m switch
                 {
-                    if (rng.NextFloat() < 0.12f)
-                    {
-                        int bx = x + ox;
-                        int bz = z + oz;
-                        int by = y - 1;
-                        if (!InBounds(bx, by, bz)) continue;
-                        int groundIdx = ChunkSize.Flatten(bx, by, bz);
-                        int idx = ChunkSize.Flatten(bx, by + 1, bz);
-                        // Neu: nur auf erdeartigen Böden Pilze platzieren und nicht auf bereits belegte Zellen
-                        if (!InBounds(bx, by + 1, bz)) continue;
-                        if (!IsEarthLike(vox[groundIdx])) continue;
-                        if (vox[idx] == 0)
-                        {
-                            int m = rng.NextInt(0, 100);
-                            if (m < 50 && Config.MushroomBrown != 0) vox[idx] = Config.MushroomBrown;
-                            else if (m < 80 && Config.MushroomRed != 0) vox[idx] = Config.MushroomRed;
-                            else if (Config.MushroomTan != 0) vox[idx] = Config.MushroomTan;
-                        }
-                    }
-                }
+                    < 50 => config.MushroomBrown,
+                    < 80 => config.MushroomRed,
+                    _ => config.MushroomTan
+                };
             }
         }
 
-        private void PlaceColumn(NativeArray<ushort> vox, int x, int y, int z, int blockId, int count)
+        private static void PlaceColumn(NativeArray<ushort> vox, int x, int y, int z, int3 chunkSize, int blockId,
+            int count)
         {
-            int sy = ChunkSize.y;
+            int sy = chunkSize.y;
             for (int i = 0; i < count && y + i < sy - 1; i++)
             {
-                if (!InBounds(x, y + i, z)) break;
-                vox[ChunkSize.Flatten(x, y + i, z)] = (ushort)blockId;
-            }
-        }
-
-        private bool InBounds(int x, int y, int z)
-        {
-            return x >= 0 && x < ChunkSize.x && z >= 0 && z < ChunkSize.z && y >= 0 && y < ChunkSize.y;
-        }
-
-        private void ValidateSurfaceVegetation(NativeArray<ushort> vox, NativeArray<ChunkGenerationTerrain.ChunkColumn> chunkColumns)
-        {
-            int sx = ChunkSize.x;
-            int sz = ChunkSize.z;
-            int sy = ChunkSize.y;
-
-            // copy config fields to locals to avoid capturing 'this' inside local functions
-            ushort cfgFlowers = Config.Flowers;
-            ushort cfgGrassF = Config.GrassF;
-            ushort cfgGrassFDry = Config.GrassFDry;
-            ushort cfgMushroomBrown = Config.MushroomBrown;
-            ushort cfgMushroomRed = Config.MushroomRed;
-            ushort cfgMushroomTan = Config.MushroomTan;
-            ushort cfgGrass = Config.Grass;
-            ushort cfgCactus = Config.Cactus;
-            ushort cfgDirt = Config.Dirt;
-            ushort cfgDirtSnowy = Config.DirtSnowy;
-            ushort cfgSand = Config.Sand;
-            ushort cfgSandGrey = Config.SandGrey;
-            ushort cfgSandRed = Config.SandRed;
-            ushort cfgStoneSandy = Config.StoneSandy;
-            ushort cfgSandStoneRed = Config.SandStoneRed;
-            ushort cfgSandStoneRedSandy = Config.SandStoneRedSandy;
-
-            // helper to check vegetation IDs using local copies only
-            bool IsSurfaceVegLocal(ushort id)
-            {
-                if (id == 0) return false;
-                if (cfgFlowers != 0 && id == cfgFlowers) return true;
-                if (cfgGrassF != 0 && id == cfgGrassF) return true;
-                if (cfgGrassFDry != 0 && id == cfgGrassFDry) return true;
-                if (cfgMushroomBrown != 0 && id == cfgMushroomBrown) return true;
-                if (cfgMushroomRed != 0 && id == cfgMushroomRed) return true;
-                if (cfgMushroomTan != 0 && id == cfgMushroomTan) return true;
-                if (cfgGrass != 0 && id == cfgGrass) return false; // grass is ground, not surface plant
-                if (cfgCactus != 0 && id == cfgCactus) return true; // treat cactus as surface vegetation for validation
-                return false;
-            }
-
-            // local version of IsEarthLike using only local copies
-            bool IsEarthLikeLocal(ushort id)
-            {
-                if (id == 0) return false;
-                if (cfgGrass != 0 && id == cfgGrass) return true;
-                if (cfgDirt != 0 && id == cfgDirt) return true;
-                if (cfgDirtSnowy != 0 && id == cfgDirtSnowy) return true;
-                if (cfgSand != 0 && id == cfgSand) return true;
-                if (cfgSandGrey != 0 && id == cfgSandGrey) return true;
-                if (cfgSandRed != 0 && id == cfgSandRed) return true;
-                if (cfgStoneSandy != 0 && id == cfgStoneSandy) return true;
-                if (cfgSandStoneRed != 0 && id == cfgSandStoneRed) return true;
-                if (cfgSandStoneRedSandy != 0 && id == cfgSandStoneRedSandy) return true;
-                if (cfgGrassF != 0 && id == cfgGrassF) return true;
-                if (cfgGrassFDry != 0 && id == cfgGrassFDry) return true;
-                return false;
-            }
-
-            for (int x = 0; x < sx; x++)
-            for (int z = 0; z < sz; z++)
-            {
-                int gi = GetColumIdx(x, z, sz);
-                int gy = chunkColumns[gi].Height;
-                if (gy < 0 || gy >= sy - 1) continue;
-
-                int expectedY = gy + 1;
-                // check only the column near expected surface and a small neighborhood to be safe
-                for (int y = 0; y < sy; y++)
-                {
-                    int idx = ChunkSize.Flatten(x, y, z);
-                    ushort id = vox[idx];
-                    if (!IsSurfaceVegLocal(id)) continue;
-
-                    // valid only if exactly at expectedY and block below is earth-like
-                    if (y != expectedY)
-                    {
-                        vox[idx] = 0;
-                        continue;
-                    }
-
-                    int belowIdx = ChunkSize.Flatten(x, gy, z);
-                    ushort below = vox[belowIdx];
-                    if (!IsEarthLikeLocal(below))
-                    {
-                        vox[idx] = 0;
-                    }
-                }
+                if (!InBounds(x, y + i, z, chunkSize)) break;
+                vox[chunkSize.Flatten(x, y + i, z)] = (ushort)blockId;
             }
         }
 
@@ -681,7 +520,8 @@ namespace Runtime.Engine.Jobs.Chunk
         }
 
         // Simple helper: place a small square pyramid centered on (cx,cy,cz)
-        private void PlacePyramid(NativeArray<ushort> vox, int cx, int cy, int cz, int radius, ushort block)
+        private static void PlacePyramid(NativeArray<ushort> vox, int cx, int cy, int cz, int radius, ushort block,
+            int3 chunkSize)
         {
             for (int layer = 0; layer <= radius; layer++)
             {
@@ -692,50 +532,49 @@ namespace Runtime.Engine.Jobs.Chunk
                     int x = cx + ox;
                     int y = cy + layer;
                     int z = cz + oz;
-                    if (!InBounds(x, y, z)) continue;
-                    vox[ChunkSize.Flatten(x, y, z)] = block;
+                    if (!InBounds(x, y, z, chunkSize)) continue;
+                    vox[chunkSize.Flatten(x, y, z)] = block;
                 }
             }
         }
 
-        private void PlaceOasis(NativeArray<ushort> vox, int cx, int cy, int cz)
+        private static void PlaceOasis(NativeArray<ushort> vox, int cx, int cy, int cz, int3 chunkSize,
+            ref GeneratorConfig config, ref Random rng)
         {
-            ushort water = Config.Water;
-            ushort grass = Config.Grass;
+            ushort water = config.Water;
+            ushort grass = config.Grass;
             for (int ox = -1; ox <= 1; ox++)
             for (int oz = -1; oz <= 1; oz++)
             {
                 int x = cx + ox;
                 int y = cy + 1;
                 int z = cz + oz;
-                if (!InBounds(x, y, z)) continue;
-                vox[ChunkSize.Flatten(x, y, z)] = water;
+                if (!InBounds(x, y, z, chunkSize)) continue;
+                vox[chunkSize.Flatten(x, y, z)] = water;
                 // surround with grass where possible
                 int sx0 = x + 1;
                 int sx1 = x - 1;
                 int sz0 = z + 1;
                 int sz1 = z - 1;
-                if (InBounds(sx0, y, z) && vox[ChunkSize.Flatten(sx0, y, z)] == 0)
-                    vox[ChunkSize.Flatten(sx0, y, z)] = grass;
-                if (InBounds(sx1, y, z) && vox[ChunkSize.Flatten(sx1, y, z)] == 0)
-                    vox[ChunkSize.Flatten(sx1, y, z)] = grass;
-                if (InBounds(x, y, sz0) && vox[ChunkSize.Flatten(x, y, sz0)] == 0)
-                    vox[ChunkSize.Flatten(x, y, sz0)] = grass;
-                if (InBounds(x, y, sz1) && vox[ChunkSize.Flatten(x, y, sz1)] == 0)
-                    vox[ChunkSize.Flatten(x, y, sz1)] = grass;
+                if (InBounds(sx0, y, z, chunkSize) && vox[chunkSize.Flatten(sx0, y, z)] == 0)
+                    vox[chunkSize.Flatten(sx0, y, z)] = grass;
+                if (InBounds(sx1, y, z, chunkSize) && vox[chunkSize.Flatten(sx1, y, z)] == 0)
+                    vox[chunkSize.Flatten(sx1, y, z)] = grass;
+                if (InBounds(x, y, sz0, chunkSize) && vox[chunkSize.Flatten(x, y, sz0)] == 0)
+                    vox[chunkSize.Flatten(x, y, sz0)] = grass;
+                if (InBounds(x, y, sz1, chunkSize) && vox[chunkSize.Flatten(x, y, sz1)] == 0)
+                    vox[chunkSize.Flatten(x, y, sz1)] = grass;
             }
 
             // plant a couple of small palm-like trees at edges
-            Random r1 = new((uint)(cx * 73856093 ^ cz * 19349663));
-            Random r2 = new((uint)((cx + 7) * 73856093 ^ (cz - 5) * 19349663));
-            PlacePalm(vox, cx - 2, cy + 1, cz, ref r1);
-            PlacePalm(vox, cx + 2, cy + 1, cz, ref r2);
+            PlacePalm(vox, cx - 2, cy + 1, cz, ref rng, chunkSize, ref config);
+            PlacePalm(vox, cx + 2, cy + 1, cz, ref rng, chunkSize, ref config);
         }
 
-        private void PlaceIgloo(NativeArray<ushort> vox, int cx, int cy, int cz)
+        private static void PlaceIgloo(NativeArray<ushort> vox, int cx, int cy, int cz, int3 chunkSize,
+            ref GeneratorConfig config)
         {
-            ushort snow = Config.Snow;
-            if (snow == 0) return;
+            ushort snow = config.Snow;
             // simple 3x3 dome
             for (int ox = -1; ox <= 1; ox++)
             for (int oz = -1; oz <= 1; oz++)
@@ -744,83 +583,73 @@ namespace Runtime.Engine.Jobs.Chunk
                 int x = cx + ox;
                 int y = cy + oy;
                 int z = cz + oz;
-                if (!InBounds(x, y, z)) continue;
+                if (!InBounds(x, y, z, chunkSize)) continue;
                 // hollow interior
-                if (oy == 0 && ox == 0 && oz == 0) continue;
-                vox[ChunkSize.Flatten(x, y, z)] = snow;
+                if (ox == 0 && (oy == 0 && oz == 0)||(oy ==1 && oz == -1)||(oy==0 && oz == -1)) continue;
+                vox[chunkSize.Flatten(x, y, z)] = snow;
             }
-
-            // doorway
-            if (InBounds(cx, cy + 1, cz - 1)) vox[ChunkSize.Flatten(cx, cy + 1, cz - 1)] = 0;
         }
 
-        private void PlaceShipwreck(NativeArray<ushort> vox, int cx, int cy, int cz)
+        private static void PlaceShipwreck(NativeArray<ushort> vox, int cx, int cy, int cz, int3 chunkSize,
+            ref GeneratorConfig config)
         {
-            ushort planks = Config.Planks;
-            if (planks == 0) return;
+            ushort planks = config.Planks;
             for (int ox = -2; ox <= 2; ox++)
             for (int oz = -1; oz <= 1; oz++)
             {
                 int x = cx + ox;
                 int y = cy + 1 + math.min(math.abs(ox), 1);
                 int z = cz + oz;
-                if (!InBounds(x, y, z)) continue;
-                vox[ChunkSize.Flatten(x, y, z)] = planks;
+                if (!InBounds(x, y, z, chunkSize)) continue;
+                vox[chunkSize.Flatten(x, y, z)] = planks;
             }
         }
 
-        private void PlacePalm(NativeArray<ushort> vox, int cx, int cy, int cz, ref Random rng)
+        private static void PlacePalm(NativeArray<ushort> vox, int cx, int cy, int cz, ref Random rng, int3 chunkSize,
+            ref GeneratorConfig config)
         {
-            ushort log = Config.LogOak != 0 ? Config.LogOak : Config.Planks;
-            ushort leaves = Config.Leaves != 0
-                ? Config.Leaves
-                : Config.LeavesOrange != 0
-                    ? Config.LeavesOrange
-                    : (ushort)0;
-            if (log == 0) return;
+            ushort log = config.LogOak;
+            ushort leaves = config.Leaves;
             int h = rng.NextInt(3, 6);
             for (int i = 0; i < h; i++)
             {
                 int y = cy + i;
-                if (!InBounds(cx, y, cz)) break;
-                vox[ChunkSize.Flatten(cx, y, cz)] = log;
+                if (!InBounds(cx, y, cz, chunkSize)) break;
+                vox[chunkSize.Flatten(cx, y, cz)] = log;
             }
 
-            if (leaves != 0)
+            int top = cy + h - 1;
+            for (int ox = -2; ox <= 2; ox++)
+            for (int oz = -2; oz <= 2; oz++)
             {
-                int top = cy + h - 1;
-                for (int ox = -2; ox <= 2; ox++)
-                for (int oz = -2; oz <= 2; oz++)
-                {
-                    if (math.abs(ox) + math.abs(oz) > 3) continue;
-                    int x = cx + ox;
-                    int y = top + rng.NextInt(0, 2);
-                    int z = cz + oz;
-                    if (!InBounds(x, y, z)) continue;
-                    vox[ChunkSize.Flatten(x, y, z)] = leaves;
-                }
+                if (math.abs(ox) + math.abs(oz) > 3) continue;
+                int x = cx + ox;
+                int y = top + rng.NextInt(0, 2);
+                int z = cz + oz;
+                if (!InBounds(x, y, z, chunkSize)) continue;
+                vox[chunkSize.Flatten(x, y, z)] = leaves;
             }
         }
 
         // Simple mineshaft entrance: vertical shaft with a small wooden rim and occasional ladder-like planks
-        private void PlaceMineShaft(NativeArray<ushort> vox, int cx, int groundY, int cz, int depth)
+        private static void PlaceMineShaft(NativeArray<ushort> vox, int cx, int groundY, int cz, int3 chunkSize,
+            GeneratorConfig config, int depth)
         {
-            ushort wood = Config.Planks != 0 ? Config.Planks : (ushort)0;
+            ushort planks = config.Planks;
             for (int y = groundY; y > math.max(1, groundY - depth); y--)
             {
-                if (!InBounds(cx, y, cz)) continue;
+                if (!InBounds(cx, y, cz, chunkSize)) continue;
                 // carve a 1x1 shaft
-                vox[ChunkSize.Flatten(cx, y, cz)] = 0;
+                vox[chunkSize.Flatten(cx, y, cz)] = 0;
                 // occasionally place wooden support every 3 blocks
-                if (wood != 0 && (groundY - y) % 3 == 0 && InBounds(cx + 1, y, cz))
-                    vox[ChunkSize.Flatten(cx + 1, y, cz)] = wood;
-                if (wood != 0 && (groundY - y) % 5 == 0 && InBounds(cx - 1, y, cz))
-                    vox[ChunkSize.Flatten(cx - 1, y, cz)] = wood;
+                if ((groundY - y) % 3 == 0 && InBounds(cx + 1, y, cz, chunkSize))
+                    vox[chunkSize.Flatten(cx + 1, y, cz)] = planks;
+                if ((groundY - y) % 5 == 0 && InBounds(cx - 1, y, cz, chunkSize))
+                    vox[chunkSize.Flatten(cx - 1, y, cz)] = planks;
             }
 
             // create small entrance on surface
-            if (InBounds(cx, groundY + 1, cz)) vox[ChunkSize.Flatten(cx, groundY + 1, cz)] = 0;
+            if (InBounds(cx, groundY + 1, cz, chunkSize)) vox[chunkSize.Flatten(cx, groundY + 1, cz)] = 0;
         }
     }
 }
-
