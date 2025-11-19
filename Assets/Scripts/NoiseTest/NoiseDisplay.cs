@@ -1,7 +1,6 @@
 ﻿using Runtime.Engine.Noise;
 using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.Serialization;
 using UnityEngine.UI;
 
 namespace NoiseTest
@@ -17,7 +16,7 @@ namespace NoiseTest
         private Texture2D _noiseTexture;
         [SerializeField] private NoiseProfile.Settings settings;
         public float biomeScale = 0.0012f;
-        public float caveScale = 0.03f; 
+        public float caveScale = 0.03f;
         public float pow = 3f;
         public bool showHumidity = true;
         public bool showTemperature = true;
@@ -46,8 +45,8 @@ namespace NoiseTest
 
                     humidity = math.pow(humidity, pow);
 
-                    Color color = new(showHeight ? cave.x is > .75f and < .8f ? 1 :0f : 0f,
-                        showHumidity ? cave.y is > .75f and < .8f ? 1 :0f  : 0f,
+                    Color color = new(showHeight ? cave.x is > .75f and < .8f ? 1 : 0f : 0f,
+                        showHumidity ? cave.y is > .75f and < .8f ? 1 : 0f : 0f,
                         showTemperature ? temperature : 0f);
                     _noiseTexture.SetPixel(x, y, color);
                 }

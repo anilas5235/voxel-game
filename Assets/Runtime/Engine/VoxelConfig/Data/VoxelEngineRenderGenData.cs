@@ -2,7 +2,7 @@
 using Unity.Burst;
 using Unity.Collections;
 
-namespace Runtime.Engine.Voxels.Data
+namespace Runtime.Engine.VoxelConfig.Data
 {
     [BurstCompile]
     public struct VoxelEngineRenderGenData : IDisposable

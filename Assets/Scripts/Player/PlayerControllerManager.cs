@@ -1,23 +1,41 @@
 ﻿using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.InputSystem.Interactions;
 
 namespace Player
 {
-    public class PlayerControllerManager : MonoBehaviour    
+    public class PlayerControllerManager : MonoBehaviour
     {
         [SerializeField] private FlyController flyController;
         [SerializeField] private LookController lookController;
         [SerializeField] private WalkingController walkingController;
-        
+
         private CharacterController _characterController;
 
-        private enum PlayerMode { Walking, Flying }
+        private enum PlayerMode
+        {
+            Walking,
+            Flying
+        }
+
         private PlayerMode _mode = PlayerMode.Walking;
-        
+
         private InputAction _jumpInput;
 
         private bool _crouchPressed;
+
+        private void OnEnable()
+        {
+            _characterController = GetComponent<CharacterController>();
+            ApplyMode();
+        }
+
+        private void Update()
+        {
+            if (_mode == PlayerMode.Flying && _crouchPressed && _characterController.isGrounded)
+            {
+                SwitchToWalking();
+            }
+        }
 
         public void OnDoubleJump(InputValue value)
         {
@@ -31,33 +49,17 @@ namespace Player
         {
             _crouchPressed = value.isPressed;
         }
-        
-        private void OnEnable()
-        {
-            _characterController = GetComponent<CharacterController>();
-            // Ensure initial mode state
-            ApplyMode();
-        }
 
-
-        private void Update()
-        {
-            if (_mode == PlayerMode.Flying && _crouchPressed && _characterController.isGrounded)
-            {
-                SwitchToWalking();
-            }
-        }
-        
         private void SwitchToFly()
         {
-            if(_mode == PlayerMode.Flying) return;
+            if (_mode == PlayerMode.Flying) return;
             _mode = PlayerMode.Flying;
             ApplyMode();
         }
 
         private void SwitchToWalking()
         {
-            if(_mode == PlayerMode.Walking) return;
+            if (_mode == PlayerMode.Walking) return;
             _mode = PlayerMode.Walking;
             ApplyMode();
         }

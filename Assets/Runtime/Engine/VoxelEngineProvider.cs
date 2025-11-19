@@ -6,9 +6,8 @@ using Runtime.Engine.Jobs.Mesh;
 using Runtime.Engine.Noise;
 using Runtime.Engine.Settings;
 using Runtime.Engine.Utils.Provider;
-using Runtime.Engine.Voxels.Data;
+using Runtime.Engine.VoxelConfig.Data;
 using UnityEngine;
-using System.Text;
 
 namespace Runtime.Engine
 {

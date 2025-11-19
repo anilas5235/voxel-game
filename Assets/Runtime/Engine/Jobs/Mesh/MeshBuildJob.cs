@@ -1,6 +1,6 @@
 ﻿using Runtime.Engine.Data;
 using Runtime.Engine.Mesher;
-using Runtime.Engine.Voxels.Data;
+using Runtime.Engine.VoxelConfig.Data;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
@@ -31,7 +31,7 @@ namespace Runtime.Engine.Jobs.Mesh
             UnityEngine.Mesh.MeshData mesh = MeshDataArray[index];
             UnityEngine.Mesh.MeshData colliderMesh = ColliderMeshDataArray[index];
             int3 position = Jobs[index];
-            
+
             GreedyMesher greedyMesher = new(Accessor, position, ChunkSize, VoxelEngineRenderGenData);
             MeshBuffer meshBuffer = greedyMesher.GenerateMesh();
 
@@ -50,7 +50,8 @@ namespace Runtime.Engine.Jobs.Mesh
             mesh.subMeshCount = 2;
             SubMeshDescriptor descriptor0 = new(0, index0Count);
             SubMeshDescriptor descriptor1 = new(index0Count, index1Count);
-            const MeshUpdateFlags flags = MeshUpdateFlags.DontRecalculateBounds | MeshUpdateFlags.DontValidateIndices | MeshUpdateFlags.DontResetBoneBounds;
+            const MeshUpdateFlags flags = MeshUpdateFlags.DontRecalculateBounds | MeshUpdateFlags.DontValidateIndices |
+                                          MeshUpdateFlags.DontResetBoneBounds;
             mesh.SetSubMesh(0, descriptor0, flags);
             mesh.SetSubMesh(1, descriptor1, flags);
 

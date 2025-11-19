@@ -1,8 +1,7 @@
 ﻿using System;
 using UnityEngine;
-using UnityEngine.Rendering;
 
-namespace Runtime.Engine.Voxels.Data
+namespace Runtime.Engine.VoxelConfig.Data
 {
     [CreateAssetMenu(fileName = "VoxelDefinition", menuName = "Data/Voxel Data")]
     public class VoxelDefinition : ScriptableObject
@@ -16,7 +15,7 @@ namespace Runtime.Engine.Voxels.Data
 
         [SerializeField] private VoxelTexMode textureMode = VoxelTexMode.AllSame;
         public MeshLayer meshLayer;
-        
+
         public VoxelType voxelType;
         public bool alwaysRenderAllFaces;
         public float depthFadeDistance = -1f;
@@ -33,7 +32,11 @@ namespace Runtime.Engine.Voxels.Data
 
         public bool collision = true;
 
-        public VoxelTexMode TextureMode { get => textureMode; set => textureMode = value; }
+        public VoxelTexMode TextureMode
+        {
+            get => textureMode;
+            set => textureMode = value;
+        }
 
         public Texture2D GetTexture(Direction direction)
         {
@@ -60,7 +63,7 @@ namespace Runtime.Engine.Voxels.Data
             };
         }
     }
-    
+
     [Serializable]
     public class VoxelPostProcessData
     {

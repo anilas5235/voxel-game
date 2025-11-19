@@ -13,7 +13,7 @@ namespace Player
         [Range(1f, 100f)] public float moveSpeed = 20f;
         [SerializeField] private Camera targetCamera;
         private CharacterController _controller;
-        
+
         private bool _jumpInput;
         private bool _crouchInput;
 
@@ -21,6 +21,7 @@ namespace Player
         {
             _controller = GetComponent<CharacterController>();
         }
+
         public void OnMove(InputValue value)
         {
             _moveInput = value.Get<Vector2>();
@@ -30,12 +31,12 @@ namespace Player
         {
             _sprintInput = value.isPressed;
         }
-        
+
         public void OnJump(InputValue value)
         {
             _jumpInput = value.isPressed;
         }
-        
+
         public void OnCrouch(InputValue value)
         {
             _crouchInput = value.isPressed;
@@ -61,7 +62,7 @@ namespace Player
 
             // Add vertical movement
             moveDirection.y = _verticalInput;
-            
+
             _controller.Move(moveDirection.normalized * (moveSpeed * speedModifier * Time.deltaTime));
         }
     }

@@ -1,5 +1,4 @@
 ﻿using Runtime.Engine.Components;
-using Runtime.Engine.Data;
 using Runtime.Engine.Jobs;
 using Runtime.Engine.Jobs.Chunk;
 using Runtime.Engine.Jobs.Collider;
@@ -8,7 +7,7 @@ using Runtime.Engine.Noise;
 using Runtime.Engine.Settings;
 using Runtime.Engine.Utils;
 using Runtime.Engine.Utils.Extensions;
-using Runtime.Engine.Voxels.Data;
+using Runtime.Engine.VoxelConfig.Data;
 using Unity.Mathematics;
 using UnityEngine;
 using Utils;

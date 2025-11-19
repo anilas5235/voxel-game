@@ -1,6 +1,6 @@
 ﻿using Runtime.Engine.Data;
 using Runtime.Engine.Utils.Extensions;
-using Runtime.Engine.Voxels.Data;
+using Runtime.Engine.VoxelConfig.Data;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Mathematics;
@@ -24,6 +24,7 @@ namespace Runtime.Engine.Mesher
         private readonly VoxelEngineRenderGenData _renderGenData;
 
         private readonly MeshBuffer _mesh;
+
         // Reduce overhead by storing only a marker per foliage position (behaves like a HashSet)
         private NativeHashMap<int3, byte> _foliageVoxels;
 
@@ -331,6 +332,7 @@ namespace Runtime.Engine.Mesher
                             sbyte topOpen = ComputeTopVoxelOfType(neighborCoord, neighborVoxel);
                             normalMask[n] = new Mask(neighborVoxel, neighborLayer, -1, ao, topOpen);
                         }
+
                         hasSurface = true;
                     }
 

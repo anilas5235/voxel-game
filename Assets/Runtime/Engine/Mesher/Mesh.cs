@@ -22,12 +22,13 @@ namespace Runtime.Engine.Mesher
             UV2 = uv2;
         }
     }
-    
+
     [BurstCompile]
     public struct CVertex
     {
         public float3 Position;
         public float3 Normal;
+
         public CVertex(float3 position, float3 normal)
         {
             Position = position;

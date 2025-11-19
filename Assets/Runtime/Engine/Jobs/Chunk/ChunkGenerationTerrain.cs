@@ -145,9 +145,9 @@ namespace Runtime.Engine.Jobs.Chunk
                     else if (y < gy) v = under;
                     else if (y == gy) v = gy < waterLevel ? waterBlock : top;
                     else v = y < waterLevel ? waterBlock : air;
-                    
-                    if(y == waterLevel && v== waterBlock && col.Temperature < .2f) v = config.Ice;
-                    
+
+                    if (y == waterLevel && v == waterBlock && col.Temperature < .2f) v = config.Ice;
+
                     vox[chunkSize.Flatten(x, y, z)] = v;
                 }
             }

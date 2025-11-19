@@ -11,8 +11,8 @@ namespace Player
         public bool destruct;
         public bool place;
         public ushort voxelId = 1;
-        
-        public event Action<ushort> OnVoxelIdChanged; 
+
+        public event Action<ushort> OnVoxelIdChanged;
 
         private void OnEnable()
         {

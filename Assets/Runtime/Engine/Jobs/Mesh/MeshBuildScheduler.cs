@@ -1,12 +1,12 @@
 using System.Collections.Generic;
+using Runtime.Engine.Behaviour;
 using Runtime.Engine.Components;
 using Runtime.Engine.Data;
 using Runtime.Engine.Jobs.Core;
 using Runtime.Engine.Settings;
 using Runtime.Engine.Utils.Extensions;
 using Runtime.Engine.Utils.Logger;
-using Runtime.Engine.Voxels.Data;
-using Runtime.Engine.Behaviour;
+using Runtime.Engine.VoxelConfig.Data;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;

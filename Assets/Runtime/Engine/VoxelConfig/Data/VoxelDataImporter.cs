@@ -1,11 +1,8 @@
-﻿using System.Collections.Generic;
-using Runtime.Engine.Jobs.Chunk;
+﻿using Runtime.Engine.Jobs.Chunk;
 using UnityEngine;
 using Utils;
-using System.Reflection;
-using System.Text;
 
-namespace Runtime.Engine.Voxels.Data
+namespace Runtime.Engine.VoxelConfig.Data
 {
     [DefaultExecutionOrder(-1000)]
     public class VoxelDataImporter : Singleton<VoxelDataImporter>
@@ -127,8 +124,8 @@ namespace Runtime.Engine.Voxels.Data
                 WheatStage4 = VoxelRegistry.GetIdOrThrow("std:WheatStage4"),
                 Workbench = VoxelRegistry.GetIdOrThrow("std:Workbench"),
             };
-            
-             return config;
-         }
-     }
- }
+
+            return config;
+        }
+    }
+}

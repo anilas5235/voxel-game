@@ -1,12 +1,10 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.Collections;
-using Unity.Mathematics;
 using UnityEngine;
 
-namespace Runtime.Engine.Voxels.Data
+namespace Runtime.Engine.VoxelConfig.Data
 {
     public class VoxelRegistry : IDisposable
     {
@@ -93,12 +91,13 @@ namespace Runtime.Engine.Voxels.Data
         }
 
         public bool GetId(string name, out ushort id) => _nameToId.TryGetValue(name, out id);
-        
+
         public ushort GetIdOrThrow(string name) => _nameToId[name];
 
         public bool GetName(ushort id, out string name) => _idToName.TryGetValue(id, out name);
 
-        public bool GetVoxelDefinition(ushort id,out VoxelDefinition def) => _idToVoxelDefinition.TryGetValue(id, out def);
+        public bool GetVoxelDefinition(ushort id, out VoxelDefinition def) =>
+            _idToVoxelDefinition.TryGetValue(id, out def);
 
         public void FinalizeRegistry()
         {

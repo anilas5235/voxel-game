@@ -80,7 +80,7 @@ namespace Runtime.Engine.Jobs.Chunk
             }
 
             // --- 4) gemäßigt-warme Zonen (0.40 <= temp < 0.70) ---
-            if (temp < 0.70f )
+            if (temp < 0.70f)
             {
                 return hum switch
                 {

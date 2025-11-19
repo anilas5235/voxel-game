@@ -155,7 +155,8 @@ namespace Runtime.Engine.Jobs.Chunk
             }
         }
 
-        private static void PlacePalm(ref NativeArray<ushort> vox, int cx, int cy, int cz, ref Random rng, ref int3 chunkSize,
+        private static void PlacePalm(ref NativeArray<ushort> vox, int cx, int cy, int cz, ref Random rng,
+            ref int3 chunkSize,
             ref GeneratorConfig config)
         {
             ushort log = config.LogOak;

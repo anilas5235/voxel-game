@@ -1,4 +1,4 @@
-﻿using Runtime.Engine.Voxels.Data;
+﻿using Runtime.Engine.VoxelConfig.Data;
 using Runtime.Engine.World;
 using UnityEngine;
 

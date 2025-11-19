@@ -321,7 +321,8 @@ namespace Runtime.Engine.Jobs.Chunk
             }
         }
 
-        private static void PlaceColumn(ref NativeArray<ushort> vox, int x, int y, int z, ref int3 chunkSize, int blockId,
+        private static void PlaceColumn(ref NativeArray<ushort> vox, int x, int y, int z, ref int3 chunkSize,
+            int blockId,
             int count)
         {
             int sy = chunkSize.y;

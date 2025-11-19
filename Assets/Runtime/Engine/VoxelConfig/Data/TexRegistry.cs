@@ -3,7 +3,7 @@ using System.Linq;
 using Runtime.Engine.Utils.Logger;
 using UnityEngine;
 
-namespace Runtime.Engine.Voxels.Data
+namespace Runtime.Engine.VoxelConfig.Data
 {
     internal class TexRegistry
     {

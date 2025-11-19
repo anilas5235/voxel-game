@@ -1,8 +1,8 @@
 ﻿using System;
-using Runtime.Engine.Voxels.Data;
+using Runtime.Engine.VoxelConfig.Data;
 using UnityEditor;
 
-namespace Runtime.Engine.Voxels.Editor
+namespace Runtime.Engine.VoxelConfig.Editor
 {
     [CustomEditor(typeof(VoxelDefinition))]
     public class VoxelDefinitionCustomEditor : UnityEditor.Editor
@@ -14,11 +14,11 @@ namespace Runtime.Engine.Voxels.Editor
             serializedObject.Update();
 
             EditorGUILayout.PropertyField(serializedObject.FindProperty("meshLayer"));
-            if(voxelDef.meshLayer == MeshLayer.Solid)
+            if (voxelDef.meshLayer == MeshLayer.Solid)
             {
                 voxelDef.voxelType = VoxelType.Full;
             }
-            
+
             if (voxelDef.voxelType != VoxelType.Flora)
             {
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("textureMode"));

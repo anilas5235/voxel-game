@@ -1,7 +1,6 @@
 ﻿using Unity.Burst;
-using Unity.Mathematics;
 
-namespace Runtime.Engine.Voxels.Data
+namespace Runtime.Engine.VoxelConfig.Data
 {
     [BurstCompile]
     public struct VoxelRenderDef

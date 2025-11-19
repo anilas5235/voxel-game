@@ -1,5 +1,5 @@
 ﻿using System;
-using Runtime.Engine.Voxels.Data;
+using Runtime.Engine.VoxelConfig.Data;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Mathematics;
@@ -12,13 +12,13 @@ namespace Runtime.Engine.Utils.Extensions
     {
         [BurstCompile]
         public static int CubedSize(this int r) => (2 * r + 1) * (2 * r + 1) * (2 * r + 1);
-        
+
         [BurstCompile]
         public static int SquareSize(this int r) => (2 * r + 1) * (2 * r + 1);
 
         [BurstCompile]
         public static int CubedSize(this int3 r) => (2 * r.x + 1) * (2 * r.y + 1) * (2 * r.z + 1);
-        
+
         [BurstCompile]
         public static int Flatten(this int2 vec, int x, int y) =>
             x * vec.y +
@@ -67,7 +67,7 @@ namespace Runtime.Engine.Utils.Extensions
 
         public static int3 Int3(this Vector3 vec) => Vector3Int.FloorToInt(vec).Int3();
         public static Vector3Int V3Int(this Vector3 vec) => Vector3Int.FloorToInt(vec);
-        
+
         public static float2 Float2(this int2 vec) => new(vec.x, vec.y);
 
         public static Direction ToDirection(this int3 vec)
@@ -81,7 +81,7 @@ namespace Runtime.Engine.Utils.Extensions
 
             throw new Exception("Invalid direction vector");
         }
-        
+
         public static float3 Normalized(this float3 vec) => math.normalize(vec);
     }
 }

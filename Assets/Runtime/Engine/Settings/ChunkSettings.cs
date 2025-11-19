@@ -11,6 +11,7 @@ namespace Runtime.Engine.Settings
     public class ChunkSettings
     {
         public GameObject ChunkPrefab;
+
         [Tooltip("Number of active chunks = (2 * draw_distance + 1)^2")]
         public int DrawDistance = 2;
 

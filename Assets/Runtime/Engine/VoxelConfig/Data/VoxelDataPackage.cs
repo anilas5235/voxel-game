@@ -1,8 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
-namespace Runtime.Engine.Voxels.Data
+namespace Runtime.Engine.VoxelConfig.Data
 {
     [CreateAssetMenu(fileName = "VoxelDataPackage", menuName = "Data/Voxel Data Package")]
     public class VoxelDataPackage : ScriptableObject

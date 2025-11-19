@@ -1,4 +1,4 @@
-﻿namespace Runtime.Engine.Voxels.Data
+﻿namespace Runtime.Engine.VoxelConfig.Data
 {
     public enum VoxelType
     {

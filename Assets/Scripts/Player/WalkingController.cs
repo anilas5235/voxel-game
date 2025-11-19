@@ -65,7 +65,7 @@ namespace Player
                 {
                     _velocity.y = -2f; // small downward force to keep grounded
                 }
-                
+
                 if (_jumpInput)
                 {
                     _velocity.y = Mathf.Sqrt(2f * -gravity * jumpHeight);

@@ -49,13 +49,15 @@ namespace Runtime.Engine.Jobs.Chunk
             ChunkGenerationTerrain.FillTerrain(ref ChunkSize, vox, waterLevel, chunkColumns, ref Config);
 
             ChunkGenerationCavesOres.PlaceOres(ChunkSize, vox, Config, RandomSeed);
-            
+
             ChunkGenerationCavesOres.CarveCaves(ChunkSize, vox, chunkWordPos, chunkColumns, Config, RandomSeed,
                 CaveScale, LavaLevel);
 
-            ChunkGenerationStructures.PlaceStructures(ref vox, ref chunkColumns, ref chunkWordPos, ref ChunkSize, RandomSeed,
+            ChunkGenerationStructures.PlaceStructures(ref vox, ref chunkColumns, ref chunkWordPos, ref ChunkSize,
+                RandomSeed,
                 ref Config);
-            ChunkGenerationVegetation.PlaceVegetation(ref vox, ref chunkColumns, ref chunkWordPos, ref ChunkSize, RandomSeed,
+            ChunkGenerationVegetation.PlaceVegetation(ref vox, ref chunkColumns, ref chunkWordPos, ref ChunkSize,
+                RandomSeed,
                 ref Config);
 
             Data.Chunk data = WriteToChunkData(vox, chunkWordPos);
