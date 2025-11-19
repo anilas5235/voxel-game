@@ -12,14 +12,14 @@ namespace Player
 
         [Range(1f, 100f)] public float moveSpeed = 20f;
         [SerializeField] private Camera targetCamera;
-        private Rigidbody _rb;
+        private CharacterController _controller;
         
         private bool _jumpInput;
         private bool _crouchInput;
 
         private void OnEnable()
         {
-            _rb = GetComponent<Rigidbody>();
+            _controller = GetComponent<CharacterController>();
         }
         public void OnMove(InputValue value)
         {
@@ -41,9 +41,8 @@ namespace Player
             _crouchInput = value.isPressed;
         }
 
-        private void FixedUpdate()
+        private void Update()
         {
-            _rb.angularVelocity = Vector3.zero;
             _verticalInput = 0f;
             if (_jumpInput) _verticalInput += 1f;
             if (_crouchInput) _verticalInput -= 1f;
@@ -62,8 +61,8 @@ namespace Player
 
             // Add vertical movement
             moveDirection.y = _verticalInput;
-            // Apply movement using Rigidbody for collision
-            _rb.linearVelocity = moveDirection.normalized * (moveSpeed * speedModifier);
+            
+            _controller.Move(moveDirection.normalized * (moveSpeed * speedModifier * Time.deltaTime));
         }
     }
 }
