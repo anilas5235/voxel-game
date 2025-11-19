@@ -484,6 +484,7 @@ GameObject:
   - component: {fileID: 455605771}
   - component: {fileID: 455605772}
   - component: {fileID: 455605773}
+  - component: {fileID: 455605774}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -573,7 +574,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 455605763}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f829ea335a154d2c815659a6d238a4c4, type: 3}
   m_Name: 
@@ -622,6 +623,21 @@ MonoBehaviour:
   gravity: -25
   targetCamera: {fileID: 330585545}
   isGrounded: 0
+--- !u!114 &455605774
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 455605763}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b5de84d1516741689e366cb648520611, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  flyController: {fileID: 455605771}
+  lookController: {fileID: 455605769}
+  walkingController: {fileID: 455605773}
 --- !u!1 &746607514
 GameObject:
   m_ObjectHideFlags: 0
