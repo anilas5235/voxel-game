@@ -28,7 +28,7 @@ namespace Player
             if (!(_lookInput.sqrMagnitude > 0.0001f)) return;
 
             // Yaw (horizontal)
-            targetCamera.transform.Rotate(Vector3.up, _lookInput.x * lookSpeed * Time.deltaTime, Space.World);
+            //targetCamera.transform.Rotate(Vector3.up, _lookInput.x * lookSpeed * Time.deltaTime, Space.World);
 
             // Pitch (vertical) mit Clamp
             _pitch -= _lookInput.y * lookSpeed * Time.deltaTime;
@@ -36,6 +36,7 @@ namespace Player
 
             Vector3 currentEuler = targetCamera.transform.eulerAngles;
             targetCamera.transform.eulerAngles = new Vector3(_pitch, currentEuler.y, 0f);
+            transform.Rotate(Vector3.up * (_lookInput.x * lookSpeed * Time.deltaTime));
         }
     }
 }

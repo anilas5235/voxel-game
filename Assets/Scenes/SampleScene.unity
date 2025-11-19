@@ -483,6 +483,7 @@ GameObject:
   - component: {fileID: 455605769}
   - component: {fileID: 455605771}
   - component: {fileID: 455605772}
+  - component: {fileID: 455605773}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -572,7 +573,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 455605763}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f829ea335a154d2c815659a6d238a4c4, type: 3}
   m_Name: 
@@ -600,10 +601,27 @@ CharacterController:
   m_Height: 1.8
   m_Radius: 0.4
   m_SlopeLimit: 45
-  m_StepOffset: 0.3
-  m_SkinWidth: 0.08
+  m_StepOffset: 0.1
+  m_SkinWidth: 0.1
   m_MinMoveDistance: 0.001
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &455605773
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 455605763}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1d5cd90e6bef44dc9d91ffa47c516d2d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  moveSpeed: 6
+  jumpHeight: 1
+  gravity: -25
+  targetCamera: {fileID: 330585545}
+  isGrounded: 0
 --- !u!1 &746607514
 GameObject:
   m_ObjectHideFlags: 0
