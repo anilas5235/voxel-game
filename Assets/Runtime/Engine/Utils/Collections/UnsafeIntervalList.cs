@@ -7,16 +7,26 @@ using Unity.Collections.LowLevel.Unsafe;
 namespace Runtime.Engine.Utils.Collections
 {
     /// <summary>
-    /// Didn't see much difference in SOA or AOS performance wise, performance depends on the way elements
-    /// would be accessed in our case AOS might be better, should profile and see
+    /// Speicher-effiziente Liste von komprimierten Intervallen (Run-Length Encoding ähnlich).
+    /// Speichert Sequenzen gleicher IDs als Nodes mit End-Index. Ermöglicht O (log n) Zugriffe über Binärsuche.
+    /// Unterstützt Coalescing beim Setzen zur Minimierung von Fragmentierung.
     /// </summary>
     [BurstCompile]
     public struct UnsafeIntervalList
     {
         // Array of structs impl
+        /// <summary>
+        /// Interner Node: repräsentiert ein Intervall von IDs bis inklusive End-Index (Count).
+        /// </summary>
         private struct Node
         {
+            /// <summary>
+            /// Daten-ID für dieses Intervall.
+            /// </summary>
             public ushort ID;
+            /// <summary>
+            /// Exklusiver End-Index (globale Länge bis hierher). Count dient gleichzeitig als kumulierte Länge.
+            /// </summary>
             public int Count;
 
             public Node(ushort id, int count)
@@ -28,27 +38,45 @@ namespace Runtime.Engine.Utils.Collections
 
         private UnsafeList<Node> _internal;
 
-        // Struct of arrays impl
+        // Struct of arrays impl (nicht genutzt, eventuell für zukünftiges Profiling behalten)
         // private UnsafeList<int> _Ids;
         // private UnsafeList<int> _Counts;
 
+        /// <summary>
+        /// Gesamtlänge der entpackten Daten (Summe aller Intervalllängen).
+        /// </summary>
         public int Length;
 
+        /// <summary>
+        /// Aktuelle Anzahl komprimierter Nodes.
+        /// </summary>
         public int CompressedLength => _internal.Length;
 
+        /// <summary>
+        /// Erstellt eine neue komprimierte Liste mit anfänglicher Kapazität.
+        /// </summary>
         public UnsafeIntervalList(int capacity, Allocator allocator)
         {
             _internal = new UnsafeList<Node>(capacity, allocator);
             Length = 0;
         }
 
+        /// <summary>
+        /// Gibt interne native Speicher frei.
+        /// </summary>
         public void Dispose()
         {
             _internal.Dispose();
         }
 
+        /// <summary>
+        /// Ermittelt Node Index für gegebenen entpackten Index (Binärsuche).
+        /// </summary>
         public int NodeIndex(int index) => BinarySearch(index);
 
+        /// <summary>
+        /// Fügt neues Intervall hinzu (ID wiederholt sich <paramref name="count"/> mal).
+        /// </summary>
         public void AddInterval(ushort id, int count)
         {
             Length += count;
@@ -56,11 +84,10 @@ namespace Runtime.Engine.Utils.Collections
         }
 
         /// <summary>
-        /// COMPLEXITY : O(Log(n))
+        /// Liefert Wert an entpackter Position.
+        /// KOMPLEXITÄT: O(log n)
         /// </summary>
-        /// <param name="index">Index at which value to fetch</param>
-        /// <returns>Value at index</returns>
-        /// <exception cref="IndexOutOfRangeException">Debug only</exception>
+        /// <exception cref="IndexOutOfRangeException">Wenn Index außerhalb (Editor/Development Builds).</exception>
         public ushort Get(int index)
         {
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
@@ -71,13 +98,11 @@ namespace Runtime.Engine.Utils.Collections
         }
 
         /// <summary>
-        /// Not sure if I got all the cases
-        /// COMPLEXITY : O(Log(n)), could be O(n) also depending on RemoveRange and InsertRange
-        /// REF: https://github.com/mikolalysenko/NodeMinecraftThing/blob/master/client/voxels.js
+        /// Setzt Wert an entpackter Position mit umfangreicher Coalescing-Logik zur Minimierung der Node-Zahl.
+        /// KOMPLEXITÄT: typ. O (log n), abhängig von Insert/Remove Range Operationen.
         /// </summary>
-        /// <param name="index">index to set at</param>
-        /// <param name="id">value to set at</param>
-        /// <exception cref="IndexOutOfRangeException">Debug only</exception>
+        /// <returns>True falls Änderung auftrat.</returns>
+        /// <exception cref="IndexOutOfRangeException">Wenn Index außerhalb (Editor/Development Builds).</exception>
         public bool Set(int index, ushort id)
         {
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
@@ -199,11 +224,17 @@ namespace Runtime.Engine.Utils.Collections
             return true;
         }
 
+        /// <summary>
+        /// Liefert linkes Nachbar-Element (ID) relativ zum Index.
+        /// </summary>
         public int LeftOf(int index)
         {
             return LeftOf(index, NodeIndex(index)).Item1;
         }
 
+        /// <summary>
+        /// Liefert rechtes Nachbar-Element (ID) relativ zum Index.
+        /// </summary>
         public int RightOf(int index)
         {
             return RightOf(index, NodeIndex(index)).Item1;
@@ -237,6 +268,9 @@ namespace Runtime.Engine.Utils.Collections
             return index + 1 >= node.Count ? (right.ID, nodeIndex + 1) : (node.ID, nodeIndex);
         }
 
+        /// <summary>
+        /// Binäre Suche nach Node für entpackten Index.
+        /// </summary>
         private int BinarySearch(int index)
         {
             int min = 0;
@@ -256,6 +290,9 @@ namespace Runtime.Engine.Utils.Collections
             return min;
         }
 
+        /// <summary>
+        /// Menschlich lesbare Darstellung für Debugging (Editor).
+        /// </summary>
         public override string ToString()
         {
             StringBuilder sb = new($"Length: {Length}, Compressed: {CompressedLength}\n");

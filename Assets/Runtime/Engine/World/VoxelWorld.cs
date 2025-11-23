@@ -10,7 +10,6 @@ using Runtime.Engine.Utils.Extensions;
 using Runtime.Engine.VoxelConfig.Data;
 using Unity.Mathematics;
 using UnityEngine;
-using Utils;
 
 namespace Runtime.Engine.World
 {

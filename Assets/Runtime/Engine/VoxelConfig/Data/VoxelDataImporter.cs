@@ -1,16 +1,32 @@
 ﻿using Runtime.Engine.Jobs.Chunk;
+using Runtime.Engine.Utils;
 using UnityEngine;
-using Utils;
 
 namespace Runtime.Engine.VoxelConfig.Data
 {
+    /// <summary>
+    /// Lädt alle <see cref="VoxelDataPackage"/> Assets aus Resources, registriert deren Definitionen im <see cref="VoxelRegistry"/>
+    /// und aktualisiert Materialien mit Textur-Atlas / Layer Informationen. Singleton Lebenszyklus steuert Registry.
+    /// </summary>
     [DefaultExecutionOrder(-1000)]
     public class VoxelDataImporter : Singleton<VoxelDataImporter>
     {
+        /// <summary>
+        /// Material für undurchsichtige Voxel (Solid Layer).
+        /// </summary>
         public Material voxelSolidMaterial;
+        /// <summary>
+        /// Material für transparente / Alpha Voxel (Transparent Layer).
+        /// </summary>
         public Material voxelTransparentMaterial;
+        /// <summary>
+        /// Registry mit allen registrierten <see cref="VoxelDefinition"/> Instanzen.
+        /// </summary>
         public VoxelRegistry VoxelRegistry { get; } = new();
 
+        /// <summary>
+        /// Lädt Packages, registriert Voxel und aktualisiert Materialien.
+        /// </summary>
         protected override void Awake()
         {
             base.Awake();
@@ -26,12 +42,18 @@ namespace Runtime.Engine.VoxelConfig.Data
             UpdateMaterials();
         }
 
+        /// <summary>
+        /// Wendet Registry Texture Daten auf Materialien an.
+        /// </summary>
         private void UpdateMaterials()
         {
             VoxelRegistry.ApplyToMaterial(voxelSolidMaterial, MeshLayer.Solid);
             VoxelRegistry.ApplyToMaterial(voxelTransparentMaterial, MeshLayer.Transparent);
         }
 
+        /// <summary>
+        /// Registriert alle Definitionen eines Packages und finalisiert Registry (Sortierung/Atlas Build).
+        /// </summary>
         private void RegisterPackage(VoxelDataPackage package)
         {
             string prefix = package.packagePrefix;
@@ -55,12 +77,18 @@ namespace Runtime.Engine.VoxelConfig.Data
             VoxelRegistry.FinalizeRegistry();
         }
 
+        /// <summary>
+        /// Dispose der Registry beim Zerstören des Importers.
+        /// </summary>
         protected override void OnDestroy()
         {
             base.OnDestroy();
             VoxelRegistry.Dispose();
         }
 
+        /// <summary>
+        /// Erstellt einen <see cref="GeneratorConfig"/> mit aufgelösten IDs für prozedurale Welt-Erstellung.
+        /// </summary>
         public GeneratorConfig CreateConfig()
         {
             GeneratorConfig config = new()

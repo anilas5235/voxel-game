@@ -2,66 +2,95 @@
 
 namespace Runtime.Engine.Utils.Logger
 {
+    /// <summary>
+    /// Farbiger Logger Wrapper für Unity Logger mit automatischer Tag-Generierung je Typ/Name.
+    /// Unterstützt Log-Level Konfiguration und benutzerdefinierte Handler.
+    /// </summary>
     public static class VoxelEngineLogger
     {
-        private static string _logTag = $"<color=#{ColorUtility.ToHtmlStringRGB(GetColor("Voxel"))}>[Voxel]</color> ";
+        private static readonly string LOGTag = $"<color=#{ColorUtility.ToHtmlStringRGB(GetColor("Voxel"))}>[Voxel]</color> ";
 
         /// <summary>
-        /// Creates a tag with unique color for given type
+        /// Creates a tag with unique color for given type.
         /// </summary>
-        /// <typeparam name="T">type for which tag is to be created</typeparam>
-        /// <returns>tag color formatted string</returns>
+        /// <typeparam name="T">Type for which tag is to be created.</typeparam>
+        /// <returns>Tag color formatted string.</returns>
         public static string GetTag<T>() => GetTag(typeof(T).Name.Split('`')[0]);
 
         /// <summary>
-        /// Creates a tag with unique color for given name
+        /// Creates a tag with unique color for given name.
         /// </summary>
-        /// <param name="name">tag value</param>
-        /// <returns>tag color formatted string</returns>
+        /// <param name="name">Tag value (raw name).</param>
+        /// <returns>Tag color formatted string.</returns>
         public static string GetTag(string name)
         {
-            return $"{_logTag}<color=#{ColorUtility.ToHtmlStringRGB(GetColor(name))}>{name}</color>";
+            return $"{LOGTag}<color=#{ColorUtility.ToHtmlStringRGB(GetColor(name))}>{name}</color>";
         }
 
         /// <summary>
-        /// Creates a tag with custom color for given type
+        /// Creates a tag with custom color for given type.
         /// </summary>
-        /// <param name="color">Hex code or name of the color (names found in Color class only)</param>
-        /// <typeparam name="T">type for which tag is to be created</typeparam>
-        /// <returns>tag color formatted string</returns>
+        /// <param name="color">Hex code or name of the color (names found in Color class only).</param>
+        /// <typeparam name="T">Type for which tag is to be created.</typeparam>
+        /// <returns>Tag color formatted string.</returns>
         public static string GetTag<T>(string color) => GetTag(typeof(T).Name.Split('`')[0], color);
 
         /// <summary>
-        /// Creates a tag with custom color for given name
+        /// Creates a tag with custom color for given name.
         /// </summary>
-        /// <param name="name">tag value</param>
-        /// <param name="color">Hex code or name of the color (names found in Color class only)</param>
-        /// <returns>tag color formatted string</returns>
+        /// <param name="name">Tag value.</param>
+        /// <param name="color">Hex code or name of the color (names found in Color class only).</param>
+        /// <returns>Tag color formatted string.</returns>
         public static string GetTag(string name, string color) => $"<color={color}>{name}</color>";
 
+        /// <summary>
+        /// Sets Unity logger log level (filter).
+        /// </summary>
         public static void SetLogLevel(LogType level) => Debug.unityLogger.filterLogType = level;
 
+        /// <summary>
+        /// Enables/Disables logging globally.
+        /// </summary>
         public static void EnableLogging(bool enable) => Debug.unityLogger.logEnabled = enable;
 
+        /// <summary>
+        /// Sets custom log handler.
+        /// </summary>
         public static void SetLogHandler(ILogHandler handler) => Debug.unityLogger.logHandler = handler;
 
+        /// <summary>
+        /// Logs info message with colored tag for generic type.
+        /// </summary>
         public static void Info<T>(string message) => Debug.unityLogger.Log(LogType.Log, GetTag<T>(), message);
+        /// <summary>
+        /// Logs warning message with colored tag for generic type.
+        /// </summary>
         public static void Warn<T>(string message) => Debug.unityLogger.Log(LogType.Warning, GetTag<T>(), message);
+        /// <summary>
+        /// Logs error message with colored tag for generic type.
+        /// </summary>
         public static void Error<T>(string message) => Debug.unityLogger.Log(LogType.Error, GetTag<T>(), message);
 
+        /// <summary>
+        /// Logs info message with custom raw tag name.
+        /// </summary>
         public static void Info(string tag, string message) => Debug.unityLogger.Log(LogType.Log, GetTag(tag), message);
 
+        /// <summary>
+        /// Logs warning message with custom raw tag name.
+        /// </summary>
         public static void Warn(string tag, string message) =>
             Debug.unityLogger.Log(LogType.Warning, GetTag(tag), message);
 
+        /// <summary>
+        /// Logs error message with custom raw tag name.
+        /// </summary>
         public static void Error(string tag, string message) =>
             Debug.unityLogger.Log(LogType.Error, GetTag(tag), message);
 
         /// <summary>
-        /// Removes hue values between 0.6 to 0.7 as they are unredable
+        /// Removes hue values between 0.6 to 0.7 as they are unreadable.
         /// </summary>
-        /// <param name="hue">Original hue value</param>
-        /// <returns>Normalized hue value</returns>
         private static float NormalizeHue(float hue) => Mathf.Lerp(0.7f, 1.6f, hue) % 1;
 
         private static Color GetColor(string name)

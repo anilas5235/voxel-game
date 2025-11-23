@@ -98,8 +98,7 @@ namespace Runtime.Engine.ThirdParty.Priority_Queue
                 return _nullNodesCache.Count > 0 ? _nullNodesCache[0] : null;
             }
 
-            IList<SimpleNode> nodes;
-            if (!_itemToNodesCache.TryGetValue(item, out nodes))
+            if (!_itemToNodesCache.TryGetValue(item, out IList<SimpleNode> nodes))
             {
                 return null;
             }
@@ -118,8 +117,7 @@ namespace Runtime.Engine.ThirdParty.Priority_Queue
                 return;
             }
 
-            IList<SimpleNode> nodes;
-            if (!_itemToNodesCache.TryGetValue(node.Data, out nodes))
+            if (!_itemToNodesCache.TryGetValue(node.Data, out IList<SimpleNode> nodes))
             {
                 nodes = new List<SimpleNode>();
                 _itemToNodesCache[node.Data] = nodes;
@@ -139,8 +137,7 @@ namespace Runtime.Engine.ThirdParty.Priority_Queue
                 return;
             }
 
-            IList<SimpleNode> nodes;
-            if (!_itemToNodesCache.TryGetValue(node.Data, out nodes))
+            if (!_itemToNodesCache.TryGetValue(node.Data, out IList<SimpleNode> nodes))
             {
                 return;
             }
@@ -359,7 +356,7 @@ namespace Runtime.Engine.ThirdParty.Priority_Queue
 
         /// <summary>
         /// Call this method to change the priority of an item.
-        /// Calling this method on a item not in the queue will throw an exception.
+        /// Calling this method on an item not in the queue will throw an exception.
         /// If the item is enqueued multiple times, only the first one will be updated.
         /// (If your requirements are complex enough that you need to enqueue the same item multiple times <i>and</i> be able
         /// to update all of them, please wrap your items in a wrapper class so they can be distinguished).
@@ -382,7 +379,7 @@ namespace Runtime.Engine.ThirdParty.Priority_Queue
 
         /// <summary>
         /// Returns the priority of the given item.
-        /// Calling this method on a item not in the queue will throw an exception.
+        /// Calling this method on an item not in the queue will throw an exception.
         /// If the item is enqueued multiple times, only the priority of the first will be returned.
         /// (If your requirements are complex enough that you need to enqueue the same item multiple times <i>and</i> be able
         /// to query all their priorities, please wrap your items in a wrapper class so they can be distinguished).

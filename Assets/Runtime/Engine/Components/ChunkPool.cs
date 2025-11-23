@@ -12,7 +12,8 @@ using Object = UnityEngine.Object;
 namespace Runtime.Engine.Components
 {
     /// <summary>
-    /// Chunks are created on demand
+    /// Pool für <see cref="ChunkBehaviour"/> Instanzen (Rendering + Collider). Verantwortlich für Aktivierung / Reclamation.
+    /// Verwendet Prioritäts-Queue für Entfernung basierend auf Distanz zum Fokus.
     /// </summary>
     public class ChunkPool
     {
@@ -24,6 +25,9 @@ namespace Runtime.Engine.Components
         private int3 _focus;
         private readonly int _chunkPoolSize;
 
+        /// <summary>
+        /// Erstellt einen neuen Pool basierend auf Draw-/Update-Distanzen aus Settings.
+        /// </summary>
         internal ChunkPool(Transform transform, VoxelEngineSettings settings)
         {
             _chunkPoolSize = (settings.Chunk.DrawDistance + 2).SquareSize();
@@ -51,9 +55,18 @@ namespace Runtime.Engine.Components
             );
         }
 
+        /// <summary>
+        /// Prüft, ob ein Chunk aktiv gerendert wird.
+        /// </summary>
         internal bool IsActive(int3 pos) => _meshMap.ContainsKey(pos);
+        /// <summary>
+        /// Prüft, ob ein Chunk bereits einen Collider hat.
+        /// </summary>
         internal bool IsCollidable(int3 pos) => _colliderSet.Contains(pos);
 
+        /// <summary>
+        /// Aktualisiert Fokus und Prioritäten in Queue.
+        /// </summary>
         internal void FocusUpdate(int3 focus)
         {
             _focus = focus;
@@ -64,12 +77,17 @@ namespace Runtime.Engine.Components
             }
         }
 
-
+        /// <summary>
+        /// Gibt existierende Instanz oder claimt eine neue aus dem Pool.
+        /// </summary>
         internal ChunkBehaviour GetOrClaim(int3 position)
         {
             return IsActive(position) ? _meshMap[position] : Claim(position);
         }
 
+        /// <summary>
+        /// Claimt eine neue Instanz; löst ggf. Reclaim der ältesten Instanz aus.
+        /// </summary>
         internal ChunkBehaviour Claim(int3 position)
         {
             if (_meshMap.ContainsKey(position))
@@ -102,6 +120,9 @@ namespace Runtime.Engine.Components
             return behaviour;
         }
 
+        /// <summary>
+        /// Liefert aktive Mesh-Instanzen für gegebene Positionen.
+        /// </summary>
         internal Dictionary<int3, ChunkBehaviour> GetActiveMeshes(List<int3> positions)
         {
             Dictionary<int3, ChunkBehaviour> map = new();
@@ -116,6 +137,9 @@ namespace Runtime.Engine.Components
             return map;
         }
 
+        /// <summary>
+        /// Callback, wenn Collider generiert wurde – markiert Chunk als kollidierbar.
+        /// </summary>
         internal void ColliderBaked(int3 position)
         {
             _colliderSet.Add(position);

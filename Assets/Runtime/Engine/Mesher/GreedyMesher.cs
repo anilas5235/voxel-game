@@ -7,30 +7,29 @@ using Unity.Mathematics;
 
 namespace Runtime.Engine.Mesher
 {
+    /// <summary>
+    /// Burst-optimierter Greedy Mesher für Voxel Chunks. Kombiniert zusammenhängende Flächen zu maximalen Rechtecken
+    /// für reduzierte Vertex/Index Anzahl. Erstellt Render- und Collider-Daten sowie Flora (Billboard) Quads.
+    /// </summary>
     [GenerateTestsForBurstCompatibility]
     internal struct GreedyMesher
     {
         private static readonly int3 YOne = new(0, 1, 0);
-
-        // Small UV inset to reduce atlas bleeding at tile borders (in tile UV units)
         private const float UVEdgeInset = 0.005f;
-
-        // Amount to lower liquid surface when exposed at the top
         private const float LiquidSurfaceLowering = 0.2f;
 
         private readonly ChunkAccessor _accessor;
         private readonly int3 _chunkPos;
         private readonly int3 _size;
         private readonly VoxelEngineRenderGenData _renderGenData;
-
         private readonly MeshBuffer _mesh;
-
-        // Reduce overhead by storing only a marker per foliage position (behaves like a HashSet)
         private NativeHashMap<int3, byte> _foliageVoxels;
-
         private int _meshVertexCount;
         private int _colliderVertexCount;
 
+        /// <summary>
+        /// Erstellt einen neuen Mesher mit internen Puffern basierend auf Chunkgröße.
+        /// </summary>
         internal GreedyMesher(
             ChunkAccessor accessor, int3 chunkPos, int3 size, VoxelEngineRenderGenData renderGenData
         )
@@ -60,6 +59,9 @@ namespace Runtime.Engine.Mesher
             _colliderVertexCount = 0;
         }
 
+        /// <summary>
+        /// Führt Meshing-Prozess aus: Sweeps über 3 Achsen, generiert Flächen und Collider, anschließend Flora.
+        /// </summary>
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
         internal MeshBuffer GenerateMesh()
         {
@@ -70,7 +72,7 @@ namespace Runtime.Engine.Mesher
                 int uAxis = (mainAxis + 1) % 3;
                 int vAxis = (mainAxis + 2) % 3;
 
-                // We only generate faces for slices starting inside the chunk (0..size-1)
+                // We only generate faces for slices starting inside the chunk (0…size-1)
                 // so that negative-side faces are owned by the neighboring chunk.
                 int mainAxisLimit = _size[mainAxis];
 
@@ -122,6 +124,9 @@ namespace Runtime.Engine.Mesher
             return _mesh;
         }
 
+        /// <summary>
+        /// Erzeugt Oberflächen-Quads aus Mask Slice per Greedy Merge.
+        /// </summary>
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
         private int BuildSurfaceQuads(int vertexCount, AxisInfo axInfo, int3 pos, NativeArray<Mask> normalMask,
             int3 directionMask)
@@ -182,6 +187,9 @@ namespace Runtime.Engine.Mesher
             return vertexCount;
         }
 
+        /// <summary>
+        /// Baut Flora Billboard Quads aus gesammelten Flora Voxel Positionen.
+        /// </summary>
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
         private int BuildFoliage(int vertexCount)
         {
@@ -217,6 +225,9 @@ namespace Runtime.Engine.Mesher
             return vertexCount;
         }
 
+        /// <summary>
+        /// Erzeugt Collider-Quads aus Mask Slice per Greedy Merge.
+        /// </summary>
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
         private int BuildColliderQuads(int vertexCount, AxisInfo axInfo, int3 pos, NativeArray<Mask> colliderMask,
             int3 directionMask)
@@ -275,6 +286,9 @@ namespace Runtime.Engine.Mesher
 
         #region Mask Helpers
 
+        /// <summary>
+        /// Erstellt Oberflächen- und Collider-Masken für aktuellen Slice.
+        /// </summary>
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
         private SliceActivity BuildMasks(int3 chunkItr, int3 directionMask, AxisInfo axInfo,
             NativeArray<Mask> normalMask, NativeArray<Mask> colliderMask)
