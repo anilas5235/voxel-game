@@ -3,20 +3,22 @@
 namespace Runtime.Engine.Utils.Provider
 {
     /// <summary>
-    /// Generische Provider-Basis für Lazy/Explizite Initialisierung einer Singleton-ähnlichen Instanz.
-    /// Nutzt statische <see cref="Current"/> Referenz; erlaubt externen Aufbau via Callback.
+    /// Generic provider base class for lazy or explicit initialization of a singleton-like instance.
+    /// Uses a static <see cref="Current"/> reference and allows external setup via callbacks.
     /// </summary>
-    /// <typeparam name="TP">Konkreter Provider-Typ (Self-referential generic).</typeparam>
+    /// <typeparam name="TP">Concrete provider type (self-referential generic).</typeparam>
     public abstract class Provider<TP> where TP : Provider<TP>, new()
     {
         /// <summary>
-        /// Aktuell aktive Provider Instanz.
+        /// Gets the currently active provider instance.
         /// </summary>
         public static TP Current { get; private set; }
 
         /// <summary>
-        /// Initialisiert mit bereits erzeugter Instanz und ruft Initializer Callback auf.
+        /// Initializes the provider with an already created instance and invokes the initializer callback.
         /// </summary>
+        /// <param name="provider">Existing provider instance to register as current.</param>
+        /// <param name="initializer">Callback used to perform additional initialization on the provider.</param>
         public static void Initialize(TP provider, Action<TP> initializer)
         {
             Current = provider;
@@ -24,8 +26,9 @@ namespace Runtime.Engine.Utils.Provider
         }
 
         /// <summary>
-        /// Erstellt neue Instanz mit new() Constraint und ruft Initializer Callback auf.
+        /// Creates a new provider instance using the <c>new()</c> constraint and invokes the initializer callback.
         /// </summary>
+        /// <param name="initializer">Callback used to perform additional initialization on the provider.</param>
         public static void Initialize(Action<TP> initializer)
         {
             Current = new TP();

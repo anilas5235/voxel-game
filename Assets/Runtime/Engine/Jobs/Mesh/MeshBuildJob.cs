@@ -10,8 +10,9 @@ using UnityEngine.Rendering;
 namespace Runtime.Engine.Jobs.Mesh
 {
     /// <summary>
-    /// Parallel Job zum Erzeugen von Render- und Collider-Meshdaten für eine Liste von Chunk-Positionen mittels GreedyMesher.
-    /// Schreibt MeshData in bereitgestellte MeshDataArrays und liefert Mapping Position->Index zurück.
+    /// Burst-compiled parallel job that generates render and collider mesh data for a list of chunk positions
+    /// using the greedy mesher and writes the results into provided <see cref="UnityEngine.Mesh.MeshDataArray"/>
+    /// instances while recording the position-to-index mapping.
     /// </summary>
     [BurstCompile]
     internal struct MeshBuildJob : IJobParallelFor
@@ -27,8 +28,10 @@ namespace Runtime.Engine.Jobs.Mesh
         public UnityEngine.Mesh.MeshDataArray ColliderMeshDataArray;
 
         /// <summary>
-        /// Führt Mesh-Generierung für Job Index aus und befüllt MeshData/SubMesh Informationen.
+        /// Executes mesh generation for the given job index and fills mesh and collider submesh data
+        /// for the corresponding chunk position.
         /// </summary>
+        /// <param name="index">Index of the chunk position to process within the <see cref="Jobs"/> list.</param>
         public void Execute(int index)
         {
             UnityEngine.Mesh.MeshData mesh = MeshDataArray[index];

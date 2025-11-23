@@ -5,7 +5,8 @@ using System.Linq;
 namespace Runtime.Engine.Jobs.Core
 {
     /// <summary>
-    /// Abstrakte Basis für Scheduler mit Timing-Aufzeichnung (gleitender Durchschnitt über letzte N Ausführungen).
+    /// Abstract base class for job schedulers that records execution timings
+    /// and exposes a moving average over the last N runs.
     /// </summary>
     public abstract class JobScheduler
     {
@@ -14,8 +15,10 @@ namespace Runtime.Engine.Jobs.Core
         private readonly int _records;
 
         /// <summary>
-        /// Erstellt Scheduler mit definierter Anzahl Historien-Einträge.
+        /// Initializes a new instance of the <see cref="JobScheduler"/> class
+        /// with the specified number of history records.
         /// </summary>
+        /// <param name="records">Maximum number of timing entries to keep in history.</param>
         protected JobScheduler(int records = 16)
         {
             _records = records;
@@ -24,12 +27,13 @@ namespace Runtime.Engine.Jobs.Core
         }
 
         /// <summary>
-        /// Durchschnittliche Zeit der letzten aufgezeichneten Durchläufe (ms/10 - Skalierung beibehalten?).
+        /// Gets the average time of the last recorded runs. The value is derived from
+        /// the internal millisecond timings and divided by 10 to preserve legacy scaling.
         /// </summary>
         public float AvgTime => (float)_timings.Sum() / 10;
 
         /// <summary>
-        /// Startet Zeitaufzeichnung für aktuellen Lauf.
+        /// Starts timing for the current run.
         /// </summary>
         protected void StartRecord()
         {
@@ -37,8 +41,9 @@ namespace Runtime.Engine.Jobs.Core
         }
 
         /// <summary>
-        /// Stoppt Zeitaufzeichnung und legt Messwert in Historie ab.
+        /// Stops timing for the current run and enqueues the measured value in the history.
         /// </summary>
+        /// <returns>The elapsed time in milliseconds for the current run.</returns>
         protected long StopRecord()
         {
             _watch.Stop();

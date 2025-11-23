@@ -2,6 +2,9 @@ using Runtime.Engine.ThirdParty.Priority_Queue;
 
 namespace Runtime.Engine.Jobs.Core
 {
+    /// <summary>
+    /// Generic job queue for scheduling, processing, completing, and cleaning up jobs.
+    /// </summary>
     public class JobQueue<T>
     {
         private SimplePriorityQueue<T> _claimQueue;

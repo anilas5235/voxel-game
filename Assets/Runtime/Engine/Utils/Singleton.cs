@@ -11,12 +11,12 @@ namespace Runtime.Engine.Utils
     public abstract class Singleton<T> : MonoBehaviour where T : MonoBehaviour
     {
         /// <summary>
-        /// The singleton instance of this type. Null until first Awake executed.
+        /// Gets the singleton instance of this type. Null until the first <see cref="Awake"/> is executed.
         /// </summary>
         public static T Instance { get; private set; }
 
         /// <summary>
-        /// Ensures only one instance exists and assigns the static Instance property.
+        /// Ensures only one instance exists and assigns the static <see cref="Instance"/> property.
         /// Destroys duplicates automatically.
         /// </summary>
         protected virtual void Awake()
@@ -29,7 +29,7 @@ namespace Runtime.Engine.Utils
         }
 
         /// <summary>
-        /// Clears the static Instance property if this instance is destroyed.
+        /// Clears the static <see cref="Instance"/> property if this instance is destroyed.
         /// </summary>
         protected virtual void OnDestroy()
         {

@@ -5,25 +5,33 @@ using UnityEngine;
 namespace Runtime.Engine.Utils
 {
     /// <summary>
-    /// Utility methods for chunk and voxel coordinate conversions plus direction vectors.
+    /// Utility methods for converting between world, chunk and voxel coordinates,
+    /// and common direction vectors used for neighbor queries.
     /// </summary>
     public static class VoxelUtils
     {
         private static readonly int3 ChunkSize = VoxelEngineProvider.Current.Settings.Chunk.ChunkSize;
 
         /// <summary>
-        /// Gets chunk coordinates for a world position (Vector3).
+        /// Gets the chunk origin coordinates for a world position specified as <see cref="Vector3"/>.
         /// </summary>
+        /// <param name="position">World position in floating-point coordinates.</param>
+        /// <returns>Chunk origin coordinates in voxel space.</returns>
         public static int3 GetChunkCoords(Vector3 position) => GetChunkCoords(Vector3Int.FloorToInt(position));
 
         /// <summary>
-        /// Gets chunk coordinates for a world position (Vector3Int).
+        /// Gets the chunk origin coordinates for a world position specified as <see cref="Vector3Int"/>.
         /// </summary>
+        /// <param name="position">World position in integer voxel coordinates.</param>
+        /// <returns>Chunk origin coordinates in voxel space.</returns>
         public static int3 GetChunkCoords(Vector3Int position) => GetChunkCoords(position.Int3());
 
         /// <summary>
-        /// Computes chunk origin coordinates (bottom-left) handling negative positions.
+        /// Computes chunk origin coordinates (bottom-left in XZ) for the given world position,
+        /// correctly handling negative coordinates.
         /// </summary>
+        /// <param name="position">World position in voxel coordinates.</param>
+        /// <returns>Chunk origin coordinates this position belongs to.</returns>
         public static int3 GetChunkCoords(int3 position)
         {
             int modX = position.x % ChunkSize.x;
@@ -36,13 +44,17 @@ namespace Runtime.Engine.Utils
         }
 
         /// <summary>
-        /// Gets local voxel index inside its chunk for a world position.
+        /// Gets the local voxel index inside its chunk for a world position.
         /// </summary>
+        /// <param name="position">World position in floating-point coordinates.</param>
+        /// <returns>Voxel index relative to the origin of its chunk.</returns>
         public static int3 GetVoxelIndex(Vector3 position) => GetVoxelIndex(Vector3Int.FloorToInt(position));
 
         /// <summary>
-        /// Gets local voxel index inside its chunk for a world position (Vector3Int).
+        /// Gets the local voxel index inside its chunk for a world position specified as <see cref="Vector3Int"/>.
         /// </summary>
+        /// <param name="position">World position in integer voxel coordinates.</param>
+        /// <returns>Voxel index relative to the origin of its chunk.</returns>
         public static int3 GetVoxelIndex(Vector3Int position)
         {
             int3 chunkCoords = GetChunkCoords(position);
@@ -50,7 +62,7 @@ namespace Runtime.Engine.Utils
         }
 
         /// <summary>
-        /// 6 Cartesian directions used for neighbor queries (+/-X, +/-Y, +/-Z).
+        /// Six Cartesian directions used for neighbor queries (+/-X, +/-Y, +/-Z).
         /// </summary>
         public static readonly int3[] Directions =
         {
