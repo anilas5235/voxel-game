@@ -5,27 +5,30 @@ using UnityEngine;
 namespace Runtime.Engine.VoxelConfig.Data
 {
     /// <summary>
-    /// Lädt alle <see cref="VoxelDataPackage"/> Assets aus Resources, registriert deren Definitionen im <see cref="VoxelRegistry"/>
-    /// und aktualisiert Materialien mit Textur-Atlas / Layer Informationen. Singleton Lebenszyklus steuert Registry.
+    /// Loads all <see cref="VoxelDataPackage"/> assets from Resources, registers their definitions in the
+    /// <see cref="VoxelRegistry"/>, and updates materials with texture atlas and mesh layer information.
+    /// The singleton lifecycle controls the registry lifetime.
     /// </summary>
     [DefaultExecutionOrder(-1000)]
     public class VoxelDataImporter : Singleton<VoxelDataImporter>
     {
         /// <summary>
-        /// Material für undurchsichtige Voxel (Solid Layer).
+        /// Material used for opaque voxel rendering (solid mesh layer).
         /// </summary>
         public Material voxelSolidMaterial;
+
         /// <summary>
-        /// Material für transparente / Alpha Voxel (Transparent Layer).
+        /// Material used for transparent / alpha voxel rendering (transparent mesh layer).
         /// </summary>
         public Material voxelTransparentMaterial;
+
         /// <summary>
-        /// Registry mit allen registrierten <see cref="VoxelDefinition"/> Instanzen.
+        /// Registry containing all registered <see cref="VoxelDefinition"/> instances.
         /// </summary>
         public VoxelRegistry VoxelRegistry { get; } = new();
 
         /// <summary>
-        /// Lädt Packages, registriert Voxel und aktualisiert Materialien.
+        /// Loads packages, registers voxels and updates materials when the importer is created.
         /// </summary>
         protected override void Awake()
         {
@@ -43,7 +46,7 @@ namespace Runtime.Engine.VoxelConfig.Data
         }
 
         /// <summary>
-        /// Wendet Registry Texture Daten auf Materialien an.
+        /// Applies registry texture data to the configured materials.
         /// </summary>
         private void UpdateMaterials()
         {
@@ -52,8 +55,9 @@ namespace Runtime.Engine.VoxelConfig.Data
         }
 
         /// <summary>
-        /// Registriert alle Definitionen eines Packages und finalisiert Registry (Sortierung/Atlas Build).
+        /// Registers all definitions contained in a package and finalizes the registry (sorting/atlas build).
         /// </summary>
+        /// <param name="package">Voxel data package whose definitions should be registered.</param>
         private void RegisterPackage(VoxelDataPackage package)
         {
             string prefix = package.packagePrefix;
@@ -78,7 +82,7 @@ namespace Runtime.Engine.VoxelConfig.Data
         }
 
         /// <summary>
-        /// Dispose der Registry beim Zerstören des Importers.
+        /// Disposes the registry when the importer is destroyed.
         /// </summary>
         protected override void OnDestroy()
         {
@@ -87,8 +91,9 @@ namespace Runtime.Engine.VoxelConfig.Data
         }
 
         /// <summary>
-        /// Erstellt einen <see cref="GeneratorConfig"/> mit aufgelösten IDs für prozedurale Welt-Erstellung.
+        /// Creates a <see cref="GeneratorConfig"/> with resolved voxel IDs for procedural world generation.
         /// </summary>
+        /// <returns>Filled generator configuration structure.</returns>
         public GeneratorConfig CreateConfig()
         {
             GeneratorConfig config = new()

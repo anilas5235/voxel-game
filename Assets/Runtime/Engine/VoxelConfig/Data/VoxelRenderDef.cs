@@ -3,37 +3,40 @@
 namespace Runtime.Engine.VoxelConfig.Data
 {
     /// <summary>
-    /// Render-Definition eines Voxels (Textur-Slots für alle Seiten, Layer/Zusatzinformationen und Kollisions-/Rendering Flags).
+    /// Render definition for a voxel, including texture slots for all faces, mesh layer,
+    /// collision flag and additional rendering information.
     /// </summary>
     [BurstCompile]
     public struct VoxelRenderDef
     {
-        /// <summary>Mesh Layer (Solid/Transparent/Air).</summary>
+        /// <summary>Mesh layer (solid, transparent or air).</summary>
         public MeshLayer MeshLayer;
-        /// <summary>Ob alle Faces immer gerendert werden sollen (auch wenn verdeckt).</summary>
+        /// <summary>Whether all faces should always be rendered, even when hidden by neighbors.</summary>
         public bool AlwaysRenderAllFaces;
-        /// <summary>Semantischer Voxel-Typ (z.B. Flora, Liquid).</summary>
+        /// <summary>Semantic voxel type (for example flora or liquid).</summary>
         public VoxelType VoxelType;
-        /// <summary>Distanz für Depth-Fade bei Transparenten Voxeln.</summary>
+        /// <summary>Distance at which depth fading starts for transparent voxels.</summary>
         public float DepthFadeDistance;
-        /// <summary>Ob der Voxel am Physik-Collider teilnimmt.</summary>
+        /// <summary>Whether this voxel participates in physics collision.</summary>
         public bool Collision;
-        /// <summary>Texturindex Oberseite.</summary>
+        /// <summary>Texture index for the top face.</summary>
         public int TexUp;
-        /// <summary>Texturindex Unterseite.</summary>
+        /// <summary>Texture index for the bottom face.</summary>
         public int TexDown;
-        /// <summary>Texturindex Links.</summary>
+        /// <summary>Texture index for the left face.</summary>
         public int TexLeft;
-        /// <summary>Texturindex Rechts.</summary>
+        /// <summary>Texture index for the right face.</summary>
         public int TexRight;
-        /// <summary>Texturindex Front.</summary>
+        /// <summary>Texture index for the front face.</summary>
         public int TexFront;
-        /// <summary>Texturindex Rückseite.</summary>
+        /// <summary>Texture index for the back face.</summary>
         public int TexBack;
 
         /// <summary>
-        /// Liefert passenden Textur-Slot für gegebene Richtung.
+        /// Returns the texture index for a given direction.
         /// </summary>
+        /// <param name="dir">Face direction to query.</param>
+        /// <returns>Texture index for the face, or -1 if none is defined.</returns>
         [BurstCompile]
         public readonly int GetTextureId(Direction dir)
         {

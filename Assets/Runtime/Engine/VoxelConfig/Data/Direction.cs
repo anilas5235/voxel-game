@@ -4,6 +4,9 @@ using UnityEngine;
 
 namespace Runtime.Engine.VoxelConfig.Data
 {
+    /// <summary>
+    /// Cardinal directions used for voxel face orientation and neighbor queries.
+    /// </summary>
     public enum Direction
     {
         Up = 0, // +y direction
@@ -14,8 +17,16 @@ namespace Runtime.Engine.VoxelConfig.Data
         Left = 5, // -x direction
     }
 
+    /// <summary>
+    /// Extension helpers for converting <see cref="Direction"/> values to vectors and getting opposite directions.
+    /// </summary>
     public static class DirectionUtils
     {
+        /// <summary>
+        /// Converts a <see cref="Direction"/> into a corresponding <see cref="Vector3Int"/> unit vector.
+        /// </summary>
+        /// <param name="direction">Direction to convert.</param>
+        /// <returns>Unit vector matching the given direction.</returns>
         public static Vector3Int GetVector(this Direction direction)
         {
             return direction switch
@@ -31,6 +42,11 @@ namespace Runtime.Engine.VoxelConfig.Data
             };
         }
 
+        /// <summary>
+        /// Converts a <see cref="Direction"/> into a corresponding <see cref="int3"/> unit vector.
+        /// </summary>
+        /// <param name="direction">Direction to convert.</param>
+        /// <returns>Unit vector matching the given direction.</returns>
         public static int3 GetInt3(this Direction direction)
         {
             return direction switch
@@ -46,6 +62,11 @@ namespace Runtime.Engine.VoxelConfig.Data
             };
         }
 
+        /// <summary>
+        /// Gets the opposite direction for the given <see cref="Direction"/> value.
+        /// </summary>
+        /// <param name="direction">Direction whose opposite should be returned.</param>
+        /// <returns>Opposite direction.</returns>
         public static Direction GetOpposite(this Direction direction)
         {
             return direction switch

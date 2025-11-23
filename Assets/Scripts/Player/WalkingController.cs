@@ -3,14 +3,30 @@ using UnityEngine.InputSystem;
 
 namespace Player
 {
+    /// <summary>
+    /// Character controller that handles grounded walking, sprinting and jumping
+    /// using the Unity CharacterController component.
+    /// </summary>
     public class WalkingController : MonoBehaviour
     {
         private Vector2 _moveInput;
         private bool _sprintInput;
 
+        /// <summary>
+        /// Base walking speed in units per second.
+        /// </summary>
         [Range(1f, 100f)] public float moveSpeed = 20f;
+
+        /// <summary>
+        /// Jump height in world units.
+        /// </summary>
         [Range(1f, 20f)] public float jumpHeight = 1.5f;
+
+        /// <summary>
+        /// Gravity value applied to the character (negative for downward acceleration).
+        /// </summary>
         public float gravity = -9.81f;
+
         private CharacterController _controller;
         [SerializeField] private Camera targetCamera;
 
@@ -18,6 +34,9 @@ namespace Player
 
         private Vector3 _velocity;
 
+        /// <summary>
+        /// Indicates whether the character is currently grounded.
+        /// </summary>
         public bool isGrounded;
 
         private void OnEnable()
@@ -25,16 +44,28 @@ namespace Player
             _controller = GetComponent<CharacterController>();
         }
 
+        /// <summary>
+        /// Input System callback for movement input (WASD / left stick).
+        /// </summary>
+        /// <param name="value">2D movement vector.</param>
         public void OnMove(InputValue value)
         {
             _moveInput = value.Get<Vector2>();
         }
 
+        /// <summary>
+        /// Input System callback for sprint toggle.
+        /// </summary>
+        /// <param name="value">Button state indicating whether sprint is active.</param>
         public void OnSprint(InputValue value)
         {
             _sprintInput = value.isPressed;
         }
 
+        /// <summary>
+        /// Input System callback for jump.
+        /// </summary>
+        /// <param name="value">Button state indicating whether jump is pressed.</param>
         public void OnJump(InputValue value)
         {
             _jumpInput = value.isPressed;

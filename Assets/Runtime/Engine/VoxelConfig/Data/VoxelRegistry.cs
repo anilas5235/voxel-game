@@ -7,13 +7,13 @@ using UnityEngine;
 namespace Runtime.Engine.VoxelConfig.Data
 {
     /// <summary>
-    /// Registry zur Verwaltung von Voxel Render Definitionen, Textur-Arrays und Mapping Name ↔ ID.
-    /// Bietet Finalisierung zur Erstellung eines NativeArrays für Burst-kompatible Meshing-Daten.
+    /// Registry that manages voxel render definitions, texture arrays and name-to-ID mappings.
+    /// Can be finalized to build a NativeArray for Burst-compatible meshing data.
     /// </summary>
     public class VoxelRegistry : IDisposable
     {
         private static readonly int Textures = Shader.PropertyToID("_Textures");
-        internal const int TextureSize = 128; // Texturauflösung (quadratisch)
+        internal const int TextureSize = 128; // Texture resolution (square)
         private readonly Dictionary<string, ushort> _nameToId = new();
         private readonly Dictionary<ushort, string> _idToName = new();
         private readonly Dictionary<ushort, VoxelRenderDef> _idToVoxel = new(100);
@@ -42,8 +42,11 @@ namespace Runtime.Engine.VoxelConfig.Data
         }
 
         /// <summary>
-        /// Registriert eine Voxel Definition samt texturabhängigen RenderDef und weist eine neue ID zu.
+        /// Registers a voxel definition, builds its texture-based <see cref="VoxelRenderDef"/>, 
+        /// and assigns a new voxel ID.
         /// </summary>
+        /// <param name="packagePrefix">Prefix of the package this definition belongs to.</param>
+        /// <param name="definition">Voxel definition asset to register.</param>
         public void Register(string packagePrefix, VoxelDefinition definition)
         {
             VoxelRenderDef type = new()
@@ -94,25 +97,39 @@ namespace Runtime.Engine.VoxelConfig.Data
         }
 
         /// <summary>
-        /// Holt eine ID zu einem Namen, oder false bei Nichtexistenz.
+        /// Tries to get an ID for a given name.
         /// </summary>
+        /// <param name="name">Registered voxel name.</param>
+        /// <param name="id">Resulting voxel ID if found.</param>
+        /// <returns><c>true</c> if the name exists; otherwise, <c>false</c>.</returns>
         public bool GetId(string name, out ushort id) => _nameToId.TryGetValue(name, out id);
+
         /// <summary>
-        /// Liefert ID oder wirft bei nicht vorhanden.
+        /// Gets the ID for a given name or throws if it does not exist.
         /// </summary>
+        /// <param name="name">Registered voxel name.</param>
+        /// <returns>Voxel ID associated with the name.</returns>
         public ushort GetIdOrThrow(string name) => _nameToId[name];
+
         /// <summary>
-        /// Holt Namen zu ID.
+        /// Tries to get the registered name for a voxel ID.
         /// </summary>
+        /// <param name="id">Voxel ID.</param>
+        /// <param name="name">Output name if found.</param>
+        /// <returns><c>true</c> if the ID exists; otherwise, <c>false</c>.</returns>
         public bool GetName(ushort id, out string name) => _idToName.TryGetValue(id, out name);
+
         /// <summary>
-        /// Holt VoxelDefinition zu ID.
+        /// Tries to get the <see cref="VoxelDefinition"/> associated with the given ID.
         /// </summary>
+        /// <param name="id">Voxel ID.</param>
+        /// <param name="def">Output voxel definition if found.</param>
+        /// <returns><c>true</c> if the ID has an associated definition; otherwise, <c>false</c>.</returns>
         public bool GetVoxelDefinition(ushort id, out VoxelDefinition def) =>
             _idToVoxelDefinition.TryGetValue(id, out def);
 
         /// <summary>
-        /// Finalisiert Registrierung: erzeugt Texture Arrays und NativeArray für RenderDefs.
+        /// Finalizes registration: builds texture arrays and a native array for render definitions.
         /// </summary>
         public void FinalizeRegistry()
         {
@@ -133,8 +150,9 @@ namespace Runtime.Engine.VoxelConfig.Data
         }
 
         /// <summary>
-        /// Liefert das Datenpaket für Meshing/Rendering.
+        /// Retrieves the data package used for meshing and rendering.
         /// </summary>
+        /// <returns>Voxel engine render generation data structure.</returns>
         public VoxelEngineRenderGenData GetVoxelGenData()
         {
             return _voxelEngineRenderGenData;
@@ -157,7 +175,7 @@ namespace Runtime.Engine.VoxelConfig.Data
         }
 
         /// <summary>
-        /// Gibt Burst Native Ressourcen frei.
+        /// Releases Burst-native resources used by the registry.
         /// </summary>
         public void Dispose()
         {
@@ -166,8 +184,10 @@ namespace Runtime.Engine.VoxelConfig.Data
         }
 
         /// <summary>
-        /// Wendet Texture Array des Layers auf Material an (Shader Property _Textures).
+        /// Applies the texture array for a given mesh layer to the specified material (shader property "_Textures").
         /// </summary>
+        /// <param name="material">Material to assign the texture array to.</param>
+        /// <param name="solid">Mesh layer whose texture array should be used.</param>
         public void ApplyToMaterial(Material material, MeshLayer solid)
         {
             if (material)
@@ -185,8 +205,9 @@ namespace Runtime.Engine.VoxelConfig.Data
         }
 
         /// <summary>
-        /// Liefert Liste aller registrierten IDs mit Namen.
+        /// Returns a list of all registered IDs and their corresponding names.
         /// </summary>
+        /// <returns>List of ID/name pairs.</returns>
         public List<KeyValuePair<ushort, string>> GetAllEntries()
         {
             return _idToName.ToList();

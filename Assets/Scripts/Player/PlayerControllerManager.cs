@@ -3,10 +3,25 @@ using UnityEngine.InputSystem;
 
 namespace Player
 {
+    /// <summary>
+    /// Manages switching between walking and flying controllers based on input
+    /// and current grounded state.
+    /// </summary>
     public class PlayerControllerManager : MonoBehaviour
     {
+        /// <summary>
+        /// Fly controller used when the player is in flying mode.
+        /// </summary>
         [SerializeField] private FlyController flyController;
+
+        /// <summary>
+        /// Look controller responsible for camera rotation.
+        /// </summary>
         [SerializeField] private LookController lookController;
+
+        /// <summary>
+        /// Walking controller used when the player is in walking mode.
+        /// </summary>
         [SerializeField] private WalkingController walkingController;
 
         private CharacterController _characterController;
@@ -37,6 +52,11 @@ namespace Player
             }
         }
 
+        /// <summary>
+        /// Input System callback for the "double jump" action which toggles flying mode
+        /// when currently walking.
+        /// </summary>
+        /// <param name="value">Button state for the double jump action.</param>
         public void OnDoubleJump(InputValue value)
         {
             if (_mode == PlayerMode.Walking && !value.isPressed)
@@ -45,6 +65,10 @@ namespace Player
             }
         }
 
+        /// <summary>
+        /// Input System callback for crouch, used to return to walking mode when grounded in fly mode.
+        /// </summary>
+        /// <param name="value">Button state for crouch.</param>
         public void OnCrouch(InputValue value)
         {
             _crouchPressed = value.isPressed;

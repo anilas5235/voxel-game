@@ -12,16 +12,18 @@ namespace Runtime.Engine.VoxelConfig.Data
     {
         private static int TextureSize => VoxelRegistry.TextureSize;
         private readonly Dictionary<Texture2D, int> _textureToId = new();
+
         /// <summary>
-        /// Resulting texture array after <see cref="PrepareTextureArray"/>.
+        /// Gets the resulting texture array after <see cref="PrepareTextureArray"/> has been called.
         /// </summary>
         public Texture2DArray TextureArray { get; private set; }
 
         /// <summary>
-        /// Registers a texture and assigns an index ID (if size matches expectations).
-        /// Returns index or -1 on failure.
+        /// Registers a texture and assigns an index ID if its size matches the expected atlas size.
+        /// Returns the index or -1 on failure.
         /// </summary>
-        /// <returns>Index or -1 on failure.</returns>
+        /// <param name="tex">Texture to register.</param>
+        /// <returns>Assigned texture index, or -1 if registration failed.</returns>
         public int RegisterTexture(Texture2D tex)
         {
             int textureId = -1;
@@ -42,7 +44,7 @@ namespace Runtime.Engine.VoxelConfig.Data
         }
 
         /// <summary>
-        /// Builds a Texture2DArray from all registered textures (Point filter, Repeat wrap).
+        /// Builds a <see cref="Texture2DArray"/> from all registered textures using point filtering and repeat wrapping.
         /// </summary>
         internal void PrepareTextureArray()
         {

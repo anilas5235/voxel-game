@@ -3,6 +3,10 @@ using UnityEngine.InputSystem;
 
 namespace Player
 {
+    /// <summary>
+    /// Simple free-fly character controller driven by the Unity Input System,
+    /// moving relative to a target camera orientation.
+    /// </summary>
     public class FlyController : MonoBehaviour
     {
         private Vector2 _moveInput;
@@ -10,7 +14,11 @@ namespace Player
         private float _pitch; // vertical rotation
         private float _verticalInput; // for up/down movement
 
+        /// <summary>
+        /// Base movement speed in units per second.
+        /// </summary>
         [Range(1f, 100f)] public float moveSpeed = 20f;
+
         [SerializeField] private Camera targetCamera;
         private CharacterController _controller;
 
@@ -22,21 +30,37 @@ namespace Player
             _controller = GetComponent<CharacterController>();
         }
 
+        /// <summary>
+        /// Input System callback for movement input (WASD / left stick).
+        /// </summary>
+        /// <param name="value">2D movement vector.</param>
         public void OnMove(InputValue value)
         {
             _moveInput = value.Get<Vector2>();
         }
 
+        /// <summary>
+        /// Input System callback for sprint toggle.
+        /// </summary>
+        /// <param name="value">Button state indicating whether sprint is active.</param>
         public void OnSprint(InputValue value)
         {
             _sprintInput = value.isPressed;
         }
 
+        /// <summary>
+        /// Input System callback for jump (ascend) in fly mode.
+        /// </summary>
+        /// <param name="value">Button state indicating whether ascend is active.</param>
         public void OnJump(InputValue value)
         {
             _jumpInput = value.isPressed;
         }
 
+        /// <summary>
+        /// Input System callback for crouch (descend) in fly mode.
+        /// </summary>
+        /// <param name="value">Button state indicating whether descend is active.</param>
         public void OnCrouch(InputValue value)
         {
             _crouchInput = value.isPressed;
