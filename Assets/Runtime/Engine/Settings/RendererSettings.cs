@@ -3,13 +3,13 @@
 namespace Runtime.Engine.Settings
 {
     /// <summary>
-    /// Renderer-bezogene Optionen für Chunk Darstellung.
+    /// Renderer-related options for chunk presentation.
     /// </summary>
     [Serializable]
     public class RendererSettings
     {
         /// <summary>
-        /// Ob Chunk Mesh Schatten werfen darf.
+        /// Whether chunk meshes cast shadows.
         /// </summary>
         public bool CastShadows;
     }

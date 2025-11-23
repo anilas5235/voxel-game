@@ -6,14 +6,17 @@ using UnityEngine;
 namespace Runtime.Engine.Jobs.Collider
 {
     /// <summary>
-    /// It would be so much better if we can merge this job with mesh generation
-    /// https://forum.unity.com/threads/can-we-have-a-overload-of-physics-bakemesh-that-works-with-meshdata-struct.1429576/
+    /// Parallel Job zum Backen der physikalischen Mesh-Collider für zuvor generierte Meshes.
+    /// Nutzt Physics.BakeMesh mit Optimierungsoptionen.
     /// </summary>
     [BurstCompile]
     internal struct ColliderBuildJob : IJobParallelFor
     {
-        [ReadOnly] public NativeList<int> MeshIDs;
+        [ReadOnly] public NativeList<int> MeshIDs; // Instanz IDs der Meshes
 
+        /// <summary>
+        /// Startet den Bake Vorgang für jeden Mesh.
+        /// </summary>
         public void Execute(int index)
         {
             Physics.BakeMesh(MeshIDs[index], false,

@@ -3,32 +3,29 @@
 namespace Runtime.Engine.Settings
 {
     /// <summary>
-    /// Konfiguration für Welt-Noise und Höhenniveaus (Wasser). Wird zur Generierung genutzt.
+    /// Configuration for world noise and height levels (water). Used during generation.
     /// </summary>
     [CreateAssetMenu(fileName = "NoiseSettings2D", menuName = "Data/NoiseSettings", order = 0)]
     public class NoiseSettings : ScriptableObject
     {
         /// <summary>
-        /// Wasseroberflächen-Level in Weltkoordinaten (Y).
+        /// Water surface level in world Y coordinates.
         /// </summary>
         public int WaterLevel = 96;
-
-        // Alphanumeric seed: if non-empty, this will be used (hashed) as the world seed.
-        // Numeric seed was removed to simplify configuration; use SeedString for reproducible worlds.
         /// <summary>
-        /// Skalierungsfaktor für Basis-Noise.
+        /// Base noise scale.
         /// </summary>
         public float Scale = 256;
         /// <summary>
-        /// Persistenz (Amplitude Reduktion pro Oktave).
+        /// Amplitude reduction per octave (persistence).
         /// </summary>
         public float Persistance = 0.5f;
         /// <summary>
-        /// Lacunarity (Frequenzsteigerung pro Oktave).
+        /// Frequency increase per octave (lacunarity).
         /// </summary>
         public float Lacunarity = 2f;
         /// <summary>
-        /// Anzahl der Oktaven.
+        /// Number of octaves.
         /// </summary>
         public int Octaves = 4;
     }

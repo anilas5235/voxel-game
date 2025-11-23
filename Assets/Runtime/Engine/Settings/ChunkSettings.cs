@@ -5,35 +5,35 @@ using UnityEngine;
 namespace Runtime.Engine.Settings
 {
     /// <summary>
-    /// Einstellungen für Chunkgröße und Sicht-/Lade-Distanzen. Beeinflusst Speicher- und Performance-Charakteristik.
+    /// Settings for chunk size and view/load distances. Impacts memory and performance characteristics.
     /// </summary>
     [Serializable]
     public class ChunkSettings
     {
         /// <summary>
-        /// Prefab welches MeshRenderer + Filter + Collider enthält für einen Chunk.
+        /// Prefab containing MeshRenderer + Filter + Collider for a chunk.
         /// </summary>
         public GameObject ChunkPrefab;
 
         /// <summary>
-        /// Sichtweite (aktive gerenderte Chunks in jede Richtung). Formel: aktive Chunks = (2 * DrawDistance + 1)^2.
+        /// View distance (actively rendered chunks in each direction). Formula: active = (2*DrawDistance+1)^2.
         /// </summary>
         [Tooltip("Number of active chunks = (2 * draw_distance + 1)^2")]
         public int DrawDistance = 2;
 
         /// <summary>
-        /// Dimensionen eines einzelnen Chunks (XYZ).
+        /// Dimensions of a single chunk (XYZ).
         /// </summary>
         [Tooltip("Chunk dimensions")] public int3 ChunkSize = 32 * new int3(1, 1, 1);
 
         /// <summary>
-        /// Zusätzliche Lade-Distanz (im Speicher gehalten) über Sichtweite hinaus. Wird intern berechnet.
+        /// Extra load distance (kept in memory) beyond view distance. Computed internally.
         /// </summary>
         [HideInInspector] [Tooltip("Number of chunks in memory = (draw_distance + 2)")]
         public int LoadDistance = 0;
 
         /// <summary>
-        /// Distanz für Updates (Collider/Aktivitätsbereich). Muss &lt;= DrawDistance sein.
+        /// Distance used for updates (collider/activity). Must be &lt;= draw distance.
         /// </summary>
         [HideInInspector] [Tooltip("Should be less than equal to DrawDistance")]
         public int UpdateDistance = 0;

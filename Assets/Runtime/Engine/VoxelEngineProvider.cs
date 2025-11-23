@@ -12,20 +12,19 @@ using UnityEngine;
 namespace Runtime.Engine
 {
     /// <summary>
-    /// Factory/provider für Kern-Komponenten des Voxel-Engine-Subsystems (Manager, Scheduler, Pools, Profile).
-    /// Stellt konfigurierte Instanzen basierend auf <see cref="VoxelEngineSettings"/> bereit.
+    /// Factory/provider for core voxel engine subsystems (manager, schedulers, pools, noise profile).
+    /// Supplies configured instances based on <see cref="VoxelEngineSettings"/>.
     /// </summary>
     public class VoxelEngineProvider : Provider<VoxelEngineProvider>
     {
         /// <summary>
-        /// Globale Engine-Konfiguration (Seed, Noise, Chunk-, Renderer-, Scheduler-Settings).
+        /// Global engine configuration (seed, noise, chunk, renderer, scheduler settings).
         /// </summary>
         public VoxelEngineSettings Settings { get; set; }
 
         /// <summary>
-        /// Erzeugt ein neues NoiseProfil aus den aktuellen <see cref="Settings"/>.
+        /// Creates a new noise profile from current <see cref="Settings"/>.
         /// </summary>
-        /// <returns>Initialisiertes NoiseProfile.</returns>
         internal NoiseProfile NoiseProfile() => new(
             new NoiseProfile.Settings
             {
@@ -38,18 +37,18 @@ namespace Runtime.Engine
         );
 
         /// <summary>
-        /// Erstellt einen neuen <see cref="ChunkManager"/> für das Verwalten von Chunks im Speicher.
+        /// Allocates a new <see cref="ChunkManager"/> responsible for chunk data in memory.
         /// </summary>
         internal ChunkManager ChunkManager() => new(Settings);
 
         /// <summary>
-        /// Erstellt einen neuen <see cref="ChunkPool"/> zum Recyclen von Chunk-Mesh GameObjects.
+        /// Allocates a new <see cref="ChunkPool"/> for recycling chunk render objects.
         /// </summary>
-        /// <param name="transform">Parent Transform für instanzierte Chunk-Objekte.</param>
+        /// <param name="transform">Parent transform for pooled chunk game objects.</param>
         internal ChunkPool ChunkPool(Transform transform) => new(transform, Settings);
 
         /// <summary>
-        /// Erstellt den top-level <see cref="VoxelEngineScheduler"/> welcher alle Sub-Scheduler koordiniert.
+        /// Creates the top-level <see cref="VoxelEngineScheduler"/> coordinating all sub-schedulers.
         /// </summary>
         internal VoxelEngineScheduler VoxelEngineScheduler(
             MeshBuildScheduler meshBuildScheduler,
@@ -60,8 +59,7 @@ namespace Runtime.Engine
         ) => new(Settings, meshBuildScheduler, chunkScheduler, colliderBuildScheduler, chunkManager, chunkPool);
 
         /// <summary>
-        /// Erstellt einen konfigurierten <see cref="ChunkScheduler"/> für Daten- / Generation-Jobs.
-        /// Füllt fehlende Felder im übergebenen <paramref name="generatorConfig"/> (WaterLevel, GlobalSeed).
+        /// Creates a configured <see cref="ChunkScheduler"/> for data generation jobs. Fills missing config fields.
         /// </summary>
         internal ChunkScheduler ChunkDataScheduler(
             ChunkManager chunkManager,
@@ -69,16 +67,14 @@ namespace Runtime.Engine
             GeneratorConfig generatorConfig
         )
         {
-            // ensure generator config has water level and global seed populated from settings
             GeneratorConfig cfg = generatorConfig;
             cfg.WaterLevel = Settings.Noise.WaterLevel;
             cfg.GlobalSeed = Settings.Seed;
-
             return new ChunkScheduler(Settings, chunkManager, noiseProfile, cfg);
         }
 
         /// <summary>
-        /// Erstellt den <see cref="MeshBuildScheduler"/> zum Bauen von Chunk-Meshes.
+        /// Creates the <see cref="MeshBuildScheduler"/> for building chunk meshes.
         /// </summary>
         internal MeshBuildScheduler MeshBuildScheduler(
             ChunkManager chunkManager,
@@ -87,7 +83,7 @@ namespace Runtime.Engine
         ) => new(Settings, chunkManager, chunkPool, voxelRegistry);
 
         /// <summary>
-        /// Erstellt den <see cref="ColliderBuildScheduler"/> für Collider-Generierung.
+        /// Creates the <see cref="ColliderBuildScheduler"/> for collider baking.
         /// </summary>
         internal ColliderBuildScheduler ColliderBuildScheduler(
             ChunkManager chunkManager,

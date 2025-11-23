@@ -14,8 +14,8 @@ using UnityEngine;
 namespace Runtime.Engine.Components
 {
     /// <summary>
-    /// Verwalter für Chunk-Daten im Speicher. Hält einen begrenzten Pool geladener Chunks bereit, priorisiert anhand Fokusposition.
-    /// Verwaltet Remesh / ReCollider Flags und stellt Zugriff auf Voxel bereit.
+    /// Manages chunk data in memory. Maintains a limited pool of loaded chunks prioritized by focus position.
+    /// Tracks remesh / recollider flags and provides voxel access.
     /// </summary>
     public class ChunkManager
     {
@@ -31,7 +31,7 @@ namespace Runtime.Engine.Components
         private readonly int _chunkStoreSize;
 
         /// <summary>
-        /// Erstellt einen neuen ChunkManager mit Kapazitäten aus <paramref name="settings"/>.
+        /// Creates a new manager with capacities from <paramref name="settings"/>.
         /// </summary>
         internal ChunkManager(VoxelEngineSettings settings)
         {
@@ -53,106 +53,87 @@ namespace Runtime.Engine.Components
         #region API
 
         /// <summary>
-        /// Liest einen Voxel an Weltposition. Gibt 0 zurück wenn Chunk oder Y außerhalb.
+        /// Reads a voxel at world position. Returns 0 if chunk or Y out of range.
         /// </summary>
         internal ushort GetVoxel(Vector3Int position)
         {
             int3 chunkPos = VoxelUtils.GetChunkCoords(position);
             int3 blockPos = VoxelUtils.GetVoxelIndex(position);
-
-            if (blockPos.y < 0 || blockPos.y >= _chunkSize.y)
-            {
-                return 0;
-            }
-
+            if (blockPos.y < 0 || blockPos.y >= _chunkSize.y) return 0;
             if (_chunks.TryGetValue(chunkPos, out Chunk chunk)) return chunk.GetVoxel(blockPos);
-
             VoxelEngineLogger.Warn<ChunkManager>($"Chunk : {chunkPos} not loaded");
             return 0;
         }
 
         /// <summary>
-        /// Setzt einen Voxel an Weltposition. Optional Remesh für betroffene Nachbar-Chunks.
+        /// Sets a voxel at world position. Optionally triggers remesh for affected neighbor chunks.
         /// </summary>
-        /// <param name="voxelId">Voxel ID / Typ.</param>
-        /// <param name="position">Weltposition.</param>
-        /// <param name="remesh">Soll Remeshing angestoßen werden.</param>
-        /// <returns>True bei Änderung.</returns>
+        /// <param name="voxelId">Voxel ID/type.</param>
+        /// <param name="position">World position.</param>
+        /// <param name="remesh">Whether to flag for remeshing.</param>
+        /// <returns>True if voxel actually changed.</returns>
         internal bool SetVoxel(ushort voxelId, Vector3Int position, bool remesh = true)
         {
             int3 chunkPos = VoxelUtils.GetChunkCoords(position);
             int3 blockPos = VoxelUtils.GetVoxelIndex(position);
-
             if (!_chunks.TryGetValue(chunkPos, out Chunk chunk))
             {
                 VoxelEngineLogger.Warn<ChunkManager>($"Chunk : {chunkPos} not loaded");
                 return false;
             }
-
             if (_reMeshChunks.Contains(chunkPos))
             {
                 VoxelEngineLogger.Warn<ChunkManager>($"Chunk : {chunkPos} is pending remesh, cannot set voxel now");
                 return false;
             }
-
             bool result = chunk.SetVoxel(blockPos, voxelId);
-
             _chunks[chunkPos] = chunk;
-
             if (remesh && result) ReMeshChunks(position.Int3());
-
             return result;
         }
 
         /// <summary>
-        /// Anzahl aktuell geladener Chunks.
+        /// Number of currently loaded chunks.
         /// </summary>
         public int ChunkCount() => _chunks.Count;
 
         /// <summary>
-        /// Prüft, ob ein Chunk geladen ist.
+        /// Checks if a chunk is loaded.
         /// </summary>
         public bool IsChunkLoaded(int3 position) => _chunks.ContainsKey(position);
 
         #endregion
 
         /// <summary>
-        /// Ob ein Chunk für Remeshing markiert ist.
+        /// Whether a chunk is flagged for remeshing.
         /// </summary>
         internal bool ShouldReMesh(int3 position) => _reMeshChunks.Contains(position);
         /// <summary>
-        /// Ob ein Chunk für Collider-Neugenerierung markiert ist.
+        /// Whether a chunk needs collider rebuild.
         /// </summary>
         internal bool ShouldReCollide(int3 position) => _reCollideChunks.Contains(position);
 
         /// <summary>
-        /// Dispose verwalteter Native Ressourcen und Chunks.
+        /// Disposes native resources and all chunk data.
         /// </summary>
         internal void Dispose()
         {
             _accessorMap.Dispose();
-
-            foreach ((int3 _, Chunk chunk) in _chunks)
-            {
-                chunk.Dispose();
-            }
+            foreach ((int3 _, Chunk chunk) in _chunks) chunk.Dispose();
         }
 
         /// <summary>
-        /// Aktualisiert Fokus (Spieler) und Prioritäten der Eviction Queue.
+        /// Updates focus (player) and priorities in eviction queue.
         /// </summary>
         internal void FocusUpdate(int3 focus)
         {
             _focus = focus;
-
             foreach (int3 position in _queue)
-            {
                 _queue.UpdatePriority(position, -(position - focus).SqrMagnitude());
-            }
         }
 
         /// <summary>
-        /// Fügt neu generierte Chunks hinzu, entfernt ggf. älteste bei Kapazitätsüberschreitung.
+        /// Adds newly generated chunks, evicts oldest if capacity exceeded.
         /// </summary>
         internal void AddChunks(NativeParallelHashMap<int3, Chunk> chunks)
         {
@@ -160,93 +141,69 @@ namespace Runtime.Engine.Components
             {
                 int3 position = pair.Key;
                 Chunk chunk = pair.Value;
-
-                if (_chunks.ContainsKey(chunk.Position))
-                {
-                    throw new InvalidOperationException($"Chunk {position} already exists");
-                }
-
-                if (_queue.Count >= _chunkStoreSize)
-                {
-                    RemoveChunkData(_queue.Dequeue());
-                }
-
+                if (_chunks.ContainsKey(chunk.Position)) throw new InvalidOperationException($"Chunk {position} already exists");
+                if (_queue.Count >= _chunkStoreSize) RemoveChunkData(_queue.Dequeue());
                 _chunks.Add(position, chunk);
                 _queue.Enqueue(position, -(position - _focus).SqrMagnitude());
             }
         }
 
         /// <summary>
-        /// Entfernt die Datendarstellung eines Chunks aus dem Speicher (Eviction).
+        /// Removes the chunk data (eviction). Persistence hook could be added here.
         /// </summary>
         private void RemoveChunkData(int3 position)
         {
             _chunks.Remove(position);
-            //TODO: at this point a chunk is evicted from store/memory, if persistence is needed it should be saved here
         }
 
         /// <summary>
-        /// Erstellt einen <see cref="ChunkAccessor"/> für die angegebenen Chunk Positionen (inkl. Nachbarschaft 3x3).
+        /// Builds a <see cref="ChunkAccessor"/> that includes a 3x3 neighborhood for given positions.
         /// </summary>
         internal ChunkAccessor GetAccessor(List<int3> positions)
         {
             _accessorMap.Clear();
-
             foreach (int3 position in positions)
             {
                 for (int x = -1; x <= 1; x++)
                 for (int z = -1; z <= 1; z++)
                 {
                     int3 pos = position + _chunkSize.MemberMultiply(x, 0, z);
-
                     if (!_chunks.TryGetValue(pos, out Chunk chunk))
-                    {
-                        // Anytime this exception is thrown, mesh building completely stops
                         throw new InvalidOperationException($"Chunk {pos} has not been generated");
-                    }
-
                     if (!_accessorMap.ContainsKey(pos)) _accessorMap.Add(pos, chunk);
                 }
             }
-
             return new ChunkAccessor(_accessorMap.AsReadOnly(), _chunkSize);
         }
 
         /// <summary>
-        /// Callback nach Remeshing eines Chunks – entfernt Flag und markiert für Collider.
+        /// Callback after chunk remesh completes: remove flag and flag for collider rebuild.
         /// </summary>
         internal void ReMeshedChunk(int3 position)
         {
             if (!_reMeshChunks.Contains(position)) return;
-
             _reMeshChunks.Remove(position);
-            VoxelEngineLogger.Info<ChunkManager>(
-                $"Chunk : {position} has been remeshed;{Time.realtimeSinceStartupAsDouble}");
+            VoxelEngineLogger.Info<ChunkManager>($"Chunk : {position} has been remeshed;{Time.realtimeSinceStartupAsDouble}");
             _reCollideChunks.Add(position);
         }
 
         /// <summary>
-        /// Callback nach Collider Bake eines Chunks – entfernt Flag.
+        /// Callback after collider bake completes: remove flag.
         /// </summary>
         internal void ReCollidedChunk(int3 position)
         {
             if (!_reCollideChunks.Contains(position)) return;
-
             _reCollideChunks.Remove(position);
         }
 
         /// <summary>
-        /// Markiert alle benachbarten Chunks für Remeshing basierend auf Blockänderung.
+        /// Flags all neighbor chunks for remesh based on block modification.
         /// </summary>
         private void ReMeshChunks(int3 blockPosition)
         {
             foreach (int3 dir in VoxelUtils.Directions)
-            {
                 _reMeshChunks.Add(VoxelUtils.GetChunkCoords(blockPosition + dir));
-            }
-
-            VoxelEngineLogger.Info<ChunkManager>(
-                $"ReMeshChunks called at {blockPosition}, total {_reMeshChunks.Count} chunks to remesh;{Time.realtimeSinceStartupAsDouble}");
+            VoxelEngineLogger.Info<ChunkManager>($"ReMeshChunks called at {blockPosition}, total {_reMeshChunks.Count} chunks to remesh;{Time.realtimeSinceStartupAsDouble}");
         }
     }
 }

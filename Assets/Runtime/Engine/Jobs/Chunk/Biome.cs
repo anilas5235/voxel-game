@@ -1,5 +1,8 @@
 ﻿namespace Runtime.Engine.Jobs.Chunk
 {
+    /// <summary>
+    /// Enumeration der verfügbaren Biome für Terrain- und Feature-Generierung.
+    /// </summary>
     public enum Biome
     {
         Plains,

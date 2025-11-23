@@ -4,26 +4,24 @@ using UnityEngine;
 namespace Runtime.Engine.Settings
 {
     /// <summary>
-    /// Konfiguration für Update-Batchgrößen einzelner Scheduler (Meshing, Streaming, Collider).
-    /// Höhere Werte erhöhen Parallelisierung pro Frame, können aber zu Framedrops führen.
+    /// Configuration for per-update batch sizes of individual schedulers (meshing, streaming, collider).
+    /// Higher values increase parallel work per frame but may cause frame spikes.
     /// </summary>
     [Serializable]
     public class SchedulerSettings
     {
         /// <summary>
-        /// Anzahl Chunks pro Update für Meshing.
+        /// Number of chunks processed per update for meshing.
         /// </summary>
         [Tooltip("Number of chunks to process per update for meshing")]
         public int MeshingBatchSize = 4;
-
         /// <summary>
-        /// Anzahl Chunks pro Update für Daten Streaming / Generierung.
+        /// Number of chunks processed per update for data streaming/generation.
         /// </summary>
         [Tooltip("Number of chunks to process per update for streaming")]
         public int StreamingBatchSize = 8;
-
         /// <summary>
-        /// Anzahl Chunks pro Update für Collider-Erstellung.
+        /// Number of chunks processed per update for collider generation.
         /// </summary>
         [Tooltip("Number of chunks to process per update for collider generation")]
         public int ColliderBatchSize = 4;

@@ -5,24 +5,23 @@ using UnityEngine.Rendering;
 namespace Runtime.Engine.Behaviour
 {
     /// <summary>
-    /// MonoBehaviour Repräsentation eines Chunks mit separatem Mesh für Rendering und Collider.
+    /// MonoBehaviour representation of a chunk with a dedicated render mesh and collider mesh.
     /// </summary>
     [RequireComponent(typeof(MeshRenderer), typeof(MeshFilter))]
     public class ChunkBehaviour : MonoBehaviour
     {
         private MeshRenderer _renderer;
         [SerializeField] private MeshCollider _Collider;
-
         /// <summary>
-        /// Mesh für visuelle Darstellung.
+        /// Mesh used for visual rendering.
         /// </summary>
         public Mesh Mesh { get; private set; }
         /// <summary>
-        /// Separates Mesh für Collider (nicht geteilt mit Render Mesh).
+        /// Dedicated mesh for collider (not shared with render mesh).
         /// </summary>
         public Mesh ColliderMesh { get; private set; }
         /// <summary>
-        /// Zugriff auf zugehörigen MeshCollider.
+        /// Access to the underlying MeshCollider.
         /// </summary>
         public MeshCollider Collider => _Collider;
 
@@ -30,12 +29,11 @@ namespace Runtime.Engine.Behaviour
         {
             Mesh = GetComponent<MeshFilter>().mesh;
             _renderer = GetComponent<MeshRenderer>();
-            // Dedicated collider mesh (not shared with renderer)
             ColliderMesh = new Mesh { name = "ChunkCollider" };
         }
 
         /// <summary>
-        /// Initialisiert Renderer-spezifische Optionen (z.B. Schattenwurf) laut Settings.
+        /// Initializes renderer-specific options (e.g. shadow casting) from settings.
         /// </summary>
         public void Init(RendererSettings settings)
         {

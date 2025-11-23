@@ -3,29 +3,29 @@
 namespace Runtime.Engine.Settings
 {
     /// <summary>
-    /// ScriptableObject mit zentraler Konfiguration für Voxel Engine (Seed, Noise, Chunk, Renderer, Scheduler).
+    /// Central ScriptableObject configuration for the voxel engine (seed, noise, chunk, renderer, scheduler).
     /// </summary>
     [CreateAssetMenu(fileName = "VoxelEngineSettings", menuName = "Data/EngineSettings", order = 0)]
     public class VoxelEngineSettings : ScriptableObject
     {
         /// <summary>
-        /// Globaler Seed für deterministische Welt-Generierung.
+        /// Global seed for deterministic world generation.
         /// </summary>
         public int Seed = 1337;
         /// <summary>
-        /// Noise Parameter (Skalierung, Persistenz, etc.).
+        /// Noise parameters (scale, persistence, etc.).
         /// </summary>
         public NoiseSettings Noise;
         /// <summary>
-        /// Chunk-bezogene Einstellungen (Größen, Distanzen, Prefabs).
+        /// Chunk related settings (dimensions, distances, prefabs).
         /// </summary>
         public ChunkSettings Chunk;
         /// <summary>
-        /// Renderer Optionen (Schatten, Materialnutzung).
+        /// Renderer options (shadows, materials).
         /// </summary>
         public RendererSettings Renderer;
         /// <summary>
-        /// Scheduler Batch Größen.
+        /// Scheduler batch sizes.
         /// </summary>
         public SchedulerSettings Scheduler;
     }
