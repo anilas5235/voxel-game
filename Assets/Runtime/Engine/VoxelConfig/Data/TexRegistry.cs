@@ -6,21 +6,22 @@ using UnityEngine;
 namespace Runtime.Engine.VoxelConfig.Data
 {
     /// <summary>
-    /// Registriert Texturen für Voxel Definitionen und baut ein gemeinsames <see cref="Texture2DArray"/> Atlas.
+    /// Registers textures for voxel definitions and builds a shared <see cref="Texture2DArray"/> atlas.
     /// </summary>
     internal class TexRegistry
     {
         private static int TextureSize => VoxelRegistry.TextureSize;
         private readonly Dictionary<Texture2D, int> _textureToId = new();
         /// <summary>
-        /// Resultierendes Texture Array nach <see cref="PrepareTextureArray"/>.
+        /// Resulting texture array after <see cref="PrepareTextureArray"/>.
         /// </summary>
         public Texture2DArray TextureArray { get; private set; }
 
         /// <summary>
-        /// Registriert eine Textur und weist eine Index-ID zu (falls Größe passt).
+        /// Registers a texture and assigns an index ID (if size matches expectations).
+        /// Returns index or -1 on failure.
         /// </summary>
-        /// <returns>Index oder -1 bei Fehler.</returns>
+        /// <returns>Index or -1 on failure.</returns>
         public int RegisterTexture(Texture2D tex)
         {
             int textureId = -1;
@@ -41,7 +42,7 @@ namespace Runtime.Engine.VoxelConfig.Data
         }
 
         /// <summary>
-        /// Erstellt Texture2DArray aus allen registrierten Texturen (Point Filter, Repeat Wrap).
+        /// Builds a Texture2DArray from all registered textures (Point filter, Repeat wrap).
         /// </summary>
         internal void PrepareTextureArray()
         {

@@ -5,8 +5,8 @@ using Unity.Mathematics;
 namespace Runtime.Engine.Data
 {
     /// <summary>
-    /// ReadOnly Zugriff auf mehrere Chunks samt Nachbarschaft (Wrap-around Berechnung für Ränder).
-    /// Bietet Utility Methoden für Nachbar-Prüfung und voxel lookups über Grenzen hinweg.
+    /// Read-only accessor spanning multiple chunks and their neighbors (wrap-around for border traversal).
+    /// Provides utilities for neighbor checks and voxel lookups across chunk boundaries.
     /// </summary>
     [BurstCompile]
     internal readonly struct ChunkAccessor
@@ -15,7 +15,7 @@ namespace Runtime.Engine.Data
         private readonly int3 _chunkSize;
 
         /// <summary>
-        /// Erstellt neuen Accessor.
+        /// Constructs a new accessor.
         /// </summary>
         internal ChunkAccessor(NativeParallelHashMap<int3, Chunk>.ReadOnly chunks, int3 chunkSize)
         {
@@ -24,7 +24,7 @@ namespace Runtime.Engine.Data
         }
 
         /// <summary>
-        /// Voxel Lookup innerhalb eines Chunks. Handhabt Positionsüberschreitungen durch Mapping auf Nachbar-Chunks.
+        /// Voxel lookup within a chunk; remaps out-of-range coordinates to neighbor chunks.
         /// </summary>
         internal ushort GetVoxelInChunk(int3 chunkPos, int3 voxelPos)
         {
@@ -45,19 +45,19 @@ namespace Runtime.Engine.Data
         }
 
         /// <summary>
-        /// Versucht Chunk an Position zu holen.
+        /// Attempts to get a chunk at a position.
         /// </summary>
         internal bool TryGetChunk(int3 pos, out Chunk chunk) => _chunks.TryGetValue(pos, out chunk);
 
         /// <summary>
-        /// Prüft, ob Chunk existiert.
+        /// Checks whether a chunk exists.
         /// </summary>
         internal bool ContainsChunk(int3 coord) => _chunks.ContainsKey(coord);
 
         #region Try Neighbours
 
         /// <summary>
-        /// Rechts (+X) Nachbar.
+        /// Right (+X) neighbor.
         /// </summary>
         internal bool TryGetNeighborPx(int3 pos, out Chunk chunk)
         {
@@ -67,7 +67,7 @@ namespace Runtime.Engine.Data
         }
 
         /// <summary>
-        /// Vorne (+Z) Nachbar.
+        /// Forward (+Z) neighbor.
         /// </summary>
         internal bool TryGetNeighborPz(int3 pos, out Chunk chunk)
         {
@@ -77,7 +77,7 @@ namespace Runtime.Engine.Data
         }
 
         /// <summary>
-        /// Links (-X) Nachbar.
+        /// Left (-X) neighbor.
         /// </summary>
         internal bool TryGetNeighborNx(int3 pos, out Chunk chunk)
         {
@@ -87,7 +87,7 @@ namespace Runtime.Engine.Data
         }
 
         /// <summary>
-        /// Hinten (-Z) Nachbar.
+        /// Back (-Z) neighbor.
         /// </summary>
         internal bool TryGetNeighborNz(int3 pos, out Chunk chunk)
         {
@@ -99,7 +99,7 @@ namespace Runtime.Engine.Data
         #endregion
 
         /// <summary>
-        /// Prüft, ob eine Voxel-Position innerhalb Chunk Bounds liegt.
+        /// Checks whether a voxel coordinate lies inside chunk bounds.
         /// </summary>
         public bool InChunkBounds(int3 chunkItr)
         {

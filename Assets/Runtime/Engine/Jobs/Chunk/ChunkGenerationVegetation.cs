@@ -6,9 +6,23 @@ using Random = Unity.Mathematics.Random;
 
 namespace Runtime.Engine.Jobs.Chunk
 {
+    /// <summary>
+    /// Provides Burst-compiled helpers to place biome-dependent vegetation such as trees,
+    /// grass, cacti, crops and mushrooms on top of generated terrain.
+    /// </summary>
     [BurstCompile]
     internal static class ChunkGenerationVegetation
     {
+        /// <summary>
+        /// Places vegetation for every suitable surface column in the chunk using biome information
+        /// and a deterministic random stream derived from chunk position and global seed.
+        /// </summary>
+        /// <param name="vox">Voxel buffer that will receive vegetation blocks.</param>
+        /// <param name="chunkColumns">Per-column data including biome, height and climate.</param>
+        /// <param name="chunkWordPos">World-space origin (in voxels) of the chunk.</param>
+        /// <param name="chunkSize">Size of the chunk in voxels (x, y, z).</param>
+        /// <param name="randomSeed">Global seed used to derive the per-chunk random generator.</param>
+        /// <param name="config">Generator configuration providing voxel IDs for vegetation blocks.</param>
         [BurstCompile]
         public static void PlaceVegetation(ref NativeArray<ushort> vox,
             ref NativeArray<ChunkColumn> chunkColumns,
@@ -333,6 +347,16 @@ namespace Runtime.Engine.Jobs.Chunk
             }
         }
 
+        /// <summary>
+        /// Places a simple palm-like tree structure at the given position using the provided random stream.
+        /// </summary>
+        /// <param name="vox">Voxel buffer to modify in place.</param>
+        /// <param name="cx">X coordinate of the trunk base in chunk space.</param>
+        /// <param name="cy">Y coordinate of the trunk base in chunk space.</param>
+        /// <param name="cz">Z coordinate of the trunk base in chunk space.</param>
+        /// <param name="rng">Random generator used to vary palm height and leaf placement.</param>
+        /// <param name="chunkSize">Size of the chunk in voxels (x, y, z).</param>
+        /// <param name="config">Generator configuration providing log and leaf voxel IDs.</param>
         internal static void PlacePalm(ref NativeArray<ushort> vox, int cx, int cy, int cz, ref Random rng,
             ref int3 chunkSize,
             ref GeneratorConfig config)

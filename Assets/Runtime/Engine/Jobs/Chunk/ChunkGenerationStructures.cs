@@ -6,9 +6,23 @@ using Random = Unity.Mathematics.Random;
 
 namespace Runtime.Engine.Jobs.Chunk
 {
+    /// <summary>
+    /// Provides Burst-compiled helpers to place rare world structures such as pyramids, oases,
+    /// igloos, shipwrecks and mineshafts on or within generated terrain.
+    /// </summary>
     [BurstCompile]
     internal static class ChunkGenerationStructures
     {
+        /// <summary>
+        /// Places biome-dependent structures into the voxel buffer using per-column metadata.
+        /// Structures are rare and are positioned deterministically based on chunk position and seed.
+        /// </summary>
+        /// <param name="vox">Voxel buffer to modify with structure blocks.</param>
+        /// <param name="chunkColumns">Per-column data including biome and terrain height.</param>
+        /// <param name="chunkWordPos">World-space origin (in voxels) of the chunk.</param>
+        /// <param name="chunkSize">Size of the chunk in voxels (x, y, z).</param>
+        /// <param name="randomSeed">Global seed used to derive the per-chunk random stream.</param>
+        /// <param name="config">Generator configuration providing voxel IDs for structure materials.</param>
         [BurstCompile]
         public static void PlaceStructures(ref NativeArray<ushort> vox,
             ref NativeArray<ChunkColumn> chunkColumns, ref int3 chunkWordPos, ref int3 chunkSize,

@@ -8,25 +8,26 @@ using Unity.Mathematics;
 namespace Runtime.Engine.Jobs.Chunk
 {
     /// <summary>
-    /// Parallel Job zur prozeduralen Generierung einzelner Chunk-Daten (Terrain, Höhlen, Strukturen, Vegetation).
-    /// Nutzt NoiseProfile und GeneratorConfig zur Erzeugung und schreibt komprimierte Voxel-Intervalle.
+    /// Parallel job that procedurally generates chunk data (terrain, caves, ores, structures, vegetation)
+    /// for multiple chunks in parallel.
     /// </summary>
     [BurstCompile]
     public struct ChunkJob : IJobParallelFor
     {
         [ReadOnly] public int3 ChunkSize;
         [ReadOnly] public NoiseProfile NoiseProfile;
-        [ReadOnly] public NativeList<int3> Jobs; // Chunk Weltpositionen
-        [WriteOnly] public NativeParallelHashMap<int3, Data.Chunk>.ParallelWriter Results; // Ergebnis Mapping
+        [ReadOnly] public NativeList<int3> Jobs; // Chunk world positions
+        [WriteOnly] public NativeParallelHashMap<int3, Data.Chunk>.ParallelWriter Results; // Result mapping
         [ReadOnly] public int RandomSeed;
         [ReadOnly] public GeneratorConfig Config;
 
-        private const float CaveScale = 0.04f; // 3D noise scale für Höhlen (größere Merkmale)
+        private const float CaveScale = 0.04f; // 3D noise scale for caves (larger features)
         private const int LavaLevel = 5;
 
         /// <summary>
-        /// Führt Generierung für Job-Index aus und schreibt Chunk-Daten in Results.
+        /// Executes chunk generation for the given job index and writes the result into the hash map.
         /// </summary>
+        /// <param name="index">Index of the chunk position in the <see cref="Jobs"/> list.</param>
         public void Execute(int index)
         {
             int3 position = Jobs[index];
@@ -35,7 +36,7 @@ namespace Runtime.Engine.Jobs.Chunk
         }
 
         /// <summary>
-        /// Erzeugt alle Voxel für gegebenen Chunk (Terrain, Ores, Caves, Structures, Vegetation).
+        /// Generates all voxel data for a given chunk (terrain, ores, caves, structures, vegetation).
         /// </summary>
         private Data.Chunk GenerateChunkData(int3 chunkWordPos)
         {
@@ -64,7 +65,7 @@ namespace Runtime.Engine.Jobs.Chunk
         }
 
         /// <summary>
-        /// Schreibt unkomprimierte Voxel-Daten in Chunk mit RLE-Kompaktierung.
+        /// Writes uncompressed voxel data into the chunk using run-length encoding (RLE) compaction.
         /// </summary>
         private Data.Chunk WriteToChunkData(NativeArray<ushort> vox, int3 chunkWordPos)
         {

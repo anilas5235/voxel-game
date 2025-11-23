@@ -10,6 +10,9 @@ using UnityEngine;
 
 namespace Runtime.Engine.Jobs.Collider
 {
+    /// <summary>
+    /// Schedules and manages jobs that build or update physics colliders for active chunk meshes.
+    /// </summary>
     public class ColliderBuildScheduler : JobScheduler
     {
         private readonly ChunkManager _chunkManager;
@@ -20,6 +23,11 @@ namespace Runtime.Engine.Jobs.Collider
 
         private JobHandle _handle;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ColliderBuildScheduler"/> class.
+        /// </summary>
+        /// <param name="chunkManager">The chunk manager responsible for tracking chunk state and events.</param>
+        /// <param name="chunkPool">The chunk pool providing access to active chunk meshes.</param>
         public ColliderBuildScheduler(ChunkManager chunkManager, ChunkPool chunkPool)
         {
             _chunkManager = chunkManager;
@@ -28,10 +36,20 @@ namespace Runtime.Engine.Jobs.Collider
             _jobs = new NativeList<int>(Allocator.Persistent);
         }
 
+        /// <summary>
+        /// Indicates whether the scheduler is ready to accept a new batch of collider build jobs.
+        /// </summary>
         internal bool IsReady = true;
 
+        /// <summary>
+        /// Gets a value indicating whether the currently scheduled collider build jobs have completed.
+        /// </summary>
         internal bool IsComplete => _handle.IsCompleted;
 
+        /// <summary>
+        /// Starts scheduling collider build jobs for the given list of chunk positions.
+        /// </summary>
+        /// <param name="jobs">The list of chunk positions whose colliders should be built or updated.</param>
         internal void Start(List<int3> jobs)
         {
             StartRecord();
@@ -57,6 +75,9 @@ namespace Runtime.Engine.Jobs.Collider
             _handle = job.Schedule(_jobs.Length, 1);
         }
 
+        /// <summary>
+        /// Completes all scheduled collider build jobs and applies the resulting colliders to the associated chunks.
+        /// </summary>
         internal void Complete()
         {
             double start = Time.realtimeSinceStartupAsDouble;
@@ -88,6 +109,9 @@ namespace Runtime.Engine.Jobs.Collider
             StopRecord();
         }
 
+        /// <summary>
+        /// Disposes the scheduler, ensuring all jobs are completed and native resources are released.
+        /// </summary>
         internal void Dispose()
         {
             _handle.Complete();

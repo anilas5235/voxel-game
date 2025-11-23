@@ -7,26 +7,20 @@ using Unity.Collections.LowLevel.Unsafe;
 namespace Runtime.Engine.Utils.Collections
 {
     /// <summary>
-    /// Speicher-effiziente Liste von komprimierten Intervallen (Run-Length Encoding ähnlich).
-    /// Speichert Sequenzen gleicher IDs als Nodes mit End-Index. Ermöglicht O (log n) Zugriffe über Binärsuche.
-    /// Unterstützt Coalescing beim Setzen zur Minimierung von Fragmentierung.
+    /// Memory-efficient list of compressed intervals (similar to run-length encoding).
+    /// Stores sequences of identical IDs as nodes with cumulative end index. Enables O(log n) lookup via binary search.
+    /// Supports coalescing on Set to minimize fragmentation.
     /// </summary>
     [BurstCompile]
     public struct UnsafeIntervalList
     {
         // Array of structs impl
         /// <summary>
-        /// Interner Node: repräsentiert ein Intervall von IDs bis inklusive End-Index (Count).
+        /// Internal node representing an interval until inclusive end position (Count viewed as cumulative length).
         /// </summary>
         private struct Node
         {
-            /// <summary>
-            /// Daten-ID für dieses Intervall.
-            /// </summary>
             public ushort ID;
-            /// <summary>
-            /// Exklusiver End-Index (globale Länge bis hierher). Count dient gleichzeitig als kumulierte Länge.
-            /// </summary>
             public int Count;
 
             public Node(ushort id, int count)
@@ -43,17 +37,17 @@ namespace Runtime.Engine.Utils.Collections
         // private UnsafeList<int> _Counts;
 
         /// <summary>
-        /// Gesamtlänge der entpackten Daten (Summe aller Intervalllängen).
+        /// Total decompressed length (sum of interval lengths).
         /// </summary>
         public int Length;
 
         /// <summary>
-        /// Aktuelle Anzahl komprimierter Nodes.
+        /// Current number of compressed nodes.
         /// </summary>
         public int CompressedLength => _internal.Length;
 
         /// <summary>
-        /// Erstellt eine neue komprimierte Liste mit anfänglicher Kapazität.
+        /// Creates a new compressed list with initial capacity.
         /// </summary>
         public UnsafeIntervalList(int capacity, Allocator allocator)
         {
@@ -62,7 +56,7 @@ namespace Runtime.Engine.Utils.Collections
         }
 
         /// <summary>
-        /// Gibt interne native Speicher frei.
+        /// Disposes internal native memory.
         /// </summary>
         public void Dispose()
         {
@@ -70,12 +64,12 @@ namespace Runtime.Engine.Utils.Collections
         }
 
         /// <summary>
-        /// Ermittelt Node Index für gegebenen entpackten Index (Binärsuche).
+        /// Finds node index for a decompressed index via binary search.
         /// </summary>
         public int NodeIndex(int index) => BinarySearch(index);
 
         /// <summary>
-        /// Fügt neues Intervall hinzu (ID wiederholt sich <paramref name="count"/> mal).
+        /// Adds a new interval (ID repeated <paramref name="count"/> times).
         /// </summary>
         public void AddInterval(ushort id, int count)
         {
@@ -84,8 +78,7 @@ namespace Runtime.Engine.Utils.Collections
         }
 
         /// <summary>
-        /// Liefert Wert an entpackter Position.
-        /// KOMPLEXITÄT: O(log n)
+        /// Gets value at decompressed position. Complexity: O(log n).
         /// </summary>
         /// <exception cref="IndexOutOfRangeException">Wenn Index außerhalb (Editor/Development Builds).</exception>
         public ushort Get(int index)
@@ -98,8 +91,8 @@ namespace Runtime.Engine.Utils.Collections
         }
 
         /// <summary>
-        /// Setzt Wert an entpackter Position mit umfangreicher Coalescing-Logik zur Minimierung der Node-Zahl.
-        /// KOMPLEXITÄT: typ. O (log n), abhängig von Insert/Remove Range Operationen.
+        /// Sets value at decompressed position with coalescing logic. Complexity typically O(log n).
+        /// Returns true if value changed.
         /// </summary>
         /// <returns>True falls Änderung auftrat.</returns>
         /// <exception cref="IndexOutOfRangeException">Wenn Index außerhalb (Editor/Development Builds).</exception>
@@ -225,7 +218,7 @@ namespace Runtime.Engine.Utils.Collections
         }
 
         /// <summary>
-        /// Liefert linkes Nachbar-Element (ID) relativ zum Index.
+        /// Returns left neighbor item (ID) relative to index.
         /// </summary>
         public int LeftOf(int index)
         {
@@ -233,7 +226,7 @@ namespace Runtime.Engine.Utils.Collections
         }
 
         /// <summary>
-        /// Liefert rechtes Nachbar-Element (ID) relativ zum Index.
+        /// Returns right neighbor item (ID) relative to index.
         /// </summary>
         public int RightOf(int index)
         {
@@ -269,7 +262,7 @@ namespace Runtime.Engine.Utils.Collections
         }
 
         /// <summary>
-        /// Binäre Suche nach Node für entpackten Index.
+        /// Binary search for node containing decompressed index.
         /// </summary>
         private int BinarySearch(int index)
         {
@@ -291,7 +284,7 @@ namespace Runtime.Engine.Utils.Collections
         }
 
         /// <summary>
-        /// Menschlich lesbare Darstellung für Debugging (Editor).
+        /// Human-readable representation for debugging (Editor).
         /// </summary>
         public override string ToString()
         {

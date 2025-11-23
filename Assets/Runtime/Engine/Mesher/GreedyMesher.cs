@@ -8,8 +8,8 @@ using Unity.Mathematics;
 namespace Runtime.Engine.Mesher
 {
     /// <summary>
-    /// Burst-optimierter Greedy Mesher für Voxel Chunks. Kombiniert zusammenhängende Flächen zu maximalen Rechtecken
-    /// für reduzierte Vertex/Index Anzahl. Erstellt Render- und Collider-Daten sowie Flora (Billboard) Quads.
+    /// Burst-optimized greedy mesher for voxel chunks. Merges contiguous faces into maximal rectangles
+    /// to reduce vertex/index count. Produces render and collider data plus foliage (billboard) quads.
     /// </summary>
     [GenerateTestsForBurstCompatibility]
     internal struct GreedyMesher
@@ -28,7 +28,7 @@ namespace Runtime.Engine.Mesher
         private int _colliderVertexCount;
 
         /// <summary>
-        /// Erstellt einen neuen Mesher mit internen Puffern basierend auf Chunkgröße.
+        /// Creates a new mesher with internal buffers sized from chunk dimensions.
         /// </summary>
         internal GreedyMesher(
             ChunkAccessor accessor, int3 chunkPos, int3 size, VoxelEngineRenderGenData renderGenData
@@ -60,7 +60,7 @@ namespace Runtime.Engine.Mesher
         }
 
         /// <summary>
-        /// Führt Meshing-Prozess aus: Sweeps über 3 Achsen, generiert Flächen und Collider, anschließend Flora.
+        /// Executes the meshing process: sweeps 3 axes, builds surface & collider quads, then foliage.
         /// </summary>
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
         internal MeshBuffer GenerateMesh()
@@ -125,7 +125,7 @@ namespace Runtime.Engine.Mesher
         }
 
         /// <summary>
-        /// Erzeugt Oberflächen-Quads aus Mask Slice per Greedy Merge.
+        /// Builds surface quads for one slice using greedy merging.
         /// </summary>
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
         private int BuildSurfaceQuads(int vertexCount, AxisInfo axInfo, int3 pos, NativeArray<Mask> normalMask,
@@ -188,7 +188,7 @@ namespace Runtime.Engine.Mesher
         }
 
         /// <summary>
-        /// Baut Flora Billboard Quads aus gesammelten Flora Voxel Positionen.
+        /// Builds foliage billboard quads from collected flora voxels.
         /// </summary>
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
         private int BuildFoliage(int vertexCount)
@@ -226,7 +226,7 @@ namespace Runtime.Engine.Mesher
         }
 
         /// <summary>
-        /// Erzeugt Collider-Quads aus Mask Slice per Greedy Merge.
+        /// Builds collider quads for one slice using greedy merging.
         /// </summary>
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
         private int BuildColliderQuads(int vertexCount, AxisInfo axInfo, int3 pos, NativeArray<Mask> colliderMask,
@@ -287,7 +287,7 @@ namespace Runtime.Engine.Mesher
         #region Mask Helpers
 
         /// <summary>
-        /// Erstellt Oberflächen- und Collider-Masken für aktuellen Slice.
+        /// Builds surface & collider masks for the current slice.
         /// </summary>
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
         private SliceActivity BuildMasks(int3 chunkItr, int3 directionMask, AxisInfo axInfo,

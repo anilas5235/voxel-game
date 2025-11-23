@@ -7,9 +7,16 @@ using System.Collections.Generic;
 
 namespace Runtime.Engine.Jobs.Chunk
 {
+    /// <summary>
+    /// Helper utilities to select a biome based on climate parameters and to sample coverage (editor diagnostics).
+    /// </summary>
     [BurstCompile]
     public static class BiomeHelper
     {
+        /// <summary>
+        /// Selects a biome given temperature, humidity, elevation, ground height, water level threshold,
+        /// continentality and mountain mask, and returns the resulting biome classification.
+        /// </summary>
         [BurstCompile]
         internal static Biome SelectBiome(float temp, float hum, float elev, int groundY, int waterThreshold,
             float continentality, float mountainMask)
@@ -108,7 +115,9 @@ namespace Runtime.Engine.Jobs.Chunk
             }
         }
 
-        // Deterministische, Burst-freundliche Variation 0..1 basierend auf den Eingangsparametern
+        /// <summary>
+        /// Deterministic variation function (0..1) for additional noise based on inputs.
+        /// </summary>
         private static float Variation(float a, float b, float c, float d)
         {
             float t = a * 12.9898f + b * 78.233f + c * 37.719f + d * 11.123f;
@@ -117,7 +126,9 @@ namespace Runtime.Engine.Jobs.Chunk
         }
 
 #if UNITY_EDITOR
-        // Kleines Diagnose-Tool: prüft über ein Raster, welche Biome erreichbar sind.
+        /// <summary>
+        /// Samples a grid of parameter combinations to count biome coverage (editor-only diagnostic helper).
+        /// </summary>
         internal static Dictionary<Biome, int> SampleCoverage()
         {
             var counts = new Dictionary<Biome, int>();

@@ -13,8 +13,8 @@ using UnityEngine;
 namespace Runtime.Engine.Jobs.Chunk
 {
     /// <summary>
-    /// Scheduler für die Generierung von Chunk-Daten. Verpackt ChunkJob, verwaltet Job-Liste und Ergebnis-Map.
-    /// Misst Laufzeiten und übergibt fertige Chunks an <see cref="ChunkManager"/>.
+    /// Schedules and manages jobs that generate chunk data, wraps <see cref="ChunkJob"/>, 
+    /// tracks job lists and result maps, and forwards completed chunks to <see cref="ChunkManager"/>.
     /// </summary>
     public class ChunkScheduler : JobScheduler
     {
@@ -27,8 +27,12 @@ namespace Runtime.Engine.Jobs.Chunk
         private readonly GeneratorConfig _config;
 
         /// <summary>
-        /// Erstellt einen produktiven ChunkScheduler mit eigener Ergebnis-Sammlung.
+        /// Initializes a new instance of the <see cref="ChunkScheduler"/> class with its own result collection.
         /// </summary>
+        /// <param name="settings">Voxel engine settings providing chunk dimensions and load distance.</param>
+        /// <param name="chunkStore">Chunk manager that receives finished chunk data.</param>
+        /// <param name="noiseProfile">Noise profile used for terrain height generation.</param>
+        /// <param name="config">Generator configuration used by chunk jobs.</param>
         public ChunkScheduler(
             VoxelEngineSettings settings,
             ChunkManager chunkStore,
@@ -47,24 +51,30 @@ namespace Runtime.Engine.Jobs.Chunk
             );
         }
 
-        internal bool IsReady = true; // True wenn bereit für neues Start
+        /// <summary>
+        /// Indicates whether the scheduler is ready to start a new chunk generation batch.
+        /// </summary>
+        internal bool IsReady = true;
 
         /// <summary>
-        /// Spezial-Konstruktor für extern bereitgestellte Ergebnis-Map (Testing/Debug).
+        /// Initializes a new instance of the <see cref="ChunkScheduler"/> class that writes into an
+        /// externally provided result map (useful for testing and debugging).
         /// </summary>
+        /// <param name="results">Native hash map that will receive generated chunk data.</param>
         public ChunkScheduler(NativeParallelHashMap<int3, Data.Chunk> results)
         {
             _results = results;
         }
 
         /// <summary>
-        /// Gibt an ob geplanter Job abgeschlossen ist.
+        /// Gets a value indicating whether the scheduled job has completed.
         /// </summary>
         internal bool IsComplete => _handle.IsCompleted;
 
         /// <summary>
-        /// Startet Burst Job für gegebene Liste von Chunk-Positionen.
+        /// Starts a Burst-compiled chunk generation job for the given list of chunk world positions.
         /// </summary>
+        /// <param name="jobs">List of chunk world positions to generate.</param>
         internal void Start(List<int3> jobs)
         {
             StartRecord();
@@ -85,7 +95,8 @@ namespace Runtime.Engine.Jobs.Chunk
         }
 
         /// <summary>
-        /// Wartet Job ab, überträgt Ergebnisse in ChunkStore und räumt temporäre Listen.
+        /// Waits for the job to finish, transfers the results into the chunk store
+        /// and clears temporary containers.
         /// </summary>
         internal void Complete()
         {
@@ -106,7 +117,7 @@ namespace Runtime.Engine.Jobs.Chunk
         }
 
         /// <summary>
-        /// Dispose aller Native Container; wartet vorher auf Abschluss.
+        /// Disposes all native containers after ensuring that the scheduled job has completed.
         /// </summary>
         internal void Dispose()
         {

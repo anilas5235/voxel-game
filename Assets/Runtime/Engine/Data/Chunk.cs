@@ -8,18 +8,18 @@ using Unity.Mathematics;
 namespace Runtime.Engine.Data
 {
     /// <summary>
-    /// Speicher-Repräsentation eines Chunks mit komprimierten Voxel-Daten (Run-Length basiertes Layout).
-    /// Enthält Dirty-Flag für Änderungs-Tracking und einfache API für Lesen/Schreiben.
+    /// In-memory representation of a chunk with compressed voxel data (run-length style).
+    /// Tracks a dirty flag for mesh rebuild decisions and provides simple read/write API.
     /// </summary>
     [BurstCompile]
     public struct Chunk : IDisposable
     {
         /// <summary>
-        /// Welt-Position (Chunk Ursprungskoordinate).
+        /// World-space position (chunk origin coordinate).
         /// </summary>
         public int3 Position { get; }
         /// <summary>
-        /// Flag ob seit letztem Mesh-Build Änderungen vorgenommen wurden.
+        /// Flag indicating modifications since last mesh build.
         /// </summary>
         public bool Dirty { get; private set; }
 
@@ -27,7 +27,7 @@ namespace Runtime.Engine.Data
         private UnsafeIntervalList _data;
 
         /// <summary>
-        /// Erstellt neuen Chunk mit Position und Größe, initialisiert Datenstruktur.
+        /// Constructs a new chunk with position and size; initializes data structure.
         /// </summary>
         public Chunk(int3 position, int3 chunkSize)
         {
@@ -38,7 +38,7 @@ namespace Runtime.Engine.Data
         }
 
         /// <summary>
-        /// Fügt eine Serie von Voxeln gleichen Typs hinzu (während Initialisierung / Generierung).
+        /// Adds a run of identical voxels (during initialization / generation).
         /// </summary>
         public void AddVoxels(ushort voxelId, int count)
         {
@@ -46,7 +46,7 @@ namespace Runtime.Engine.Data
         }
 
         /// <summary>
-        /// Setzt Voxel per Einzelkoordinaten. Markiert Dirty bei Änderung.
+        /// Sets voxel by individual coordinates. Marks dirty on change.
         /// </summary>
         public bool SetVoxel(int x, int y, int z, ushort block)
         {
@@ -56,7 +56,7 @@ namespace Runtime.Engine.Data
         }
 
         /// <summary>
-        /// Setzt Voxel per int3 Position. Markiert Dirty bei Änderung.
+        /// Sets voxel by int3 position. Marks dirty on change.
         /// </summary>
         public bool SetVoxel(int3 pos, ushort voxelId)
         {
@@ -66,7 +66,7 @@ namespace Runtime.Engine.Data
         }
 
         /// <summary>
-        /// Liest Voxel an Koordinaten.
+        /// Reads voxel at coordinates.
         /// </summary>
         public ushort GetVoxel(int x, int y, int z)
         {
@@ -74,7 +74,7 @@ namespace Runtime.Engine.Data
         }
 
         /// <summary>
-        /// Liest Voxel an int3 Position.
+        /// Reads voxel at int3 position.
         /// </summary>
         public ushort GetVoxel(int3 pos)
         {
@@ -82,7 +82,7 @@ namespace Runtime.Engine.Data
         }
 
         /// <summary>
-        /// Gibt native Ressourcen frei.
+        /// Disposes native resources.
         /// </summary>
         public void Dispose()
         {
@@ -90,7 +90,7 @@ namespace Runtime.Engine.Data
         }
 
         /// <summary>
-        /// Debug Darstellung inkl. Dirty Status und komprimierter Daten.
+        /// Debug string including dirty status and compressed data statistics.
         /// </summary>
         public override string ToString()
         {

@@ -6,16 +6,16 @@ using UnityEngine;
 namespace Runtime.Engine.Jobs.Collider
 {
     /// <summary>
-    /// Parallel Job zum Backen der physikalischen Mesh-Collider für zuvor generierte Meshes.
-    /// Nutzt Physics.BakeMesh mit Optimierungsoptionen.
+    /// Parallel job baking physics mesh colliders for previously generated meshes.
+    /// Uses Physics.BakeMesh with optimization options.
     /// </summary>
     [BurstCompile]
     internal struct ColliderBuildJob : IJobParallelFor
     {
-        [ReadOnly] public NativeList<int> MeshIDs; // Instanz IDs der Meshes
+        [ReadOnly] public NativeList<int> MeshIDs;
 
         /// <summary>
-        /// Startet den Bake Vorgang für jeden Mesh.
+        /// Executes bake for each mesh.
         /// </summary>
         public void Execute(int index)
         {
