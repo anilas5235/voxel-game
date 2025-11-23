@@ -9,7 +9,6 @@ namespace Player
     /// Simple in-game voxel editor that allows the player to destroy and place voxels
     /// in the world at the point they are looking at.
     /// </summary>
-    [DefaultExecutionOrder(-10)]
     public class VoxelEditor : MonoBehaviour
     {
         private Camera _camera;
