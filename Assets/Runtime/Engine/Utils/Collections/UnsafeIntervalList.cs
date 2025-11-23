@@ -7,13 +7,17 @@ using Unity.Collections.LowLevel.Unsafe;
 namespace Runtime.Engine.Utils.Collections
 {
     /// <summary>
-    /// Didn't see much difference in SOA or AOS performance wise, performance depends on the way elements
-    /// would be accessed in our case AOS might be better, should profile and see
+    /// Memory-efficient list of compressed intervals (similar to run-length encoding).
+    /// Stores sequences of identical IDs as nodes with cumulative end index. Enables O(log n) lookup via binary search.
+    /// Supports coalescing on Set to minimize fragmentation.
     /// </summary>
     [BurstCompile]
     public struct UnsafeIntervalList
     {
         // Array of structs impl
+        /// <summary>
+        /// Internal node representing an interval until inclusive end position (Count viewed as cumulative length).
+        /// </summary>
         private struct Node
         {
             public ushort ID;
@@ -28,27 +32,45 @@ namespace Runtime.Engine.Utils.Collections
 
         private UnsafeList<Node> _internal;
 
-        // Struct of arrays impl
+        // Struct of arrays impl (nicht genutzt, eventuell für zukünftiges Profiling behalten)
         // private UnsafeList<int> _Ids;
         // private UnsafeList<int> _Counts;
 
+        /// <summary>
+        /// Total decompressed length (sum of interval lengths).
+        /// </summary>
         public int Length;
 
+        /// <summary>
+        /// Current number of compressed nodes.
+        /// </summary>
         public int CompressedLength => _internal.Length;
 
+        /// <summary>
+        /// Creates a new compressed list with initial capacity.
+        /// </summary>
         public UnsafeIntervalList(int capacity, Allocator allocator)
         {
             _internal = new UnsafeList<Node>(capacity, allocator);
             Length = 0;
         }
 
+        /// <summary>
+        /// Disposes internal native memory.
+        /// </summary>
         public void Dispose()
         {
             _internal.Dispose();
         }
 
+        /// <summary>
+        /// Finds node index for a decompressed index via binary search.
+        /// </summary>
         public int NodeIndex(int index) => BinarySearch(index);
 
+        /// <summary>
+        /// Adds a new interval (ID repeated <paramref name="count"/> times).
+        /// </summary>
         public void AddInterval(ushort id, int count)
         {
             Length += count;
@@ -56,11 +78,9 @@ namespace Runtime.Engine.Utils.Collections
         }
 
         /// <summary>
-        /// COMPLEXITY : O(Log(n))
+        /// Gets value at decompressed position. Complexity: O(log n).
         /// </summary>
-        /// <param name="index">Index at which value to fetch</param>
-        /// <returns>Value at index</returns>
-        /// <exception cref="IndexOutOfRangeException">Debug only</exception>
+        /// <exception cref="IndexOutOfRangeException">Wenn Index außerhalb (Editor/Development Builds).</exception>
         public ushort Get(int index)
         {
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
@@ -71,13 +91,11 @@ namespace Runtime.Engine.Utils.Collections
         }
 
         /// <summary>
-        /// Not sure if I got all the cases
-        /// COMPLEXITY : O(Log(n)), could be O(n) also depending on RemoveRange and InsertRange
-        /// REF: https://github.com/mikolalysenko/NodeMinecraftThing/blob/master/client/voxels.js
+        /// Sets value at decompressed position with coalescing logic. Complexity typically O(log n).
+        /// Returns true if value changed.
         /// </summary>
-        /// <param name="index">index to set at</param>
-        /// <param name="id">value to set at</param>
-        /// <exception cref="IndexOutOfRangeException">Debug only</exception>
+        /// <returns>True falls Änderung auftrat.</returns>
+        /// <exception cref="IndexOutOfRangeException">Wenn Index außerhalb (Editor/Development Builds).</exception>
         public bool Set(int index, ushort id)
         {
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
@@ -199,11 +217,17 @@ namespace Runtime.Engine.Utils.Collections
             return true;
         }
 
+        /// <summary>
+        /// Returns left neighbor item (ID) relative to index.
+        /// </summary>
         public int LeftOf(int index)
         {
             return LeftOf(index, NodeIndex(index)).Item1;
         }
 
+        /// <summary>
+        /// Returns right neighbor item (ID) relative to index.
+        /// </summary>
         public int RightOf(int index)
         {
             return RightOf(index, NodeIndex(index)).Item1;
@@ -237,6 +261,9 @@ namespace Runtime.Engine.Utils.Collections
             return index + 1 >= node.Count ? (right.ID, nodeIndex + 1) : (node.ID, nodeIndex);
         }
 
+        /// <summary>
+        /// Binary search for node containing decompressed index.
+        /// </summary>
         private int BinarySearch(int index)
         {
             int min = 0;
@@ -256,6 +283,9 @@ namespace Runtime.Engine.Utils.Collections
             return min;
         }
 
+        /// <summary>
+        /// Human-readable representation for debugging (Editor).
+        /// </summary>
         public override string ToString()
         {
             StringBuilder sb = new($"Length: {Length}, Compressed: {CompressedLength}\n");

@@ -6,6 +6,10 @@ using Unity.Mathematics;
 
 namespace Runtime.Engine.Jobs.Chunk
 {
+    /// <summary>
+    /// Provides Burst-compiled helpers to prepare biome-aware terrain metadata and fill voxel buffers
+    /// for a single chunk based on noise, configuration and climate.
+    /// </summary>
     [BurstCompile]
     internal static class ChunkGenerationTerrain
     {
@@ -13,17 +17,15 @@ namespace Runtime.Engine.Jobs.Chunk
 
         private const int MountainSnowline = 215;
 
-        public struct ChunkColumn
-        {
-            public int Height;
-            public Biome Biome;
-            public ushort TopBlock;
-            public ushort UnderBlock;
-            public ushort StoneBlock;
-            public float Temperature;
-            public float Humidity;
-        }
-
+        /// <summary>
+        /// Computes climate values, terrain height and biome information for every column of a chunk.
+        /// </summary>
+        /// <param name="chunkSize">Size of the chunk in voxels (x, y, z).</param>
+        /// <param name="noiseProfile">Noise profile used to sample base terrain height.</param>
+        /// <param name="randomSeed">Random seed used to offset noise sampling for deterministic variation.</param>
+        /// <param name="config">Generator configuration providing water level and voxel IDs.</param>
+        /// <param name="chunkWordPos">World-space origin (in voxels) of the chunk.</param>
+        /// <param name="chunkColumns">Output array that will receive per-column height, biome and climate data.</param>
         public static void PrepareChunkMaps(ref int3 chunkSize, ref NoiseProfile noiseProfile, int randomSeed,
             ref GeneratorConfig config, ref int3 chunkWordPos, NativeArray<ChunkColumn> chunkColumns)
         {
@@ -66,7 +68,7 @@ namespace Runtime.Engine.Jobs.Chunk
 
                 // Basis-Höhenanteil (klima-unabhängig)
                 const float minHeightFrac = 0.36f;
-                const float maxHeightFrac = 0.8f;
+                const float maxHeightFrac = 0.86f;
                 float baseHeightFrac = math.lerp(minHeightFrac, maxHeightFrac, rawHeight01);
 
                 // Kontinentaler Bias: hebt/senkt Landmassen leicht
@@ -77,9 +79,9 @@ namespace Runtime.Engine.Jobs.Chunk
                 baseHeightFrac *= math.lerp(1f, mountainHeightMultiplier, mountainFactor);
 
                 // Leichter Klima-Einfluss auf die Höhe (Option B)
-                const float climateHeightInfluence = 0.06f; // etwas geringer
+                const float climateHeightInfluence = 0.1f; // etwas geringer
                 const float temperatureHeightBias = 0.5f; // kälter -> etwas höher
-                const float humidityHeightBias = -0.3f; // trockener -> etwas höher
+                const float humidityHeightBias = -0.4f; // trockener -> etwas höher
 
                 float tempDeviation = temperature - 0.5f; // -0.5 .. 0.5
                 float humDeviation = humidity - 0.5f; // -0.5 .. 0.5
@@ -121,6 +123,15 @@ namespace Runtime.Engine.Jobs.Chunk
             }
         }
 
+        /// <summary>
+        /// Fills the voxel buffer for a chunk with terrain blocks based on the prepared column data
+        /// and configuration values.
+        /// </summary>
+        /// <param name="chunkSize">Size of the chunk in voxels (x, y, z).</param>
+        /// <param name="vox">Voxel buffer to write to (one entry per voxel).</param>
+        /// <param name="waterLevel">Global water level used to place water or surface blocks.</param>
+        /// <param name="chunkColumns">Per-column terrain metadata produced by <see cref="PrepareChunkMaps"/>.</param>
+        /// <param name="config">Generator configuration providing voxel IDs for stone, dirt, grass, etc.</param>
         public static void FillTerrain(ref int3 chunkSize, NativeArray<ushort> vox,
             int waterLevel, NativeArray<ChunkColumn> chunkColumns, ref GeneratorConfig config)
         {
@@ -157,7 +168,7 @@ namespace Runtime.Engine.Jobs.Chunk
                     else if (y == gy) v = gy < waterLevel ? waterBlock : top;
                     else v = y < waterLevel ? waterBlock : air;
 
-                    if (v == waterBlock && y == waterLevel && col.Temperature < .3f) v = config.Ice;
+                    if (y == waterLevel && v == waterBlock && col.Temperature < .2f) v = config.Ice;
 
                     vox[chunkSize.Flatten(x, y, z)] = v;
                 }

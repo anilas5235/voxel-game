@@ -1,13 +1,25 @@
-﻿using Runtime.Engine.Voxels.Data;
+﻿using Runtime.Engine.VoxelConfig.Data;
 using Runtime.Engine.World;
 using UnityEngine;
 
 namespace Runtime.Shaders
 {
+    /// <summary>
+    /// Applies voxel-specific post-processing effects based on the voxel the target camera is currently inside.
+    /// Uses voxel post-process data for liquids to adjust color grading and fog.
+    /// </summary>
     public class VoxelPostProcessHandler : MonoBehaviour
     {
+        /// <summary>
+        /// Camera whose position is used to sample the current voxel.
+        /// </summary>
         public Camera target;
+
+        /// <summary>
+        /// Last voxel ID that was used to drive post-processing.
+        /// </summary>
         public ushort currentVoxelId;
+
         private VoxelRegistry _voxelRegistry;
         private PostProcessManager _postProcessManager;
 
@@ -34,6 +46,11 @@ namespace Runtime.Shaders
             UpdatePostProcessing(currentVoxelId);
         }
 
+        /// <summary>
+        /// Updates post-processing state based on the voxel definition associated with the given ID.
+        /// Resets previous overrides and only applies effects for transparent liquid voxels.
+        /// </summary>
+        /// <param name="voxelId">Voxel ID at the camera position.</param>
         private void UpdatePostProcessing(ushort voxelId)
         {
             _postProcessManager.ResetLiftGammaGain();

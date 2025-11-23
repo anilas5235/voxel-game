@@ -3,8 +3,8 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Runtime.Engine.ThirdParty.Priority_Queue {
-
+namespace Runtime.Engine.ThirdParty.Priority_Queue
+{
     /// <summary>
     /// A simplified priority queue implementation.  Is stable, auto-resizes, and thread-safe, at the cost of being slightly slower than
     /// FastPriorityQueue
@@ -12,16 +12,16 @@ namespace Runtime.Engine.ThirdParty.Priority_Queue {
     /// </summary>
     /// <typeparam name="TItem">The type to enqueue</typeparam>
     /// <typeparam name="TPriority">The priority-type to use for nodes.  Must extend IComparable&lt;TPriority&gt;</typeparam>
-    public class SimpleFastPriorityQueue<TItem, TPriority> : IPriorityQueue<TItem, TPriority> {
-
-        private class SimpleNode : GenericPriorityQueueNode<TPriority> {
-
+    public class SimpleFastPriorityQueue<TItem, TPriority> : IPriorityQueue<TItem, TPriority>
+    {
+        private class SimpleNode : GenericPriorityQueueNode<TPriority>
+        {
             public TItem Data { get; private set; }
 
-            public SimpleNode(TItem data) {
+            public SimpleNode(TItem data)
+            {
                 Data = data;
             }
-
         }
 
         private const int INITIAL_QUEUE_SIZE = 10;
@@ -34,28 +34,36 @@ namespace Runtime.Engine.ThirdParty.Priority_Queue {
         /// <summary>
         /// Instantiate a new Priority Queue
         /// </summary>
-        public SimpleFastPriorityQueue() : this(Comparer<TPriority>.Default, EqualityComparer<TItem>.Default) { }
+        public SimpleFastPriorityQueue() : this(Comparer<TPriority>.Default, EqualityComparer<TItem>.Default)
+        {
+        }
 
         /// <summary>
         /// Instantiate a new Priority Queue
         /// </summary>
         /// <param name="priorityComparer">The comparer used to compare TPriority values.  Defaults to Comparer&lt;TPriority&gt;.default</param>
         public SimpleFastPriorityQueue(IComparer<TPriority> priorityComparer) : this(priorityComparer.Compare,
-            EqualityComparer<TItem>.Default) { }
+            EqualityComparer<TItem>.Default)
+        {
+        }
 
         /// <summary>
         /// Instantiate a new Priority Queue
         /// </summary>
         /// <param name="priorityComparer">The comparison function to use to compare TPriority values</param>
         public SimpleFastPriorityQueue(Comparison<TPriority> priorityComparer) : this(priorityComparer,
-            EqualityComparer<TItem>.Default) { }
+            EqualityComparer<TItem>.Default)
+        {
+        }
 
         /// <summary>
         /// Instantiate a new Priority Queue       
         /// </summary>
         /// <param name="itemEquality">The equality comparison function to use to compare TItem values</param>
         public SimpleFastPriorityQueue(IEqualityComparer<TItem> itemEquality) : this(Comparer<TPriority>.Default,
-            itemEquality) { }
+            itemEquality)
+        {
+        }
 
         /// <summary>
         /// Instantiate a new Priority Queue
@@ -63,14 +71,17 @@ namespace Runtime.Engine.ThirdParty.Priority_Queue {
         /// <param name="priorityComparer">The comparer used to compare TPriority values.  Defaults to Comparer&lt;TPriority&gt;.default</param>
         /// <param name="itemEquality">The equality comparison function to use to compare TItem values</param>
         public SimpleFastPriorityQueue(IComparer<TPriority> priorityComparer, IEqualityComparer<TItem> itemEquality) :
-            this(priorityComparer.Compare, itemEquality) { }
+            this(priorityComparer.Compare, itemEquality)
+        {
+        }
 
         /// <summary>
         /// Instantiate a new Priority Queue
         /// </summary>
         /// <param name="priorityComparer">The comparison function to use to compare TPriority values</param>
         /// <param name="itemEquality">The equality comparison function to use to compare TItem values</param>
-        public SimpleFastPriorityQueue(Comparison<TPriority> priorityComparer, IEqualityComparer<TItem> itemEquality) {
+        public SimpleFastPriorityQueue(Comparison<TPriority> priorityComparer, IEqualityComparer<TItem> itemEquality)
+        {
             _queue = new GenericPriorityQueue<SimpleNode, TPriority>(INITIAL_QUEUE_SIZE, priorityComparer);
             _itemToNodesCache = new Dictionary<TItem, IList<SimpleNode>>(itemEquality);
             _nullNodesCache = new List<SimpleNode>();
@@ -81,13 +92,15 @@ namespace Runtime.Engine.ThirdParty.Priority_Queue {
         /// <summary>
         /// Given an item of type T, returns the existing SimpleNode in the queue
         /// </summary>
-        private SimpleNode GetExistingNode(TItem item) {
-            if (item == null) {
+        private SimpleNode GetExistingNode(TItem item)
+        {
+            if (item == null)
+            {
                 return _nullNodesCache.Count > 0 ? _nullNodesCache[0] : null;
             }
 
-            IList<SimpleNode> nodes;
-            if (!_itemToNodesCache.TryGetValue(item, out nodes)) {
+            if (!_itemToNodesCache.TryGetValue(item, out IList<SimpleNode> nodes))
+            {
                 return null;
             }
 
@@ -97,14 +110,16 @@ namespace Runtime.Engine.ThirdParty.Priority_Queue {
         /// <summary>
         /// Adds an item to the Node-cache to allow for many methods to be O(1) or O(log n)
         /// </summary>
-        private void AddToNodeCache(SimpleNode node) {
-            if (node.Data == null) {
+        private void AddToNodeCache(SimpleNode node)
+        {
+            if (node.Data == null)
+            {
                 _nullNodesCache.Add(node);
                 return;
             }
 
-            IList<SimpleNode> nodes;
-            if (!_itemToNodesCache.TryGetValue(node.Data, out nodes)) {
+            if (!_itemToNodesCache.TryGetValue(node.Data, out IList<SimpleNode> nodes))
+            {
                 nodes = new List<SimpleNode>();
                 _itemToNodesCache[node.Data] = nodes;
             }
@@ -115,19 +130,22 @@ namespace Runtime.Engine.ThirdParty.Priority_Queue {
         /// <summary>
         /// Removes an item to the Node-cache to allow for many methods to be O(1) or O(log n) (assuming no duplicates)
         /// </summary>
-        private void RemoveFromNodeCache(SimpleNode node) {
-            if (node.Data == null) {
+        private void RemoveFromNodeCache(SimpleNode node)
+        {
+            if (node.Data == null)
+            {
                 _nullNodesCache.Remove(node);
                 return;
             }
 
-            IList<SimpleNode> nodes;
-            if (!_itemToNodesCache.TryGetValue(node.Data, out nodes)) {
+            if (!_itemToNodesCache.TryGetValue(node.Data, out IList<SimpleNode> nodes))
+            {
                 return;
             }
 
             nodes.Remove(node);
-            if (nodes.Count == 0) {
+            if (nodes.Count == 0)
+            {
                 _itemToNodesCache.Remove(node.Data);
             }
         }
@@ -136,7 +154,8 @@ namespace Runtime.Engine.ThirdParty.Priority_Queue {
         /// Returns the number of nodes in the queue.
         /// O(1)
         /// </summary>
-        public int Count {
+        public int Count
+        {
             get { return _queue.Count; }
         }
 
@@ -145,9 +164,12 @@ namespace Runtime.Engine.ThirdParty.Priority_Queue {
         /// Throws an exception when the queue is empty.
         /// O(1)
         /// </summary>
-        public TItem First {
-            get {
-                if (_queue.Count <= 0) {
+        public TItem First
+        {
+            get
+            {
+                if (_queue.Count <= 0)
+                {
                     throw new InvalidOperationException("Cannot call .First on an empty queue");
                 }
 
@@ -159,7 +181,8 @@ namespace Runtime.Engine.ThirdParty.Priority_Queue {
         /// Removes every node from the queue.
         /// O(n)
         /// </summary>
-        public void Clear() {
+        public void Clear()
+        {
             _queue.Clear();
             _itemToNodesCache.Clear();
             _nullNodesCache.Clear();
@@ -169,7 +192,8 @@ namespace Runtime.Engine.ThirdParty.Priority_Queue {
         /// Returns whether the given item is in the queue.
         /// O(1)
         /// </summary>
-        public bool Contains(TItem item) {
+        public bool Contains(TItem item)
+        {
             return item == null ? _nullNodesCache.Count > 0 : _itemToNodesCache.ContainsKey(item);
         }
 
@@ -178,8 +202,10 @@ namespace Runtime.Engine.ThirdParty.Priority_Queue {
         /// If queue is empty, throws an exception
         /// O(log n)
         /// </summary>
-        public TItem Dequeue() {
-            if (_queue.Count <= 0) {
+        public TItem Dequeue()
+        {
+            if (_queue.Count <= 0)
+            {
                 throw new InvalidOperationException("Cannot call Dequeue() on an empty queue");
             }
 
@@ -194,9 +220,11 @@ namespace Runtime.Engine.ThirdParty.Priority_Queue {
         /// <param name="item"></param>
         /// <param name="priority"></param>
         /// <returns></returns>
-        private SimpleNode EnqueueNoLockOrCache(TItem item, TPriority priority) {
+        private SimpleNode EnqueueNoLockOrCache(TItem item, TPriority priority)
+        {
             SimpleNode node = new SimpleNode(item);
-            if (_queue.Count == _queue.MaxSize) {
+            if (_queue.Count == _queue.MaxSize)
+            {
                 _queue.Resize(_queue.MaxSize * 2 + 1);
             }
 
@@ -210,11 +238,15 @@ namespace Runtime.Engine.ThirdParty.Priority_Queue {
         /// Duplicates and null-values are allowed.
         /// O(log n)
         /// </summary>
-        public void Enqueue(TItem item, TPriority priority) {
+        public void Enqueue(TItem item, TPriority priority)
+        {
             IList<SimpleNode> nodes;
-            if (item == null) {
+            if (item == null)
+            {
                 nodes = _nullNodesCache;
-            } else if (!_itemToNodesCache.TryGetValue(item, out nodes)) {
+            }
+            else if (!_itemToNodesCache.TryGetValue(item, out nodes))
+            {
                 nodes = new List<SimpleNode>();
                 _itemToNodesCache[item] = nodes;
             }
@@ -229,17 +261,24 @@ namespace Runtime.Engine.ThirdParty.Priority_Queue {
         /// Returns true if the node was successfully enqueued; false if it already exists.
         /// O(log n)
         /// </summary>
-        public bool EnqueueWithoutDuplicates(TItem item, TPriority priority) {
+        public bool EnqueueWithoutDuplicates(TItem item, TPriority priority)
+        {
             IList<SimpleNode> nodes;
-            if (item == null) {
-                if (_nullNodesCache.Count > 0) {
+            if (item == null)
+            {
+                if (_nullNodesCache.Count > 0)
+                {
                     return false;
                 }
 
                 nodes = _nullNodesCache;
-            } else if (_itemToNodesCache.ContainsKey(item)) {
+            }
+            else if (_itemToNodesCache.ContainsKey(item))
+            {
                 return false;
-            } else {
+            }
+            else
+            {
                 nodes = new List<SimpleNode>();
                 _itemToNodesCache[item] = nodes;
             }
@@ -255,25 +294,32 @@ namespace Runtime.Engine.ThirdParty.Priority_Queue {
         /// If multiple copies of the item are enqueued, only the first one is removed. 
         /// O(log n)
         /// </summary>
-        public void Remove(TItem item) {
+        public void Remove(TItem item)
+        {
             SimpleNode removeMe;
             IList<SimpleNode> nodes;
-            if (item == null) {
-                if (_nullNodesCache.Count == 0) {
+            if (item == null)
+            {
+                if (_nullNodesCache.Count == 0)
+                {
                     throw new InvalidOperationException("Cannot call Remove() on a node which is not enqueued: " +
                                                         item);
                 }
 
                 removeMe = _nullNodesCache[0];
                 nodes = _nullNodesCache;
-            } else {
-                if (!_itemToNodesCache.TryGetValue(item, out nodes)) {
+            }
+            else
+            {
+                if (!_itemToNodesCache.TryGetValue(item, out nodes))
+                {
                     throw new InvalidOperationException("Cannot call Remove() on a node which is not enqueued: " +
                                                         item);
                 }
 
                 removeMe = nodes[0];
-                if (nodes.Count == 1) {
+                if (nodes.Count == 1)
+                {
                     _itemToNodesCache.Remove(item);
                 }
             }
@@ -284,15 +330,17 @@ namespace Runtime.Engine.ThirdParty.Priority_Queue {
 
         /// <summary>
         /// Call this method to change the priority of an item.
-        /// Calling this method on a item not in the queue will throw an exception.
+        /// Calling this method on an item not in the queue will throw an exception.
         /// If the item is enqueued multiple times, only the first one will be updated.
         /// (If your requirements are complex enough that you need to enqueue the same item multiple times <i>and</i> be able
         /// to update all of them, please wrap your items in a wrapper class so they can be distinguished).
         /// O(log n)
         /// </summary>
-        public void UpdatePriority(TItem item, TPriority priority) {
+        public void UpdatePriority(TItem item, TPriority priority)
+        {
             SimpleNode updateMe = GetExistingNode(item);
-            if (updateMe == null) {
+            if (updateMe == null)
+            {
                 throw new InvalidOperationException("Cannot call UpdatePriority() on a node which is not enqueued: " +
                                                     item);
             }
@@ -302,15 +350,17 @@ namespace Runtime.Engine.ThirdParty.Priority_Queue {
 
         /// <summary>
         /// Returns the priority of the given item.
-        /// Calling this method on a item not in the queue will throw an exception.
+        /// Calling this method on an item not in the queue will throw an exception.
         /// If the item is enqueued multiple times, only the priority of the first will be returned.
         /// (If your requirements are complex enough that you need to enqueue the same item multiple times <i>and</i> be able
         /// to query all their priorities, please wrap your items in a wrapper class so they can be distinguished).
         /// O(1)
         /// </summary>
-        public TPriority GetPriority(TItem item) {
+        public TPriority GetPriority(TItem item)
+        {
             SimpleNode findMe = GetExistingNode(item);
-            if (findMe == null) {
+            if (findMe == null)
+            {
                 throw new InvalidOperationException(
                     "Cannot call GetPriority() on a node which is not enqueued: " + item);
             }
@@ -318,27 +368,35 @@ namespace Runtime.Engine.ThirdParty.Priority_Queue {
             return findMe.Priority;
         }
 
-        public IEnumerator<TItem> GetEnumerator() {
+        public IEnumerator<TItem> GetEnumerator()
+        {
             return _queue.Select(x => x.Data).GetEnumerator();
         }
 
-        IEnumerator IEnumerable.GetEnumerator() {
+        IEnumerator IEnumerable.GetEnumerator()
+        {
             return GetEnumerator();
         }
 
-        public bool IsValidQueue() {
+        public bool IsValidQueue()
+        {
             // Check all items in cache are in the queue
-            foreach (IList<SimpleNode> nodes in _itemToNodesCache.Values) {
-                foreach (SimpleNode node in nodes) {
-                    if (!_queue.Contains(node)) {
+            foreach (IList<SimpleNode> nodes in _itemToNodesCache.Values)
+            {
+                foreach (SimpleNode node in nodes)
+                {
+                    if (!_queue.Contains(node))
+                    {
                         return false;
                     }
                 }
             }
 
             // Check all items in queue are in cache
-            foreach (SimpleNode node in _queue) {
-                if (GetExistingNode(node.Data) == null) {
+            foreach (SimpleNode node in _queue)
+            {
+                if (GetExistingNode(node.Data) == null)
+                {
                     return false;
                 }
             }
@@ -346,7 +404,5 @@ namespace Runtime.Engine.ThirdParty.Priority_Queue {
             // Check queue structure itself
             return _queue.IsValidQueue();
         }
-
     }
-
 }

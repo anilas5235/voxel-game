@@ -12,7 +12,8 @@ using Object = UnityEngine.Object;
 namespace Runtime.Engine.Components
 {
     /// <summary>
-    /// Chunks are created on demand
+    /// Pool for <see cref="ChunkBehaviour"/> instances (render + collider). Handles activation & reclamation.
+    /// Uses a priority queue ordered by distance to focus for eviction.
     /// </summary>
     public class ChunkPool
     {
@@ -24,25 +25,22 @@ namespace Runtime.Engine.Components
         private int3 _focus;
         private readonly int _chunkPoolSize;
 
+        /// <summary>
+        /// Constructs a pool based on draw/update distances.
+        /// </summary>
         internal ChunkPool(Transform transform, VoxelEngineSettings settings)
         {
             _chunkPoolSize = (settings.Chunk.DrawDistance + 2).SquareSize();
-
             _meshMap = new Dictionary<int3, ChunkBehaviour>(_chunkPoolSize);
             _colliderSet = new HashSet<int3>((settings.Chunk.UpdateDistance + 2).SquareSize());
             _queue = new SimpleFastPriorityQueue<int3, int>();
-
-            _pool = new ObjectPool<ChunkBehaviour>( // pool size = x^2 + 1
+            _pool = new ObjectPool<ChunkBehaviour>(
                 () =>
                 {
                     GameObject go = Object.Instantiate(settings.Chunk.ChunkPrefab, transform);
-
                     go.SetActive(false);
-
                     ChunkBehaviour chunkBehaviour = go.GetComponent<ChunkBehaviour>();
-
                     chunkBehaviour.Init(settings.Renderer);
-
                     return chunkBehaviour;
                 },
                 chunkBehaviour => chunkBehaviour.gameObject.SetActive(true),
@@ -51,74 +49,70 @@ namespace Runtime.Engine.Components
             );
         }
 
+        /// <summary>
+        /// Returns whether a chunk is active (rendered).
+        /// </summary>
         internal bool IsActive(int3 pos) => _meshMap.ContainsKey(pos);
+        /// <summary>
+        /// Returns whether a chunk already has a baked collider.
+        /// </summary>
         internal bool IsCollidable(int3 pos) => _colliderSet.Contains(pos);
 
+        /// <summary>
+        /// Updates focus and queue priorities.
+        /// </summary>
         internal void FocusUpdate(int3 focus)
         {
             _focus = focus;
-
             foreach (int3 position in _queue)
-            {
                 _queue.UpdatePriority(position, -(position - _focus).SqrMagnitude());
-            }
         }
 
+        /// <summary>
+        /// Returns existing instance or claims a new one.
+        /// </summary>
+        internal ChunkBehaviour GetOrClaim(int3 position) => IsActive(position) ? _meshMap[position] : Claim(position);
 
-        internal ChunkBehaviour GetOrClaim(int3 position)
-        {
-            return IsActive(position) ? _meshMap[position] : Claim(position);
-        }
-
+        /// <summary>
+        /// Claims a new instance; evicts oldest if capacity reached.
+        /// </summary>
         internal ChunkBehaviour Claim(int3 position)
         {
-            if (_meshMap.ContainsKey(position))
-            {
-                throw new InvalidOperationException($"Chunk ({position}) already active");
-            }
-
-            // Reclaim
+            if (_meshMap.ContainsKey(position)) throw new InvalidOperationException($"Chunk ({position}) already active");
             if (_queue.Count >= _chunkPoolSize)
             {
                 int3 reclaim = _queue.Dequeue();
                 ChunkBehaviour reclaimBehaviour = _meshMap[reclaim];
-
                 reclaimBehaviour.Collider.sharedMesh = null;
-
                 _pool.Release(reclaimBehaviour);
                 _meshMap.Remove(reclaim);
                 _colliderSet.Remove(reclaim);
             }
-
-            // Claim
             ChunkBehaviour behaviour = _pool.Get();
-
             behaviour.transform.position = position.GetVector3();
             behaviour.name = $"Chunk({position.x},{position.y},{position.z})";
-
             _meshMap.Add(position, behaviour);
             _queue.Enqueue(position, -(position - _focus).SqrMagnitude());
-
             return behaviour;
         }
 
+        /// <summary>
+        /// Returns active mesh behaviours for supplied positions.
+        /// </summary>
         internal Dictionary<int3, ChunkBehaviour> GetActiveMeshes(List<int3> positions)
         {
             Dictionary<int3, ChunkBehaviour> map = new();
-
             for (int i = 0; i < positions.Count; i++)
             {
                 int3 position = positions[i];
-
                 if (IsActive(position)) map.Add(position, _meshMap[position]);
             }
-
             return map;
         }
 
-        internal void ColliderBaked(int3 position)
-        {
-            _colliderSet.Add(position);
-        }
+        /// <summary>
+        /// Callback after collider bake: mark chunk collidable.
+        /// </summary>
+        internal void ColliderBaked(int3 position) => _colliderSet.Add(position);
     }
 }

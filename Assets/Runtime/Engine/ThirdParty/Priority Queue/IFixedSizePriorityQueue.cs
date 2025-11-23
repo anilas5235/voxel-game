@@ -12,7 +12,7 @@
         void Resize(int maxNodes);
 
         /// <summary>
-        /// Returns the maximum number of items that can be enqueued at once in this queue.  Once you hit this number (ie. once Count == MaxSize),
+        /// Returns the maximum number of items that can be enqueued at once in this queue.  Once you hit this number (i.e. once Count == MaxSize),
         /// attempting to enqueue another item will cause undefined behavior.
         /// </summary>
         int MaxSize { get; }

@@ -5,15 +5,29 @@ using Unity.Mathematics;
 
 namespace Runtime.Engine.Jobs.Chunk
 {
+    /// <summary>
+    /// Provides Burst-compiled helpers to carve caves and place ore veins inside generated terrain.
+    /// </summary>
     [BurstCompile]
     internal static class ChunkGenerationCavesOres
     {
+        /// <summary>
+        /// Carves cave tunnels and pockets into the voxel buffer using layered 3D noise,
+        /// optionally filling lower regions with lava.
+        /// </summary>
+        /// <param name="chunkSize">Size of the chunk in voxels (x, y, z).</param>
+        /// <param name="vox">Voxel buffer that will be modified in place.</param>
+        /// <param name="origin">World-space origin (in voxels) of the chunk.</param>
+        /// <param name="chunkColumns">Per-column metadata providing terrain height.</param>
+        /// <param name="config">Generator configuration providing voxel IDs (lava, stone, etc.).</param>
+        /// <param name="randomSeed">Random seed used to jitter noise sampling.</param>
+        /// <param name="caveScale">Scale factor applied to cave noise; higher values yield smaller features.</param>
+        /// <param name="lavaLevel">Maximum Y level at which carved spaces are filled with lava.</param>
         public static void CarveCaves(int3 chunkSize, NativeArray<ushort> vox, int3 origin,
-            NativeArray<ChunkGenerationTerrain.ChunkColumn> chunkColumns, GeneratorConfig config, int randomSeed,
+            NativeArray<ChunkColumn> chunkColumns, GeneratorConfig config, int randomSeed,
             float caveScale, int lavaLevel)
         {
             int sx = chunkSize.x;
-            int sy = chunkSize.y;
             int sz = chunkSize.z;
 
             for (int x = 0; x < sx; x++)
@@ -45,6 +59,13 @@ namespace Runtime.Engine.Jobs.Chunk
             }
         }
 
+        /// <summary>
+        /// Replaces stone voxels in the buffer with different ore types based on depth and noise.
+        /// </summary>
+        /// <param name="chunkSize">Size of the chunk in voxels (x, y, z).</param>
+        /// <param name="vox">Voxel buffer to modify in place.</param>
+        /// <param name="config">Generator configuration providing stone and ore voxel IDs.</param>
+        /// <param name="randomSeed">Random seed used to offset ore noise for deterministic variety.</param>
         public static void PlaceOres(int3 chunkSize, NativeArray<ushort> vox, GeneratorConfig config, int randomSeed)
         {
             int sx = chunkSize.x;

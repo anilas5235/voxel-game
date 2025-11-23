@@ -1,6 +1,6 @@
 ﻿using Runtime.Engine.Data;
 using Runtime.Engine.Mesher;
-using Runtime.Engine.Voxels.Data;
+using Runtime.Engine.VoxelConfig.Data;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
@@ -9,29 +9,35 @@ using UnityEngine.Rendering;
 
 namespace Runtime.Engine.Jobs.Mesh
 {
+    /// <summary>
+    /// Burst-compiled parallel job that generates render and collider mesh data for a list of chunk positions
+    /// using the greedy mesher and writes the results into provided <see cref="UnityEngine.Mesh.MeshDataArray"/>
+    /// instances while recording the position-to-index mapping.
+    /// </summary>
     [BurstCompile]
     internal struct MeshBuildJob : IJobParallelFor
     {
         [ReadOnly] public int3 ChunkSize;
         [ReadOnly] public NativeArray<VertexAttributeDescriptor> VertexParams;
         [ReadOnly] public NativeArray<VertexAttributeDescriptor> ColliderVertexParams;
-
         [ReadOnly] public ChunkAccessor Accessor;
         [ReadOnly] public NativeList<int3> Jobs;
-
         [WriteOnly] public NativeParallelHashMap<int3, int>.ParallelWriter Results;
-
         [ReadOnly] public VoxelEngineRenderGenData VoxelEngineRenderGenData;
-
         public UnityEngine.Mesh.MeshDataArray MeshDataArray;
         public UnityEngine.Mesh.MeshDataArray ColliderMeshDataArray;
 
+        /// <summary>
+        /// Executes mesh generation for the given job index and fills mesh and collider submesh data
+        /// for the corresponding chunk position.
+        /// </summary>
+        /// <param name="index">Index of the chunk position to process within the <see cref="Jobs"/> list.</param>
         public void Execute(int index)
         {
             UnityEngine.Mesh.MeshData mesh = MeshDataArray[index];
             UnityEngine.Mesh.MeshData colliderMesh = ColliderMeshDataArray[index];
             int3 position = Jobs[index];
-            
+
             GreedyMesher greedyMesher = new(Accessor, position, ChunkSize, VoxelEngineRenderGenData);
             MeshBuffer meshBuffer = greedyMesher.GenerateMesh();
 
@@ -50,7 +56,8 @@ namespace Runtime.Engine.Jobs.Mesh
             mesh.subMeshCount = 2;
             SubMeshDescriptor descriptor0 = new(0, index0Count);
             SubMeshDescriptor descriptor1 = new(index0Count, index1Count);
-            const MeshUpdateFlags flags = MeshUpdateFlags.DontRecalculateBounds | MeshUpdateFlags.DontValidateIndices | MeshUpdateFlags.DontResetBoneBounds;
+            const MeshUpdateFlags flags = MeshUpdateFlags.DontRecalculateBounds | MeshUpdateFlags.DontValidateIndices |
+                                          MeshUpdateFlags.DontResetBoneBounds;
             mesh.SetSubMesh(0, descriptor0, flags);
             mesh.SetSubMesh(1, descriptor1, flags);
 

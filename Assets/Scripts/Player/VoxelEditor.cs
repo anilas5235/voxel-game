@@ -5,25 +5,52 @@ using UnityEngine.InputSystem;
 
 namespace Player
 {
+    /// <summary>
+    /// Simple in-game voxel editor that allows the player to destroy and place voxels
+    /// in the world at the point they are looking at.
+    /// </summary>
     public class VoxelEditor : MonoBehaviour
     {
         private Camera _camera;
+
+        /// <summary>
+        /// If true, destruction mode is active and targeted voxels will be removed.
+        /// </summary>
         public bool destruct;
+
+        /// <summary>
+        /// If true, placement mode is active and voxels will be placed instead of removed.
+        /// </summary>
         public bool place;
+
+        /// <summary>
+        /// Currently selected voxel ID that will be placed in placement mode.
+        /// </summary>
         public ushort voxelId = 1;
-        
-        public event Action<ushort> OnVoxelIdChanged; 
+
+        /// <summary>
+        /// Raised whenever <see cref="voxelId"/> changes (for example to update UI).
+        /// </summary>
+        public event Action<ushort> OnVoxelIdChanged;
 
         private void OnEnable()
         {
             _camera = Camera.main;
         }
 
+        /// <summary>
+        /// Input System callback for the primary action (attack) used to toggle destruction mode.
+        /// </summary>
+        /// <param name="value">Button state indicating whether destroy should be active.</param>
         public void OnAttack(InputValue value)
         {
             destruct = value.isPressed;
         }
 
+        /// <summary>
+        /// Input System callback to sample the voxel currently looked at and set it as the active <see cref="voxelId"/>.
+        /// </summary>
+        /// <param name="value">Button state indicating whether selection is triggered.</param>
         public void OnSelectVoxel(InputValue value)
         {
             if (!value.isPressed) return;
@@ -36,6 +63,10 @@ namespace Player
             }
         }
 
+        /// <summary>
+        /// Input System callback to toggle voxel placement mode.
+        /// </summary>
+        /// <param name="value">Button state indicating whether placement should be active.</param>
         public void OnPlaceVoxel(InputValue value)
         {
             place = value.isPressed;
@@ -55,6 +86,12 @@ namespace Player
             }
         }
 
+        /// <summary>
+        /// Calculates the world voxel position the camera is currently looking at within a short range.
+        /// </summary>
+        /// <param name="voxelWorldPos">Resulting voxel world position when the raycast hits.</param>
+        /// <param name="placeMode">If true, the position is offset for placement in front of the hit surface.</param>
+        /// <returns><c>true</c> if a voxel position could be determined; otherwise, <c>false</c>.</returns>
         private bool GetLookAtVoxelPos(out Vector3Int voxelWorldPos, bool placeMode = false)
         {
             voxelWorldPos = Vector3Int.zero;

@@ -1,13 +1,17 @@
 using Runtime.Engine.ThirdParty.Priority_Queue;
 
-namespace Runtime.Engine.Jobs.Core {
-
-    public class JobQueue<T> {
-
+namespace Runtime.Engine.Jobs.Core
+{
+    /// <summary>
+    /// Generic job queue for scheduling, processing, completing, and cleaning up jobs.
+    /// </summary>
+    public class JobQueue<T>
+    {
         private SimplePriorityQueue<T> _claimQueue;
         private SimplePriorityQueue<T> _reclaimQueue;
 
-        public JobQueue() {
+        public JobQueue()
+        {
             _claimQueue = new SimplePriorityQueue<T>();
             _reclaimQueue = new SimplePriorityQueue<T>();
         }
@@ -15,23 +19,29 @@ namespace Runtime.Engine.Jobs.Core {
         /// <summary>
         /// Schedule something for computation
         /// </summary>
-        public void Schedule() { }
-        
+        public void Schedule()
+        {
+        }
+
         /// <summary>
         /// Take items for queue and send for processing
         /// </summary>
-        public void Process() { }
-        
+        public void Process()
+        {
+        }
+
         /// <summary>
         /// item has been processed
         /// </summary>
-        public void Complete() { }
-        
+        public void Complete()
+        {
+        }
+
         /// <summary>
         /// 
         /// </summary>
-        public void Clean() { }
-
+        public void Clean()
+        {
+        }
     }
-
 }

@@ -12,6 +12,10 @@ using Unity.Mathematics;
 
 namespace Runtime.Engine.Jobs
 {
+    /// <summary>
+    /// Zentraler Scheduler der Daten-, Mesh- und Collider-Jobs als Round-Robin State Machine orchestriert.
+    /// Verwaltet separate Prioritäts-Queues und wählt Batches nach Konfiguration (<see cref="SchedulerSettings"/>).
+    /// </summary>
     public class VoxelEngineScheduler
     {
         private enum JobType
@@ -48,6 +52,9 @@ namespace Runtime.Engine.Jobs
         private SchedulerSteps _currentStep;
         private readonly JobType[] _currentJobTypes = { JobType.Data, JobType.Mesh, JobType.Collider };
 
+        /// <summary>
+        /// Erstellt neuen Scheduler und initialisiert alle Queues / Sets.
+        /// </summary>
         internal VoxelEngineScheduler(
             VoxelEngineSettings settings,
             MeshBuildScheduler meshBuildScheduler,
@@ -75,6 +82,10 @@ namespace Runtime.Engine.Jobs
             _settings = settings;
         }
 
+        /// <summary>
+        /// Ausführung eines Scheduler-Ticks. Führt abhängig vom aktuellen Schritt Queue-Updates, Job-Vergaben oder Result-Sammlung aus.
+        /// </summary>
+        /// <param name="focus">Fokusposition (z.B. Spieler Chunk Root).</param>
         internal void ScheduleUpdate(int3 focus)
         {
             switch (_currentStep)
@@ -99,6 +110,9 @@ namespace Runtime.Engine.Jobs
             }
         }
 
+        /// <summary>
+        /// Aktualisiert Prioritäten aller Queues und delegiert Fokus an Manager/Pool.
+        /// </summary>
         internal void FocusUpdate(int3 focus)
         {
             UpdateQueuePriorities(focus);
@@ -279,6 +293,9 @@ namespace Runtime.Engine.Jobs
             }
         }
 
+        /// <summary>
+        /// Räumt Sub-Scheduler Ressourcen auf.
+        /// </summary>
         internal void Dispose()
         {
             _chunkScheduler.Dispose();
@@ -297,7 +314,7 @@ namespace Runtime.Engine.Jobs
             !_colliderSet.Contains(position);
 
         /// <summary>
-        /// Checks if the specified chunks and it's neighbours are generated
+        /// Checks if the specified chunks and it's neighbors are generated.
         /// </summary>
         /// <param name="position">Position of chunk to check</param>
         /// <returns>Is it ready to be meshed</returns>
@@ -319,12 +336,30 @@ namespace Runtime.Engine.Jobs
 
         #region RuntimeStatsAPI
 
+        /// <summary>
+        /// Durchschnittliche Laufzeit von Datenjobs.
+        /// </summary>
         public float DataAvgTiming => _chunkScheduler.AvgTime;
+        /// <summary>
+        /// Durchschnittliche Laufzeit von Meshjobs.
+        /// </summary>
         public float MeshAvgTiming => _meshBuildScheduler.AvgTime;
+        /// <summary>
+        /// Durchschnittliche Laufzeit von Colliderjobs.
+        /// </summary>
         public float BakeAvgTiming => _colliderBuildScheduler.AvgTime;
 
+        /// <summary>
+        /// Anzahl Chunks in Daten-Queue.
+        /// </summary>
         public int DataQueueCount => _dataQueue.Count;
+        /// <summary>
+        /// Anzahl Chunks in Mesh-Queue.
+        /// </summary>
         public int MeshQueueCount => _meshQueue.Count;
+        /// <summary>
+        /// Anzahl Chunks in Collider-Queue.
+        /// </summary>
         public int BakeQueueCount => _colliderQueue.Count;
 
         #endregion
@@ -336,17 +371,6 @@ namespace Runtime.Engine.Jobs
                 JobType.Data => JobType.Mesh,
                 JobType.Mesh => JobType.Collider,
                 JobType.Collider => JobType.Data,
-                _ => throw new ArgumentOutOfRangeException(nameof(currentJobType), currentJobType, null)
-            };
-        }
-
-        private static JobType LastJobType(JobType currentJobType)
-        {
-            return currentJobType switch
-            {
-                JobType.Data => JobType.Collider,
-                JobType.Mesh => JobType.Data,
-                JobType.Collider => JobType.Mesh,
                 _ => throw new ArgumentOutOfRangeException(nameof(currentJobType), currentJobType, null)
             };
         }

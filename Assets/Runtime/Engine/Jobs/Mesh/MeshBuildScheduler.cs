@@ -1,12 +1,12 @@
 using System.Collections.Generic;
+using Runtime.Engine.Behaviour;
 using Runtime.Engine.Components;
 using Runtime.Engine.Data;
 using Runtime.Engine.Jobs.Core;
 using Runtime.Engine.Settings;
 using Runtime.Engine.Utils.Extensions;
 using Runtime.Engine.Utils.Logger;
-using Runtime.Engine.Voxels.Data;
-using Runtime.Engine.Behaviour;
+using Runtime.Engine.VoxelConfig.Data;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
@@ -15,6 +15,10 @@ using UnityEngine.Rendering;
 
 namespace Runtime.Engine.Jobs.Mesh
 {
+    /// <summary>
+    /// Schedules and executes mesh build jobs for chunks, generating both render and collider meshes
+    /// using a greedy meshing algorithm and applying the results to chunk behaviors.
+    /// </summary>
     public class MeshBuildScheduler : JobScheduler
     {
         private const MeshUpdateFlags MeshFlags = MeshUpdateFlags.DontRecalculateBounds |
@@ -38,6 +42,13 @@ namespace Runtime.Engine.Jobs.Mesh
         private NativeArray<VertexAttributeDescriptor> _vertexParams;
         private NativeArray<VertexAttributeDescriptor> _colliderVertexParams;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="MeshBuildScheduler"/> class.
+        /// </summary>
+        /// <param name="settings">Voxel engine settings providing chunk size and draw distance.</param>
+        /// <param name="chunkManager">Chunk manager used to access chunk data and state.</param>
+        /// <param name="chunkPool">Pool providing reusable chunk behaviours and meshes.</param>
+        /// <param name="voxelRegistry">Voxel registry providing render generation data for blocks.</param>
         public MeshBuildScheduler(
             VoxelEngineSettings settings,
             ChunkManager chunkManager,
@@ -73,9 +84,21 @@ namespace Runtime.Engine.Jobs.Mesh
             _jobs = new NativeList<int3>(Allocator.Persistent);
         }
 
+        /// <summary>
+        /// Indicates whether the scheduler is ready to accept a new list of mesh build jobs.
+        /// </summary>
         internal bool IsReady = true;
+
+        /// <summary>
+        /// Gets a value indicating whether the currently scheduled mesh build jobs have completed.
+        /// </summary>
         internal bool IsComplete => _handle.IsCompleted;
 
+        /// <summary>
+        /// Starts a mesh build job for the given list of chunk positions.
+        /// Allocates writable mesh data arrays and schedules the Burst job.
+        /// </summary>
+        /// <param name="jobs">List of chunk positions whose meshes should be generated or updated.</param>
         internal void Start(List<int3> jobs)
         {
             StartRecord();
@@ -108,6 +131,10 @@ namespace Runtime.Engine.Jobs.Mesh
             _handle = job.Schedule(_jobs.Length, 1);
         }
 
+        /// <summary>
+        /// Completes the scheduled mesh build jobs, applies the generated mesh data to chunk meshes
+        /// and colliders, recalculates bounds and logs timing information.
+        /// </summary>
         internal void Complete()
         {
             double start = Time.realtimeSinceStartupAsDouble;
@@ -169,6 +196,9 @@ namespace Runtime.Engine.Jobs.Mesh
             }
         }
 
+        /// <summary>
+        /// Disposes all native containers and completes any running jobs before releasing resources.
+        /// </summary>
         internal void Dispose()
         {
             _handle.Complete();
