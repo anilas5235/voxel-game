@@ -1147,7 +1147,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   voxelImage: {fileID: 1691957726}
   voxelId: 0
-  voxelEditor: {fileID: 0}
+  voxelEditor: {fileID: 455605775}
 --- !u!1 &2092167227
 GameObject:
   m_ObjectHideFlags: 0

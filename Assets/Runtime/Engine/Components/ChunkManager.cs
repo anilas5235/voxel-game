@@ -83,7 +83,6 @@ namespace Runtime.Engine.Components
             }
             if (_reMeshChunks.Contains(chunkPos))
             {
-                VoxelEngineLogger.Warn<ChunkManager>($"Chunk : {chunkPos} is pending remesh, cannot set voxel now");
                 return false;
             }
             bool result = chunk.SetVoxel(blockPos, voxelId);
@@ -183,7 +182,6 @@ namespace Runtime.Engine.Components
         {
             if (!_reMeshChunks.Contains(position)) return;
             _reMeshChunks.Remove(position);
-            VoxelEngineLogger.Info<ChunkManager>($"Chunk : {position} has been remeshed;{Time.realtimeSinceStartupAsDouble}");
             _reCollideChunks.Add(position);
         }
 
@@ -203,7 +201,6 @@ namespace Runtime.Engine.Components
         {
             foreach (int3 dir in VoxelUtils.Directions)
                 _reMeshChunks.Add(VoxelUtils.GetChunkCoords(blockPosition + dir));
-            VoxelEngineLogger.Info<ChunkManager>($"ReMeshChunks called at {blockPosition}, total {_reMeshChunks.Count} chunks to remesh;{Time.realtimeSinceStartupAsDouble}");
         }
     }
 }
