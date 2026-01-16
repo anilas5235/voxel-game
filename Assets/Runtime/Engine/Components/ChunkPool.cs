@@ -4,6 +4,7 @@ using Runtime.Engine.Behaviour;
 using Runtime.Engine.Settings;
 using Runtime.Engine.ThirdParty.Priority_Queue;
 using Runtime.Engine.Utils.Extensions;
+using Runtime.Engine.World;
 using Unity.Mathematics;
 using Unity.VisualScripting;
 using UnityEngine;
@@ -26,16 +27,18 @@ namespace Runtime.Engine.Components
 
         private int3 _focus;
         private readonly int _chunkPoolSize;
+        private readonly int3 _chunkSize;
 
         /// <summary>
         /// Constructs a pool based on draw/update distances.
         /// </summary>
         internal ChunkPool(Transform transform, VoxelEngineSettings settings)
         {
+            _chunkSize = settings.Chunk.ChunkSize;
             _chunkPoolSize = (settings.Chunk.DrawDistance + 2).SquareSize();
             _meshMap = new Dictionary<int3, ChunkPartition>(_chunkPoolSize * 16);
             _chunkMap = new Dictionary<int2, ChunkBehaviour>(_chunkPoolSize);
-            _colliderSet = new HashSet<int3>((settings.Chunk.UpdateDistance + 2).CubedSize());
+            _colliderSet = new HashSet<int3>((settings.Chunk.UpdateDistance + 2).SquareSize() * 16);
             _queue = new SimpleFastPriorityQueue<int2, int>();
             _pool = new ObjectPool<ChunkBehaviour>(
                 () =>
@@ -98,12 +101,17 @@ namespace Runtime.Engine.Components
                 reclaimBehaviour.ClearData();
                 _pool.Release(reclaimBehaviour);
                 _chunkMap.Remove(reclaim);
-                //TODO:_colliderSet.Remove(reclaim);
+                for (int pId = 0; pId < 16; pId++)
+                {
+                    int3 partitionPos = new(reclaim.x, pId * 16, reclaim.y);
+                    _meshMap.Remove(partitionPos);
+                    _colliderSet.Remove(partitionPos);
+                }
             }
 
             ChunkBehaviour behaviour = _pool.Get();
             behaviour.transform.position = new float3(position.x, 0, position.y);
-            behaviour.name = $"Chunk({position.x},{position.y})";
+            behaviour.name = $"Chunk({position.x / _chunkSize.x},{position.y / _chunkSize.z})";
             _meshMap.AddRange(behaviour.GetMap(position));
             _chunkMap.Add(position, behaviour);
             _queue.Enqueue(position, PriorityCalc(position));

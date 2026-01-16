@@ -51,7 +51,7 @@ namespace Runtime.Engine.Mesher
                 CIndexBuffer = new NativeList<int>(Allocator.Temp)
             };
             // Pre-partitionSize buffers to reduce reallocations (rough upper bound heuristic)
-            int voxelCount = math.max(1, _partitionSize.x * _partitionSize.y * _partitionSize.z);
+            int voxelCount = math.max(1, _partitionSize.Size());
             _mesh.VertexBuffer.Capacity = math.max(_mesh.VertexBuffer.Capacity, voxelCount * 4);
             _mesh.IndexBuffer0.Capacity = math.max(_mesh.IndexBuffer0.Capacity, voxelCount * 6);
             _mesh.IndexBuffer1.Capacity = math.max(_mesh.IndexBuffer1.Capacity, voxelCount * 6);
