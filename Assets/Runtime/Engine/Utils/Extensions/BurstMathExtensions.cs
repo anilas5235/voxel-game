@@ -87,6 +87,12 @@ namespace Runtime.Engine.Utils.Extensions
         /// </summary>
         [BurstCompile]
         public static Vector3 GetVector3(this int3 vec) => new(vec.x, vec.y, vec.z);
+        
+        /// <summary>
+        /// Konvertiert int2 nach Vector2.
+        /// </summary>
+        [BurstCompile]
+        public static Vector3 GetVector2(this int2 vec) => new(vec.x, vec.y);
     }
 
     /// <summary>
@@ -98,6 +104,11 @@ namespace Runtime.Engine.Utils.Extensions
         /// Quadratische Länge eines int3 Vektors.
         /// </summary>
         public static int SqrMagnitude(this int3 vec) => vec.x * vec.x + vec.y * vec.y + vec.z * vec.z;
+        
+        /// <summary>
+        /// Quadratische Länge eines int3 Vektors.
+        /// </summary>
+        public static int SqrMagnitude(this int2 vec) => vec.x * vec.x + vec.y * vec.y;
 
         /// <summary>
         /// Komponentenweise Multiplikation zweier int3.

@@ -146,11 +146,13 @@ namespace Runtime.Engine.Jobs.Mesh
             for (int index = 0; index < _jobs.Length; index++)
             {
                 int3 pos = _jobs[index];
-                ChunkBehaviour cb = _chunkPool.GetOrClaim(pos);
+                ChunkBehaviour cb = _chunkPool.GetOrClaim(pos.xz);
                 _chunkManager.ReMeshedChunk(pos);
+                
+                ChunkPartition partition = cb.ChunkPartitions[pos.y / 16];
 
-                meshes[_results[pos]] = cb.Mesh;
-                colliderMeshes[_results[pos]] = cb.ColliderMesh;
+                meshes[_results[pos]] = partition.Mesh;
+                colliderMeshes[_results[pos]] = partition.ColliderMesh;
             }
 
             UnityEngine.Mesh.ApplyAndDisposeWritableMeshData(

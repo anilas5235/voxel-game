@@ -307,7 +307,7 @@ namespace Runtime.Engine.Jobs
             !_chunkManager.IsChunkLoaded(position) && !_dataSet.Contains(position);
 
         private bool ShouldScheduleForMeshing(int3 position) =>
-            (!_chunkPool.IsActive(position) || _chunkManager.ShouldReMesh(position)) && !_viewSet.Contains(position);
+            (!_chunkPool.IsPartitionActive(position) || _chunkManager.ShouldReMesh(position)) && !_viewSet.Contains(position);
 
         private bool ShouldScheduleForBaking(int3 position) =>
             (!_chunkPool.IsCollidable(position) || _chunkManager.ShouldReCollide(position)) &&
@@ -332,7 +332,7 @@ namespace Runtime.Engine.Jobs
             return result;
         }
 
-        private bool CanBakeColliderForChunk(int3 position) => _chunkPool.IsActive(position);
+        private bool CanBakeColliderForChunk(int3 position) => _chunkPool.IsPartitionActive(position);
 
         #region RuntimeStatsAPI
 

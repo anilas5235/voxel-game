@@ -19,7 +19,7 @@ namespace Runtime.Engine.Jobs.Collider
         private readonly ChunkPool _chunkPool;
 
         private NativeList<int> _jobs;
-        private Dictionary<int3, ChunkBehaviour> _meshes;
+        private Dictionary<int3, ChunkPartition> _meshes;
 
         private JobHandle _handle;
 
@@ -58,7 +58,7 @@ namespace Runtime.Engine.Jobs.Collider
 
             _meshes = _chunkPool.GetActiveMeshes(jobs);
 
-            foreach ((int3 _, ChunkBehaviour behaviour) in _meshes)
+            foreach ((int3 _, ChunkPartition behaviour) in _meshes)
             {
                 if (behaviour.ColliderMesh.vertexCount > 0)
                 {
@@ -83,7 +83,7 @@ namespace Runtime.Engine.Jobs.Collider
             double start = Time.realtimeSinceStartupAsDouble;
             _handle.Complete();
 
-            foreach ((int3 position, ChunkBehaviour behaviour) in _meshes)
+            foreach ((int3 position, ChunkPartition behaviour) in _meshes)
             {
                 _chunkPool.ColliderBaked(position);
                 _chunkManager.ReCollidedChunk(position);
