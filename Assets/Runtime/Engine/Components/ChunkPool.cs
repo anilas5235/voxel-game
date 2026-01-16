@@ -38,7 +38,7 @@ namespace Runtime.Engine.Components
             _chunkPoolSize = (settings.Chunk.DrawDistance + 2).SquareSize();
             _meshMap = new Dictionary<int3, ChunkPartition>(_chunkPoolSize * 16);
             _chunkMap = new Dictionary<int2, ChunkBehaviour>(_chunkPoolSize);
-            _colliderSet = new HashSet<int3>((settings.Chunk.UpdateDistance + 2).SquareSize() * 16);
+            _colliderSet = new HashSet<int3>((settings.Chunk.UpdateDistance + 2).SquareSize() * 8);
             _queue = new SimpleFastPriorityQueue<int2, int>();
             _pool = new ObjectPool<ChunkBehaviour>(
                 () =>

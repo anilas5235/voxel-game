@@ -19,10 +19,13 @@ namespace Runtime.Engine.Utils
         /// <returns>Chunk origin coordinates in voxel space.</returns>
         public static int3 GetChunkCoords(Vector3 position) => GetChunkCoords(Vector3Int.FloorToInt(position));
 
-        public static int3 GetPartitionCoords(Vector3 position)
+        public static int3 GetPartitionCoords(Vector3 position) => GetPartitionCoords(Vector3Int.FloorToInt(position).Int3());
+        
+        
+        public static int3 GetPartitionCoords(int3 position)
         {
             int3 pCoords = GetChunkCoords(position);
-            pCoords[1] = (int)math.floor(position.y/16f) * 16;
+            pCoords[1] = position.y/16 * 16;
             return pCoords;
         } 
 

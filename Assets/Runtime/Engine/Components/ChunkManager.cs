@@ -87,7 +87,7 @@ namespace Runtime.Engine.Components
             }
             bool result = chunk.SetVoxel(blockPos, voxelId);
             _chunks[chunkPos.xz] = chunk;
-            if (remesh && result) ReMeshChunks(position.Int3());
+            if (remesh && result) ReMeshPartitions(position.Int3());
             return result;
         }
 
@@ -197,10 +197,37 @@ namespace Runtime.Engine.Components
         /// <summary>
         /// Flags all neighbor chunks for remesh based on block modification.
         /// </summary>
-        private void ReMeshChunks(int3 blockPosition)
+        private void ReMeshPartitions(int3 blockPosition)
         {
-            foreach (int3 dir in VoxelUtils.Directions)
-                _reMeshPartitions.Add(VoxelUtils.GetChunkCoords(blockPosition + dir));
+            int3 pCoords = VoxelUtils.GetPartitionCoords(blockPosition);
+            _reMeshPartitions.Add(pCoords);
+            switch (blockPosition.x % 16)
+            {
+                case 0:
+                    _reMeshPartitions.Add(pCoords + new int3(-16, 0, 0));
+                    break;
+                case 15:
+                    _reMeshPartitions.Add(pCoords + new int3(16, 0, 0));
+                    break;
+            }
+            switch (blockPosition.z % 16)
+            {
+                case 0:
+                    _reMeshPartitions.Add(pCoords + new int3(0, 0, -16));
+                    break;
+                case 15:
+                    _reMeshPartitions.Add(pCoords + new int3(0, 0, 16));
+                    break;
+            }
+            switch (blockPosition.y % 16)
+            {
+                case 0:
+                    _reMeshPartitions.Add(pCoords + new int3(0, -16, 0));
+                    break;
+                case 15:
+                    _reMeshPartitions.Add(pCoords + new int3(0, 16, 0));
+                    break;
+            }
         }
     }
 }

@@ -187,7 +187,7 @@ namespace Runtime.Engine.Jobs
             for (int y = 0; y <= 15; y++)
             {
                 int3 pos = focus + chunkSize.MemberMultiply(x, 0, z);
-                pos[1] = y * chunkSize.y;
+                pos[1] = y * 16;
                 if (!_colliderQueue.Contains(pos) && ShouldScheduleForBaking(pos) &&
                     CanBakeColliderForChunk(pos))
                 {
