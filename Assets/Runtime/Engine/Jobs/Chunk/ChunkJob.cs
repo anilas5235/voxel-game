@@ -16,8 +16,8 @@ namespace Runtime.Engine.Jobs.Chunk
     {
         [ReadOnly] public int3 ChunkSize;
         [ReadOnly] public NoiseProfile NoiseProfile;
-        [ReadOnly] public NativeList<int3> Jobs; // Chunk world positions
-        [WriteOnly] public NativeParallelHashMap<int3, Data.Chunk>.ParallelWriter Results; // Result mapping
+        [ReadOnly] public NativeList<int2> Jobs; // Chunk world positions
+        [WriteOnly] public NativeParallelHashMap<int2, Data.Chunk>.ParallelWriter Results; // Result mapping
         [ReadOnly] public int RandomSeed;
         [ReadOnly] public GeneratorConfig Config;
 
@@ -30,8 +30,8 @@ namespace Runtime.Engine.Jobs.Chunk
         /// <param name="index">Index of the chunk position in the <see cref="Jobs"/> list.</param>
         public void Execute(int index)
         {
-            int3 position = Jobs[index];
-            Data.Chunk chunk = GenerateChunkData(position);
+            int2 position = Jobs[index];
+            Data.Chunk chunk = GenerateChunkData(new int3(position.x, 0, position.y));
             Results.TryAdd(position, chunk);
         }
 
@@ -69,7 +69,7 @@ namespace Runtime.Engine.Jobs.Chunk
         /// </summary>
         private Data.Chunk WriteToChunkData(NativeArray<ushort> vox, int3 chunkWordPos)
         {
-            Data.Chunk data = new(chunkWordPos, ChunkSize);
+            Data.Chunk data = new(chunkWordPos.xz, ChunkSize);
             ushort last = 0;
             int run = 0;
             bool hasLast = false;

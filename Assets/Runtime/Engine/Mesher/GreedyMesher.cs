@@ -19,8 +19,9 @@ namespace Runtime.Engine.Mesher
         private const float LiquidSurfaceLowering = 0.2f;
 
         private readonly ChunkAccessor _accessor;
-        private readonly int3 _chunkPos;
-        private readonly int3 _size;
+        private readonly int3 _partitionPos;
+        private readonly int2 _chunkPos;
+        private readonly int3 _partitionSize;
         private readonly VoxelEngineRenderGenData _renderGenData;
         private readonly MeshBuffer _mesh;
         private NativeHashMap<int3, byte> _foliageVoxels;
@@ -31,12 +32,13 @@ namespace Runtime.Engine.Mesher
         /// Creates a new mesher with internal buffers sized from chunk dimensions.
         /// </summary>
         internal GreedyMesher(
-            ChunkAccessor accessor, int3 chunkPos, int3 size, VoxelEngineRenderGenData renderGenData
+            ChunkAccessor accessor, int3 partitionPos, int3 partitionSize, VoxelEngineRenderGenData renderGenData
         )
         {
             _accessor = accessor;
-            _chunkPos = chunkPos;
-            _size = size;
+            _partitionPos = partitionPos;
+            _chunkPos = partitionPos.xz;
+            _partitionSize = partitionSize;
             _renderGenData = renderGenData;
             _mesh = new MeshBuffer
             {
@@ -46,8 +48,8 @@ namespace Runtime.Engine.Mesher
                 CVertexBuffer = new NativeList<CVertex>(Allocator.Temp),
                 CIndexBuffer = new NativeList<int>(Allocator.Temp)
             };
-            // Pre-size buffers to reduce reallocations (rough upper bound heuristic)
-            int voxelCount = math.max(1, _size.x * _size.y * _size.z);
+            // Pre-partitionSize buffers to reduce reallocations (rough upper bound heuristic)
+            int voxelCount = math.max(1, _partitionSize.x * _partitionSize.y * _partitionSize.z);
             _mesh.VertexBuffer.Capacity = math.max(_mesh.VertexBuffer.Capacity, voxelCount * 4);
             _mesh.IndexBuffer0.Capacity = math.max(_mesh.IndexBuffer0.Capacity, voxelCount * 6);
             _mesh.IndexBuffer1.Capacity = math.max(_mesh.IndexBuffer1.Capacity, voxelCount * 6);
@@ -74,14 +76,14 @@ namespace Runtime.Engine.Mesher
 
                 // We only generate faces for slices starting inside the chunk (0…size-1)
                 // so that negative-side faces are owned by the neighboring chunk.
-                int mainAxisLimit = _size[mainAxis];
+                int mainAxisLimit = _partitionSize[mainAxis];
 
                 AxisInfo axisInfo = new()
                 {
                     UAxis = uAxis,
                     VAxis = vAxis,
-                    ULimit = _size[uAxis],
-                    VLimit = _size[vAxis]
+                    ULimit = _partitionSize[uAxis],
+                    VLimit = _partitionSize[vAxis]
                 };
 
                 int3 pos = int3.zero;
@@ -95,6 +97,7 @@ namespace Runtime.Engine.Mesher
 
                 for (pos[mainAxis] = 0; pos[mainAxis] < mainAxisLimit;)
                 {
+                    pos[1] += _partitionPos.y;
                     // Build both masks in a single pass to minimize voxel/def lookups
                     SliceActivity activity = BuildMasks(pos, directionMask, axisInfo, normalMask, colliderMask);
 

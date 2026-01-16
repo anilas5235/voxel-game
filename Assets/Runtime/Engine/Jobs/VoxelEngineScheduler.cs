@@ -40,11 +40,11 @@ namespace Runtime.Engine.Jobs
         private readonly ChunkPool _chunkPool;
 
         private readonly SimpleFastPriorityQueue<int3, int> _meshQueue;
-        private readonly SimpleFastPriorityQueue<int3, int> _dataQueue;
+        private readonly SimpleFastPriorityQueue<int2, int> _dataQueue;
         private readonly SimpleFastPriorityQueue<int3, int> _colliderQueue;
 
         private readonly HashSet<int3> _viewSet;
-        private readonly HashSet<int3> _dataSet;
+        private readonly HashSet<int2> _dataSet;
         private readonly HashSet<int3> _colliderSet;
 
         private readonly VoxelEngineSettings _settings;
@@ -72,11 +72,11 @@ namespace Runtime.Engine.Jobs
             _chunkPool = chunkPool;
 
             _meshQueue = new SimpleFastPriorityQueue<int3, int>();
-            _dataQueue = new SimpleFastPriorityQueue<int3, int>();
+            _dataQueue = new SimpleFastPriorityQueue<int2, int>();
             _colliderQueue = new SimpleFastPriorityQueue<int3, int>();
 
             _viewSet = new HashSet<int3>();
-            _dataSet = new HashSet<int3>();
+            _dataSet = new HashSet<int2>();
             _colliderSet = new HashSet<int3>();
 
             _settings = settings;
@@ -135,9 +135,9 @@ namespace Runtime.Engine.Jobs
             }
 
             // Data Queue
-            foreach (int3 pos in _dataQueue)
+            foreach (int2 pos in _dataQueue)
             {
-                _dataQueue.UpdatePriority(pos, (pos - focus).SqrMagnitude());
+                _dataQueue.UpdatePriority(pos, (pos - focus.xz).SqrMagnitude());
             }
         }
 
@@ -165,8 +165,10 @@ namespace Runtime.Engine.Jobs
         {
             for (int x = -draw; x <= draw; x++)
             for (int z = -draw; z <= draw; z++)
+            for (int y = 0; y <= 15; y++)
             {
                 int3 pos = focus + chunkSize.MemberMultiply(x, 0, z);
+                pos[1] = y * chunkSize.y;
                 if (!_meshQueue.Contains(pos) && ShouldScheduleForMeshing(pos) && CanGenerateMeshForChunk(pos))
                 {
                     _meshQueue.Enqueue(pos, (pos - focus).SqrMagnitude());
@@ -178,8 +180,10 @@ namespace Runtime.Engine.Jobs
         {
             for (int x = -update; x <= update; x++)
             for (int z = -update; z <= update; z++)
+            for (int y = 0; y <= 15; y++)
             {
                 int3 pos = focus + chunkSize.MemberMultiply(x, 0, z);
+                pos[1] = y * chunkSize.y;
                 if (!_colliderQueue.Contains(pos) && ShouldScheduleForBaking(pos) &&
                     CanBakeColliderForChunk(pos))
                 {
@@ -193,10 +197,10 @@ namespace Runtime.Engine.Jobs
             for (int x = -load; x <= load; x++)
             for (int z = -load; z <= load; z++)
             {
-                int3 pos = focus + chunkSize.MemberMultiply(x, 0, z);
+                int2 pos = focus.xz + chunkSize.MemberMultiply(x, 0, z).xz;
                 if (!_dataQueue.Contains(pos) && ShouldScheduleForGenerating(pos))
                 {
-                    _dataQueue.Enqueue(pos, (pos - focus).SqrMagnitude());
+                    _dataQueue.Enqueue(pos, (pos - focus.xz).SqrMagnitude());
                 }
             }
         }
@@ -303,11 +307,12 @@ namespace Runtime.Engine.Jobs
             _colliderBuildScheduler.Dispose();
         }
 
-        private bool ShouldScheduleForGenerating(int3 position) =>
+        private bool ShouldScheduleForGenerating(int2 position) =>
             !_chunkManager.IsChunkLoaded(position) && !_dataSet.Contains(position);
 
         private bool ShouldScheduleForMeshing(int3 position) =>
-            (!_chunkPool.IsPartitionActive(position) || _chunkManager.ShouldReMesh(position)) && !_viewSet.Contains(position);
+            (!_chunkPool.IsPartitionActive(position) || _chunkManager.ShouldReMesh(position)) &&
+            !_viewSet.Contains(position);
 
         private bool ShouldScheduleForBaking(int3 position) =>
             (!_chunkPool.IsCollidable(position) || _chunkManager.ShouldReCollide(position)) &&
@@ -326,7 +331,7 @@ namespace Runtime.Engine.Jobs
             for (int z = -1; z <= 1; z++)
             {
                 int3 pos = position + _settings.Chunk.ChunkSize.MemberMultiply(x, 0, z);
-                result &= _chunkManager.IsChunkLoaded(pos);
+                result &= _chunkManager.IsChunkLoaded(pos.xz);
             }
 
             return result;
@@ -340,10 +345,12 @@ namespace Runtime.Engine.Jobs
         /// Durchschnittliche Laufzeit von Datenjobs.
         /// </summary>
         public float DataAvgTiming => _chunkScheduler.AvgTime;
+
         /// <summary>
         /// Durchschnittliche Laufzeit von Meshjobs.
         /// </summary>
         public float MeshAvgTiming => _meshBuildScheduler.AvgTime;
+
         /// <summary>
         /// Durchschnittliche Laufzeit von Colliderjobs.
         /// </summary>
@@ -353,10 +360,12 @@ namespace Runtime.Engine.Jobs
         /// Anzahl Chunks in Daten-Queue.
         /// </summary>
         public int DataQueueCount => _dataQueue.Count;
+
         /// <summary>
         /// Anzahl Chunks in Mesh-Queue.
         /// </summary>
         public int MeshQueueCount => _meshQueue.Count;
+
         /// <summary>
         /// Anzahl Chunks in Collider-Queue.
         /// </summary>

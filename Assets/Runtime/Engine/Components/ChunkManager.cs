@@ -19,12 +19,12 @@ namespace Runtime.Engine.Components
     /// </summary>
     public class ChunkManager
     {
-        private readonly Dictionary<int3, Chunk> _chunks;
-        private readonly SimpleFastPriorityQueue<int3, int> _queue;
-        private NativeParallelHashMap<int3, Chunk> _accessorMap;
+        private readonly Dictionary<int2, Chunk> _chunks;
+        private readonly SimpleFastPriorityQueue<int2, int> _queue;
+        private NativeParallelHashMap<int2, Chunk> _accessorMap;
 
-        private readonly HashSet<int3> _reMeshChunks;
-        private readonly HashSet<int3> _reCollideChunks;
+        private readonly HashSet<int3> _reMeshPartitions;
+        private readonly HashSet<int3> _reCollidePartitions;
 
         private int3 _focus;
         private readonly int3 _chunkSize;
@@ -38,13 +38,13 @@ namespace Runtime.Engine.Components
             _chunkSize = settings.Chunk.ChunkSize;
             _chunkStoreSize = (settings.Chunk.LoadDistance + 2).SquareSize();
 
-            _reMeshChunks = new HashSet<int3>();
-            _reCollideChunks = new HashSet<int3>();
+            _reMeshPartitions = new HashSet<int3>();
+            _reCollidePartitions = new HashSet<int3>();
 
-            _chunks = new Dictionary<int3, Chunk>(_chunkStoreSize);
-            _queue = new SimpleFastPriorityQueue<int3, int>();
+            _chunks = new Dictionary<int2, Chunk>(_chunkStoreSize);
+            _queue = new SimpleFastPriorityQueue<int2, int>();
 
-            _accessorMap = new NativeParallelHashMap<int3, Chunk>(
+            _accessorMap = new NativeParallelHashMap<int2, Chunk>(
                 settings.Scheduler.MeshingBatchSize * 27,
                 Allocator.Persistent
             );
@@ -60,7 +60,7 @@ namespace Runtime.Engine.Components
             int3 chunkPos = VoxelUtils.GetChunkCoords(position);
             int3 blockPos = VoxelUtils.GetVoxelIndex(position);
             if (blockPos.y < 0 || blockPos.y >= _chunkSize.y) return 0;
-            if (_chunks.TryGetValue(chunkPos, out Chunk chunk)) return chunk.GetVoxel(blockPos);
+            if (_chunks.TryGetValue(chunkPos.xz, out Chunk chunk)) return chunk.GetVoxel(blockPos);
             VoxelEngineLogger.Warn<ChunkManager>($"Chunk : {chunkPos} not loaded");
             return 0;
         }
@@ -76,17 +76,17 @@ namespace Runtime.Engine.Components
         {
             int3 chunkPos = VoxelUtils.GetChunkCoords(position);
             int3 blockPos = VoxelUtils.GetVoxelIndex(position);
-            if (!_chunks.TryGetValue(chunkPos, out Chunk chunk))
+            if (!_chunks.TryGetValue(chunkPos.xz, out Chunk chunk))
             {
                 VoxelEngineLogger.Warn<ChunkManager>($"Chunk : {chunkPos} not loaded");
                 return false;
             }
-            if (_reMeshChunks.Contains(chunkPos))
+            if (_reMeshPartitions.Contains(chunkPos))
             {
                 return false;
             }
             bool result = chunk.SetVoxel(blockPos, voxelId);
-            _chunks[chunkPos] = chunk;
+            _chunks[chunkPos.xz] = chunk;
             if (remesh && result) ReMeshChunks(position.Int3());
             return result;
         }
@@ -99,18 +99,18 @@ namespace Runtime.Engine.Components
         /// <summary>
         /// Checks if a chunk is loaded.
         /// </summary>
-        public bool IsChunkLoaded(int3 position) => _chunks.ContainsKey(position);
+        public bool IsChunkLoaded(int2 position) => _chunks.ContainsKey(position);
 
         #endregion
 
         /// <summary>
         /// Whether a chunk is flagged for remeshing.
         /// </summary>
-        internal bool ShouldReMesh(int3 position) => _reMeshChunks.Contains(position);
+        internal bool ShouldReMesh(int3 position) => _reMeshPartitions.Contains(position);
         /// <summary>
         /// Whether a chunk needs collider rebuild.
         /// </summary>
-        internal bool ShouldReCollide(int3 position) => _reCollideChunks.Contains(position);
+        internal bool ShouldReCollide(int3 position) => _reCollidePartitions.Contains(position);
 
         /// <summary>
         /// Disposes native resources and all chunk data.
@@ -118,7 +118,7 @@ namespace Runtime.Engine.Components
         internal void Dispose()
         {
             _accessorMap.Dispose();
-            foreach ((int3 _, Chunk chunk) in _chunks) chunk.Dispose();
+            foreach ((int2 _, Chunk chunk) in _chunks) chunk.Dispose();
         }
 
         /// <summary>
@@ -127,30 +127,30 @@ namespace Runtime.Engine.Components
         internal void FocusUpdate(int3 focus)
         {
             _focus = focus;
-            foreach (int3 position in _queue)
-                _queue.UpdatePriority(position, -(position - focus).SqrMagnitude());
+            foreach (int2 position in _queue)
+                _queue.UpdatePriority(position, -(position - focus.xz).SqrMagnitude());
         }
 
         /// <summary>
         /// Adds newly generated chunks, evicts oldest if capacity exceeded.
         /// </summary>
-        internal void AddChunks(NativeParallelHashMap<int3, Chunk> chunks)
+        internal void AddChunks(NativeParallelHashMap<int2, Chunk> chunks)
         {
-            foreach (KeyValue<int3, Chunk> pair in chunks)
+            foreach (KeyValue<int2, Chunk> pair in chunks)
             {
-                int3 position = pair.Key;
+                int2 position = pair.Key;
                 Chunk chunk = pair.Value;
                 if (_chunks.ContainsKey(chunk.Position)) throw new InvalidOperationException($"Chunk {position} already exists");
                 if (_queue.Count >= _chunkStoreSize) RemoveChunkData(_queue.Dequeue());
                 _chunks.Add(position, chunk);
-                _queue.Enqueue(position, -(position - _focus).SqrMagnitude());
+                _queue.Enqueue(position, -(position - _focus.xz).SqrMagnitude());
             }
         }
 
         /// <summary>
         /// Removes the chunk data (eviction). Persistence hook could be added here.
         /// </summary>
-        private void RemoveChunkData(int3 position)
+        private void RemoveChunkData(int2 position)
         {
             _chunks.Remove(position);
         }
@@ -166,7 +166,7 @@ namespace Runtime.Engine.Components
                 for (int x = -1; x <= 1; x++)
                 for (int z = -1; z <= 1; z++)
                 {
-                    int3 pos = position + _chunkSize.MemberMultiply(x, 0, z);
+                    int2 pos = position.xz + _chunkSize.MemberMultiply(x, 0, z).xz;
                     if (!_chunks.TryGetValue(pos, out Chunk chunk))
                         throw new InvalidOperationException($"Chunk {pos} has not been generated");
                     if (!_accessorMap.ContainsKey(pos)) _accessorMap.Add(pos, chunk);
@@ -180,9 +180,9 @@ namespace Runtime.Engine.Components
         /// </summary>
         internal void ReMeshedChunk(int3 position)
         {
-            if (!_reMeshChunks.Contains(position)) return;
-            _reMeshChunks.Remove(position);
-            _reCollideChunks.Add(position);
+            if (!_reMeshPartitions.Contains(position)) return;
+            _reMeshPartitions.Remove(position);
+            _reCollidePartitions.Add(position);
         }
 
         /// <summary>
@@ -190,8 +190,8 @@ namespace Runtime.Engine.Components
         /// </summary>
         internal void ReCollidedChunk(int3 position)
         {
-            if (!_reCollideChunks.Contains(position)) return;
-            _reCollideChunks.Remove(position);
+            if (!_reCollidePartitions.Contains(position)) return;
+            _reCollidePartitions.Remove(position);
         }
 
         /// <summary>
@@ -200,7 +200,7 @@ namespace Runtime.Engine.Components
         private void ReMeshChunks(int3 blockPosition)
         {
             foreach (int3 dir in VoxelUtils.Directions)
-                _reMeshChunks.Add(VoxelUtils.GetChunkCoords(blockPosition + dir));
+                _reMeshPartitions.Add(VoxelUtils.GetChunkCoords(blockPosition + dir));
         }
     }
 }

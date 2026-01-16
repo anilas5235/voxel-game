@@ -17,6 +17,7 @@ namespace Runtime.Engine.Jobs.Mesh
     [BurstCompile]
     internal struct MeshBuildJob : IJobParallelFor
     {
+        public static readonly int3 PartitionSize = new(16, 16, 16);
         [ReadOnly] public int3 ChunkSize;
         [ReadOnly] public NativeArray<VertexAttributeDescriptor> VertexParams;
         [ReadOnly] public NativeArray<VertexAttributeDescriptor> ColliderVertexParams;
@@ -38,7 +39,7 @@ namespace Runtime.Engine.Jobs.Mesh
             UnityEngine.Mesh.MeshData colliderMesh = ColliderMeshDataArray[index];
             int3 position = Jobs[index];
 
-            GreedyMesher greedyMesher = new(Accessor, position, ChunkSize, VoxelEngineRenderGenData);
+            GreedyMesher greedyMesher = new(Accessor, position, PartitionSize, VoxelEngineRenderGenData);
             MeshBuffer meshBuffer = greedyMesher.GenerateMesh();
 
             // Render mesh

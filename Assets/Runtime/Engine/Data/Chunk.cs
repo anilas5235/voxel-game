@@ -17,7 +17,7 @@ namespace Runtime.Engine.Data
         /// <summary>
         /// World-space position (chunk origin coordinate).
         /// </summary>
-        public int3 Position { get; }
+        public int2 Position { get; }
         /// <summary>
         /// Flag indicating modifications since last mesh build.
         /// </summary>
@@ -29,7 +29,7 @@ namespace Runtime.Engine.Data
         /// <summary>
         /// Constructs a new chunk with position and size; initializes data structure.
         /// </summary>
-        public Chunk(int3 position, int3 chunkSize)
+        public Chunk(int2 position, int3 chunkSize)
         {
             Dirty = false;
             Position = position;

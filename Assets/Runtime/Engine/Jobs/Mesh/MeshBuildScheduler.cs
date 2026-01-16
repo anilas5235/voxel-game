@@ -148,7 +148,7 @@ namespace Runtime.Engine.Jobs.Mesh
                 int3 pos = _jobs[index];
                 ChunkBehaviour cb = _chunkPool.GetOrClaim(pos.xz);
                 _chunkManager.ReMeshedChunk(pos);
-                
+
                 ChunkPartition partition = cb.ChunkPartitions[pos.y / 16];
 
                 meshes[_results[pos]] = partition.Mesh;

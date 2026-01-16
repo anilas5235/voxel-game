@@ -64,6 +64,8 @@ GameObject:
   m_Component:
   - component: {fileID: 8405525253320237017}
   - component: {fileID: 3668502518035507993}
+  - component: {fileID: 8177886569094115064}
+  - component: {fileID: 2770276239337214588}
   m_Layer: 0
   m_Name: ChunkPartion
   m_TagString: Untagged
@@ -133,3 +135,24 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!33 &8177886569094115064
+MeshFilter:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3901904942143629314}
+  m_Mesh: {fileID: 0}
+--- !u!114 &2770276239337214588
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3901904942143629314}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7441722fcacc4531b67dcbd18bca68c5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _Collider: {fileID: 5160593926633333831}

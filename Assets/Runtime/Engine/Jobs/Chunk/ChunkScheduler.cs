@@ -22,8 +22,8 @@ namespace Runtime.Engine.Jobs.Chunk
         private readonly ChunkManager _chunkStore;
         private readonly NoiseProfile _noiseProfile;
         private JobHandle _handle;
-        private NativeList<int3> _jobs;
-        private NativeParallelHashMap<int3, Data.Chunk> _results;
+        private NativeList<int2> _jobs;
+        private NativeParallelHashMap<int2, Data.Chunk> _results;
         private readonly GeneratorConfig _config;
 
         /// <summary>
@@ -44,8 +44,8 @@ namespace Runtime.Engine.Jobs.Chunk
             _chunkStore = chunkStore;
             _noiseProfile = noiseProfile;
             _config = config;
-            _jobs = new NativeList<int3>(Allocator.Persistent);
-            _results = new NativeParallelHashMap<int3, Data.Chunk>(
+            _jobs = new NativeList<int2>(Allocator.Persistent);
+            _results = new NativeParallelHashMap<int2, Data.Chunk>(
                 settings.Chunk.LoadDistance.SquareSize(),
                 Allocator.Persistent
             );
@@ -55,16 +55,7 @@ namespace Runtime.Engine.Jobs.Chunk
         /// Indicates whether the scheduler is ready to start a new chunk generation batch.
         /// </summary>
         internal bool IsReady = true;
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="ChunkScheduler"/> class that writes into an
-        /// externally provided result map (useful for testing and debugging).
-        /// </summary>
-        /// <param name="results">Native hash map that will receive generated chunk data.</param>
-        public ChunkScheduler(NativeParallelHashMap<int3, Data.Chunk> results)
-        {
-            _results = results;
-        }
+       
 
         /// <summary>
         /// Gets a value indicating whether the scheduled job has completed.
@@ -75,11 +66,11 @@ namespace Runtime.Engine.Jobs.Chunk
         /// Starts a Burst-compiled chunk generation job for the given list of chunk world positions.
         /// </summary>
         /// <param name="jobs">List of chunk world positions to generate.</param>
-        internal void Start(List<int3> jobs)
+        internal void Start(List<int2> jobs)
         {
             StartRecord();
             IsReady = false;
-            foreach (int3 j in jobs) _jobs.Add(j);
+            foreach (int2 j in jobs) _jobs.Add(j);
 
             ChunkJob job = new()
             {

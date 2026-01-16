@@ -33,9 +33,9 @@ namespace Runtime.Engine.Components
         internal ChunkPool(Transform transform, VoxelEngineSettings settings)
         {
             _chunkPoolSize = (settings.Chunk.DrawDistance + 2).SquareSize();
-            _meshMap = new Dictionary<int3, ChunkPartition>(_chunkPoolSize);
+            _meshMap = new Dictionary<int3, ChunkPartition>(_chunkPoolSize * 16);
             _chunkMap = new Dictionary<int2, ChunkBehaviour>(_chunkPoolSize);
-            _colliderSet = new HashSet<int3>((settings.Chunk.UpdateDistance + 2).SquareSize());
+            _colliderSet = new HashSet<int3>((settings.Chunk.UpdateDistance + 2).CubedSize());
             _queue = new SimpleFastPriorityQueue<int2, int>();
             _pool = new ObjectPool<ChunkBehaviour>(
                 () =>
@@ -56,7 +56,7 @@ namespace Runtime.Engine.Components
         /// Returns whether a chunk is active (rendered).
         /// </summary>
         internal bool IsChunkActive(int2 pos) => _chunkMap.ContainsKey(pos);
-        
+
         internal bool IsPartitionActive(int3 pos) => _meshMap.ContainsKey(pos);
 
         /// <summary>
@@ -81,7 +81,8 @@ namespace Runtime.Engine.Components
         /// <summary>
         /// Returns existing instance or claims a new one.
         /// </summary>
-        internal ChunkBehaviour GetOrClaim(int2 position) => IsChunkActive(position) ? _chunkMap[position] : Claim(position);
+        internal ChunkBehaviour GetOrClaim(int2 position) =>
+            IsChunkActive(position) ? _chunkMap[position] : Claim(position);
 
         /// <summary>
         /// Claims a new instance; evicts oldest if capacity reached.
@@ -101,7 +102,7 @@ namespace Runtime.Engine.Components
             }
 
             ChunkBehaviour behaviour = _pool.Get();
-            behaviour.transform.position = position.GetVector2();
+            behaviour.transform.position = new float3(position.x, 0, position.y);
             behaviour.name = $"Chunk({position.x},{position.y})";
             _meshMap.AddRange(behaviour.GetMap(position));
             _chunkMap.Add(position, behaviour);
