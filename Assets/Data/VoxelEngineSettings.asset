@@ -21,11 +21,11 @@ MonoBehaviour:
       x: 16
       y: 256
       z: 16
-    LoadDistance: 22
-    UpdateDistance: 18
+    LoadDistance: 12
+    UpdateDistance: 8
   Renderer:
     CastShadows: 0
   Scheduler:
-    MeshingBatchSize: 4
-    StreamingBatchSize: 6
-    ColliderBatchSize: 4
+    MeshingBatchSize: 10
+    StreamingBatchSize: 8
+    ColliderBatchSize: 6

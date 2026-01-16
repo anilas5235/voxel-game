@@ -9,6 +9,7 @@ using Runtime.Engine.Settings;
 using Runtime.Engine.ThirdParty.Priority_Queue;
 using Runtime.Engine.Utils.Extensions;
 using Unity.Mathematics;
+using static Runtime.Engine.Jobs.PriorityUtil;
 
 namespace Runtime.Engine.Jobs
 {
@@ -125,19 +126,22 @@ namespace Runtime.Engine.Jobs
             // View Queue
             foreach (int3 pos in _meshQueue)
             {
-                _meshQueue.UpdatePriority(pos, (pos - focus).SqrMagnitude());
+                int3 position = pos;
+                _meshQueue.UpdatePriority(position, DistPriority(ref position, ref focus));
             }
 
             // Collider Queue
             foreach (int3 pos in _colliderQueue)
             {
-                _colliderQueue.UpdatePriority(pos, (pos - focus).SqrMagnitude());
+                int3 position = pos;
+                _colliderQueue.UpdatePriority(position, DistPriority(ref position, ref focus));
             }
 
             // Data Queue
             foreach (int2 pos in _dataQueue)
             {
-                _dataQueue.UpdatePriority(pos, (pos - focus.xz).SqrMagnitude());
+                int2 position = pos;
+                _dataQueue.UpdatePriority(position, DistPriority(ref position, ref focus));
             }
         }
 
@@ -168,10 +172,10 @@ namespace Runtime.Engine.Jobs
             for (int y = 0; y <= 15; y++)
             {
                 int3 pos = focus + chunkSize.MemberMultiply(x, 0, z);
-                pos[1] = y * chunkSize.y;
+                pos[1] = y * 16;
                 if (!_meshQueue.Contains(pos) && ShouldScheduleForMeshing(pos) && CanGenerateMeshForChunk(pos))
                 {
-                    _meshQueue.Enqueue(pos, (pos - focus).SqrMagnitude());
+                    _meshQueue.Enqueue(pos, DistPriority(ref pos, ref focus));
                 }
             }
         }
@@ -187,7 +191,7 @@ namespace Runtime.Engine.Jobs
                 if (!_colliderQueue.Contains(pos) && ShouldScheduleForBaking(pos) &&
                     CanBakeColliderForChunk(pos))
                 {
-                    _colliderQueue.Enqueue(pos, (pos - focus).SqrMagnitude());
+                    _colliderQueue.Enqueue(pos, DistPriority(ref pos, ref focus));
                 }
             }
         }
@@ -200,7 +204,7 @@ namespace Runtime.Engine.Jobs
                 int2 pos = focus.xz + chunkSize.MemberMultiply(x, 0, z).xz;
                 if (!_dataQueue.Contains(pos) && ShouldScheduleForGenerating(pos))
                 {
-                    _dataQueue.Enqueue(pos, (pos - focus.xz).SqrMagnitude());
+                    _dataQueue.Enqueue(pos, DistPriority(ref pos, ref focus));
                 }
             }
         }

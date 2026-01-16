@@ -37,9 +37,9 @@ namespace Runtime.Engine.Jobs.Mesh
         {
             UnityEngine.Mesh.MeshData mesh = MeshDataArray[index];
             UnityEngine.Mesh.MeshData colliderMesh = ColliderMeshDataArray[index];
-            int3 position = Jobs[index];
+            int3 partitionPos = Jobs[index];
 
-            GreedyMesher greedyMesher = new(Accessor, position, PartitionSize, VoxelEngineRenderGenData);
+            GreedyMesher greedyMesher = new(Accessor, partitionPos, PartitionSize, VoxelEngineRenderGenData);
             MeshBuffer meshBuffer = greedyMesher.GenerateMesh();
 
             // Render mesh
@@ -77,7 +77,7 @@ namespace Runtime.Engine.Jobs.Mesh
             SubMeshDescriptor cDesc = new(0, cIndexCount);
             colliderMesh.SetSubMesh(0, cDesc, flags);
 
-            Results.TryAdd(position, index);
+            Results.TryAdd(partitionPos, index);
 
             meshBuffer.Dispose();
         }

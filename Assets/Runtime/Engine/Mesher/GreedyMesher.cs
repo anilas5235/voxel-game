@@ -22,6 +22,7 @@ namespace Runtime.Engine.Mesher
         private readonly int3 _partitionPos;
         private readonly int2 _chunkPos;
         private readonly int3 _partitionSize;
+        private readonly int3 _yOffset;
         private readonly VoxelEngineRenderGenData _renderGenData;
         private readonly MeshBuffer _mesh;
         private NativeHashMap<int3, byte> _foliageVoxels;
@@ -39,6 +40,7 @@ namespace Runtime.Engine.Mesher
             _partitionPos = partitionPos;
             _chunkPos = partitionPos.xz;
             _partitionSize = partitionSize;
+            _yOffset = new int3(0, partitionPos.y, 0);
             _renderGenData = renderGenData;
             _mesh = new MeshBuffer
             {
@@ -97,9 +99,9 @@ namespace Runtime.Engine.Mesher
 
                 for (pos[mainAxis] = 0; pos[mainAxis] < mainAxisLimit;)
                 {
-                    pos[1] += _partitionPos.y;
                     // Build both masks in a single pass to minimize voxel/def lookups
-                    SliceActivity activity = BuildMasks(pos, directionMask, axisInfo, normalMask, colliderMask);
+                    SliceActivity activity = BuildMasks(pos, directionMask, axisInfo,
+                        normalMask, colliderMask);
 
                     // Move to the actual slice index we just built the mask for
                     ++pos[mainAxis];
@@ -125,6 +127,12 @@ namespace Runtime.Engine.Mesher
             _foliageVoxels.Dispose();
 
             return _mesh;
+        }
+
+        [BurstCompile]
+        private int3 GetVoxelWithYOffset(int3 pos)
+        {
+            return pos + _yOffset;
         }
 
         /// <summary>
@@ -203,6 +211,7 @@ namespace Runtime.Engine.Mesher
                 if (!_accessor.InChunkBounds(p)) continue;
                 ushort voxelId = _accessor.GetVoxelInChunk(_chunkPos, p);
                 VoxelRenderDef def = _renderGenData.GetRenderDef(voxelId);
+                p -= _yOffset;
 
                 // Diagonal 1
                 vertexCount += AddFloraQuad(def, vertexCount,
@@ -303,9 +312,10 @@ namespace Runtime.Engine.Mesher
             {
                 for (chunkItr[axInfo.UAxis] = 0; chunkItr[axInfo.UAxis] < axInfo.ULimit; ++chunkItr[axInfo.UAxis])
                 {
-                    int3 neighborCoord = chunkItr + directionMask;
+                    int3 currentCoord = GetVoxelWithYOffset(chunkItr);
+                    int3 neighborCoord = currentCoord + directionMask;
 
-                    ushort currentVoxel = _accessor.GetVoxelInChunk(_chunkPos, chunkItr);
+                    ushort currentVoxel = _accessor.GetVoxelInChunk(_chunkPos, currentCoord);
                     ushort neighborVoxel = _accessor.GetVoxelInChunk(_chunkPos, neighborCoord);
 
                     VoxelRenderDef currentDef = _renderGenData.GetRenderDef(currentVoxel);
@@ -317,14 +327,14 @@ namespace Runtime.Engine.Mesher
                     // Flora: collect for separate foliage pass, still emit a backface to keep AO continuity
                     if (currentDef.VoxelType == VoxelType.Flora)
                     {
-                        _foliageVoxels.TryAdd(chunkItr, 1);
+                        _foliageVoxels.TryAdd(currentCoord, 1);
                         if (neighborDef.VoxelType == VoxelType.Flora)
                         {
                             normalMask[n] = default;
                         }
                         else
                         {
-                            int4 floraAo = ComputeAOMask(chunkItr, ref axInfo);
+                            int4 floraAo = ComputeAOMask(currentCoord, ref axInfo);
                             sbyte neighborTopOpen = ComputeTopVoxelOfType(neighborCoord, neighborVoxel);
                             normalMask[n] = new Mask(neighborVoxel, neighborLayer, -1, floraAo, neighborTopOpen);
                             hasSurface = true;
@@ -340,12 +350,12 @@ namespace Runtime.Engine.Mesher
                         if (currentOwns)
                         {
                             int4 ao = ComputeAOMask(neighborCoord, ref axInfo);
-                            sbyte topOpen = ComputeTopVoxelOfType(chunkItr, currentVoxel);
+                            sbyte topOpen = ComputeTopVoxelOfType(currentCoord, currentVoxel);
                             normalMask[n] = new Mask(currentVoxel, currentLayer, 1, ao, topOpen);
                         }
                         else
                         {
-                            int4 ao = ComputeAOMask(chunkItr, ref axInfo);
+                            int4 ao = ComputeAOMask(currentCoord, ref axInfo);
                             sbyte topOpen = ComputeTopVoxelOfType(neighborCoord, neighborVoxel);
                             normalMask[n] = new Mask(neighborVoxel, neighborLayer, -1, ao, topOpen);
                         }

@@ -13,6 +13,7 @@ namespace Runtime.Engine.Data
     {
         private readonly NativeParallelHashMap<int2, Chunk>.ReadOnly _chunks;
         private readonly int3 _chunkSize;
+        private readonly int2 _chunkSizeXZ;
 
         /// <summary>
         /// Constructs a new accessor.
@@ -21,6 +22,7 @@ namespace Runtime.Engine.Data
         {
             _chunks = chunks;
             _chunkSize = chunkSize;
+            _chunkSizeXZ = chunkSize.xz;
         }
 
         /// <summary>
@@ -31,15 +33,19 @@ namespace Runtime.Engine.Data
             if (voxelPos.y >= _chunkSize.y || voxelPos.y < 0) return 0;
             int2 key = int2.zero;
 
-            for (int index = 0; index < 3; index++)
+            if (!(voxelPos.x >= 0 && voxelPos.x < _chunkSize.x))
             {
-                if (voxelPos[index] >= 0 && voxelPos[index] < _chunkSize[index]) continue;
-
-                key[index] += voxelPos[index] % (_chunkSize[index] - 1);
-                voxelPos[index] -= key[index] * _chunkSize[index];
+                key.x += voxelPos.x % (_chunkSize.x - 1);
+                voxelPos.x -= key.x * _chunkSize.x;
+            }
+            
+            if (!(voxelPos.z >= 0 && voxelPos.z < _chunkSize.z))
+            {
+                key.y += voxelPos.z % (_chunkSize.z - 1);
+                voxelPos.z -= key.y * _chunkSize.z;
             }
 
-            key *= _chunkSize.xz;
+            key *= _chunkSizeXZ;
 
             return TryGetChunk(chunkPos + key, out Chunk chunk) ? chunk.GetVoxel(voxelPos) : (ushort)0;
         }
