@@ -12,6 +12,7 @@ using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Rendering;
+using static Runtime.Engine.Utils.VoxelConstants;
 
 namespace Runtime.Engine.Jobs.Mesh
 {
@@ -29,7 +30,6 @@ namespace Runtime.Engine.Jobs.Mesh
         private readonly ChunkPool _chunkPool;
         private readonly VoxelRegistry _voxelRegistry;
 
-        private readonly int3 _chunkSize;
         private JobHandle _handle;
 
         private NativeList<int3> _jobs;
@@ -59,8 +59,6 @@ namespace Runtime.Engine.Jobs.Mesh
             _chunkManager = chunkManager;
             _chunkPool = chunkPool;
             _voxelRegistry = voxelRegistry;
-
-            _chunkSize = settings.Chunk.ChunkSize;
 
             _vertexParams = new NativeArray<VertexAttributeDescriptor>(5, Allocator.Persistent)
             {
@@ -118,7 +116,7 @@ namespace Runtime.Engine.Jobs.Mesh
             MeshBuildJob job = new()
             {
                 Accessor = _chunkAccessor,
-                ChunkSize = _chunkSize,
+                ChunkSize = ChunkSize,
                 Jobs = _jobs,
                 VertexParams = _vertexParams,
                 ColliderVertexParams = _colliderVertexParams,

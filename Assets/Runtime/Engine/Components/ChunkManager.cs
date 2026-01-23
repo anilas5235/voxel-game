@@ -10,6 +10,7 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 using UnityEngine;
+using static Runtime.Engine.Utils.VoxelConstants;
 
 namespace Runtime.Engine.Components
 {
@@ -27,7 +28,6 @@ namespace Runtime.Engine.Components
         private readonly HashSet<int3> _reCollidePartitions;
 
         private int3 _focus;
-        private readonly int3 _chunkSize;
         private readonly int _chunkStoreSize;
 
         /// <summary>
@@ -35,7 +35,6 @@ namespace Runtime.Engine.Components
         /// </summary>
         internal ChunkManager(VoxelEngineSettings settings)
         {
-            _chunkSize = settings.Chunk.ChunkSize;
             _chunkStoreSize = (settings.Chunk.LoadDistance + 2).SquareSize();
 
             _reMeshPartitions = new HashSet<int3>();
@@ -58,8 +57,8 @@ namespace Runtime.Engine.Components
         internal ushort GetVoxel(Vector3Int position)
         {
             int3 chunkPos = VoxelUtils.GetChunkCoords(position);
-            int3 blockPos = VoxelUtils.GetVoxelIndex(position);
-            if (blockPos.y < 0 || blockPos.y >= _chunkSize.y) return 0;
+            int3 blockPos = VoxelUtils.GetLocalVoxelCoords(position);
+            if (blockPos.y < 0 || blockPos.y >= ChunkSize.y) return 0;
             if (_chunks.TryGetValue(chunkPos.xz, out Chunk chunk)) return chunk.GetVoxel(blockPos);
             VoxelEngineLogger.Warn<ChunkManager>($"Chunk : {chunkPos} not loaded");
             return 0;
@@ -75,16 +74,18 @@ namespace Runtime.Engine.Components
         internal bool SetVoxel(ushort voxelId, Vector3Int position, bool remesh = true)
         {
             int3 chunkPos = VoxelUtils.GetChunkCoords(position);
-            int3 blockPos = VoxelUtils.GetVoxelIndex(position);
+            int3 blockPos = VoxelUtils.GetLocalVoxelCoords(position);
             if (!_chunks.TryGetValue(chunkPos.xz, out Chunk chunk))
             {
                 VoxelEngineLogger.Warn<ChunkManager>($"Chunk : {chunkPos} not loaded");
                 return false;
             }
+
             if (_reMeshPartitions.Contains(chunkPos))
             {
                 return false;
             }
+
             bool result = chunk.SetVoxel(blockPos, voxelId);
             _chunks[chunkPos.xz] = chunk;
             if (remesh && result) ReMeshPartitions(position.Int3());
@@ -107,6 +108,7 @@ namespace Runtime.Engine.Components
         /// Whether a chunk is flagged for remeshing.
         /// </summary>
         internal bool ShouldReMesh(int3 position) => _reMeshPartitions.Contains(position);
+
         /// <summary>
         /// Whether a chunk needs collider rebuild.
         /// </summary>
@@ -140,7 +142,8 @@ namespace Runtime.Engine.Components
             {
                 int2 position = pair.Key;
                 Chunk chunk = pair.Value;
-                if (_chunks.ContainsKey(chunk.Position)) throw new InvalidOperationException($"Chunk {position} already exists");
+                if (_chunks.ContainsKey(chunk.Position))
+                    throw new InvalidOperationException($"Chunk {position} already exists");
                 if (_queue.Count >= _chunkStoreSize) RemoveChunkData(_queue.Dequeue());
                 _chunks.Add(position, chunk);
                 _queue.Enqueue(position, -(position - _focus.xz).SqrMagnitude());
@@ -166,13 +169,14 @@ namespace Runtime.Engine.Components
                 for (int x = -1; x <= 1; x++)
                 for (int z = -1; z <= 1; z++)
                 {
-                    int2 pos = position.xz + _chunkSize.MemberMultiply(x, 0, z).xz;
+                    int2 pos = position.xz + ChunkSize.MemberMultiply(x, 0, z).xz;
                     if (!_chunks.TryGetValue(pos, out Chunk chunk))
                         throw new InvalidOperationException($"Chunk {pos} has not been generated");
                     if (!_accessorMap.ContainsKey(pos)) _accessorMap.Add(pos, chunk);
                 }
             }
-            return new ChunkAccessor(_accessorMap.AsReadOnly(), _chunkSize);
+
+            return new ChunkAccessor(_accessorMap.AsReadOnly());
         }
 
         /// <summary>
@@ -210,6 +214,7 @@ namespace Runtime.Engine.Components
                     _reMeshPartitions.Add(pCoords + new int3(16, 0, 0));
                     break;
             }
+
             switch (blockPosition.z % 16)
             {
                 case 0:
@@ -219,6 +224,7 @@ namespace Runtime.Engine.Components
                     _reMeshPartitions.Add(pCoords + new int3(0, 0, 16));
                     break;
             }
+
             switch (blockPosition.y % 16)
             {
                 case 0:

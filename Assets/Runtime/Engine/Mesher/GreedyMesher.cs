@@ -208,7 +208,7 @@ namespace Runtime.Engine.Mesher
             foreach (KVPair<int3, byte> entry in _foliageVoxels)
             {
                 int3 p = entry.Key;
-                if (!_accessor.InChunkBounds(p)) continue;
+                if (!ChunkAccessor.InChunkBounds(p)) continue;
                 ushort voxelId = _accessor.GetVoxelInChunk(_chunkPos, p);
                 VoxelRenderDef def = _renderGenData.GetRenderDef(voxelId);
                 p -= _yOffset;

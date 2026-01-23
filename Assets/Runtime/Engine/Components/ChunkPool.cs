@@ -4,11 +4,11 @@ using Runtime.Engine.Behaviour;
 using Runtime.Engine.Settings;
 using Runtime.Engine.ThirdParty.Priority_Queue;
 using Runtime.Engine.Utils.Extensions;
-using Runtime.Engine.World;
 using Unity.Mathematics;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Pool;
+using static Runtime.Engine.Utils.VoxelConstants;
 using Object = UnityEngine.Object;
 
 namespace Runtime.Engine.Components
@@ -27,14 +27,12 @@ namespace Runtime.Engine.Components
 
         private int3 _focus;
         private readonly int _chunkPoolSize;
-        private readonly int3 _chunkSize;
 
         /// <summary>
         /// Constructs a pool based on draw/update distances.
         /// </summary>
         internal ChunkPool(Transform transform, VoxelEngineSettings settings)
         {
-            _chunkSize = settings.Chunk.ChunkSize;
             _chunkPoolSize = (settings.Chunk.DrawDistance + 2).SquareSize();
             _meshMap = new Dictionary<int3, ChunkPartition>(_chunkPoolSize * 16);
             _chunkMap = new Dictionary<int2, ChunkBehaviour>(_chunkPoolSize);
@@ -111,7 +109,7 @@ namespace Runtime.Engine.Components
 
             ChunkBehaviour behaviour = _pool.Get();
             behaviour.transform.position = new float3(position.x, 0, position.y);
-            behaviour.name = $"Chunk({position.x / _chunkSize.x},{position.y / _chunkSize.z})";
+            behaviour.name = $"Chunk({position.x / ChunkSize.x},{position.y / ChunkSize.z})";
             _meshMap.AddRange(behaviour.GetMap(position));
             _chunkMap.Add(position, behaviour);
             _queue.Enqueue(position, PriorityCalc(position));

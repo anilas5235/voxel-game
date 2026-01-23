@@ -26,34 +26,24 @@ namespace Runtime.Engine.World
         #region API
 
         /// <summary>
-        /// Gets the current focus transform that drives which chunks are loaded and updated.
+        /// The partition coordinates of the current focus position.
         /// </summary>
-        public Transform Focus => focus;
-
-        /// <summary>
-        /// Gets the voxel engine settings used to configure chunk sizes and distances.
-        /// </summary>
-        public VoxelEngineSettings Settings => settings;
-
-        /// <summary>
-        /// Gets the chunk coordinates of the current focus position.
-        /// </summary>
-        public int3 FocusCoords { get; private set; }
+        private int3 FocusCoords { get; set; }
 
         /// <summary>
         /// Gets the central scheduler that coordinates chunk data, mesh and collider jobs.
         /// </summary>
-        public VoxelEngineScheduler Scheduler { get; private set; }
+        private VoxelEngineScheduler Scheduler { get; set; }
 
         /// <summary>
         /// Gets the noise profile used for procedural terrain generation.
         /// </summary>
-        public NoiseProfile NoiseProfile { get; private set; }
+        private NoiseProfile NoiseProfile { get; set; }
 
         /// <summary>
         /// Gets the chunk manager that stores and accesses chunk data.
         /// </summary>
-        public ChunkManager ChunkManager { get; private set; }
+        private ChunkManager ChunkManager { get; set; }
 
         #endregion
 
@@ -79,7 +69,7 @@ namespace Runtime.Engine.World
             {
                 ConfigureSettings();
 
-                provider.Settings = Settings;
+                provider.Settings = settings;
             });
 
             ConstructEngineComponents();
@@ -147,8 +137,8 @@ namespace Runtime.Engine.World
         /// </summary>
         private void ConfigureSettings()
         {
-            Settings.Chunk.LoadDistance = Settings.Chunk.DrawDistance + 2;
-            Settings.Chunk.UpdateDistance = math.max(Settings.Chunk.DrawDistance - 2, 2);
+            settings.Chunk.LoadDistance = settings.Chunk.DrawDistance + 2;
+            settings.Chunk.UpdateDistance = math.max(settings.Chunk.DrawDistance - 2, 2);
         }
 
         /// <summary>

@@ -9,6 +9,7 @@ using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
+using static Runtime.Engine.Utils.VoxelConstants;
 
 namespace Runtime.Engine.Jobs.Chunk
 {
@@ -18,7 +19,6 @@ namespace Runtime.Engine.Jobs.Chunk
     /// </summary>
     public class ChunkScheduler : JobScheduler
     {
-        private readonly int3 _chunkSize;
         private readonly ChunkManager _chunkStore;
         private readonly NoiseProfile _noiseProfile;
         private JobHandle _handle;
@@ -40,7 +40,6 @@ namespace Runtime.Engine.Jobs.Chunk
             GeneratorConfig config
         )
         {
-            _chunkSize = settings.Chunk.ChunkSize;
             _chunkStore = chunkStore;
             _noiseProfile = noiseProfile;
             _config = config;
@@ -75,7 +74,7 @@ namespace Runtime.Engine.Jobs.Chunk
             ChunkJob job = new()
             {
                 Jobs = _jobs,
-                ChunkSize = _chunkSize,
+                ChunkSize = ChunkSize,
                 NoiseProfile = _noiseProfile,
                 Results = _results.AsParallelWriter(),
                 RandomSeed = _config.GlobalSeed,

@@ -4,6 +4,7 @@ using Runtime.Engine.Utils.Extensions;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Mathematics;
+using static Runtime.Engine.Utils.VoxelConstants;
 
 namespace Runtime.Engine.Data
 {
@@ -23,17 +24,15 @@ namespace Runtime.Engine.Data
         /// </summary>
         public bool Dirty { get; private set; }
 
-        private readonly int3 _chunkSize;
         private UnsafeIntervalList _data;
 
         /// <summary>
         /// Constructs a new chunk with position and size; initializes data structure.
         /// </summary>
-        public Chunk(int2 position, int3 chunkSize)
+        public Chunk(int2 position)
         {
             Dirty = false;
             Position = position;
-            _chunkSize = chunkSize;
             _data = new UnsafeIntervalList(128, Allocator.Persistent);
         }
 
@@ -44,57 +43,32 @@ namespace Runtime.Engine.Data
         {
             _data.AddInterval(voxelId, count);
         }
-
-        /// <summary>
-        /// Sets voxel by individual coordinates. Marks dirty on change.
-        /// </summary>
-        public bool SetVoxel(int x, int y, int z, ushort block)
-        {
-            bool result = _data.Set(_chunkSize.Flatten(x, y, z), block);
-            if (result) Dirty = true;
-            return result;
-        }
-
+      
         /// <summary>
         /// Sets voxel by int3 position. Marks dirty on change.
         /// </summary>
         public bool SetVoxel(int3 pos, ushort voxelId)
         {
-            bool result = _data.Set(_chunkSize.Flatten(pos), voxelId);
+            bool result = _data.Set(GetIndex(pos), voxelId);
             if (result) Dirty = true;
             return result;
         }
 
         /// <summary>
-        /// Reads voxel at coordinates.
-        /// </summary>
-        public ushort GetVoxel(int x, int y, int z)
-        {
-            return _data.Get(_chunkSize.Flatten(x, y, z));
-        }
-
-        /// <summary>
         /// Reads voxel at int3 position.
         /// </summary>
-        public ushort GetVoxel(int3 pos)
-        {
-            return GetVoxel(pos.x, pos.y, pos.z);
-        }
+        public ushort GetVoxel(int3 pos) => _data.Get(GetIndex(pos));
 
         /// <summary>
         /// Disposes native resources.
         /// </summary>
-        public void Dispose()
-        {
-            _data.Dispose();
-        }
+        public void Dispose() => _data.Dispose();
 
         /// <summary>
         /// Debug string including dirty status and compressed data statistics.
         /// </summary>
-        public override string ToString()
-        {
-            return $"Pos : {Position}, Dirty : {Dirty}, Data : {_data.ToString()}";
-        }
+        public override string ToString() => $"Pos : {Position}, Dirty : {Dirty}, Data : {_data.ToString()}";
+
+        private static int GetIndex(int3 pos) => ChunkSize.Flatten(pos);
     }
 }

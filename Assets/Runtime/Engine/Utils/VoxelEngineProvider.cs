@@ -9,7 +9,7 @@ using Runtime.Engine.Utils.Provider;
 using Runtime.Engine.VoxelConfig.Data;
 using UnityEngine;
 
-namespace Runtime.Engine
+namespace Runtime.Engine.Utils
 {
     /// <summary>
     /// Factory/provider for core voxel engine subsystems (manager, schedulers, pools, noise profile).

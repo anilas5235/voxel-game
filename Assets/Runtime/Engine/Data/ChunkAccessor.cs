@@ -1,6 +1,7 @@
 ﻿using Unity.Burst;
 using Unity.Collections;
 using Unity.Mathematics;
+using static Runtime.Engine.Utils.VoxelConstants;
 
 namespace Runtime.Engine.Data
 {
@@ -12,17 +13,13 @@ namespace Runtime.Engine.Data
     internal readonly struct ChunkAccessor
     {
         private readonly NativeParallelHashMap<int2, Chunk>.ReadOnly _chunks;
-        private readonly int3 _chunkSize;
-        private readonly int2 _chunkSizeXZ;
 
         /// <summary>
         /// Constructs a new accessor.
         /// </summary>
-        internal ChunkAccessor(NativeParallelHashMap<int2, Chunk>.ReadOnly chunks, int3 chunkSize)
+        internal ChunkAccessor(NativeParallelHashMap<int2, Chunk>.ReadOnly chunks)
         {
             _chunks = chunks;
-            _chunkSize = chunkSize;
-            _chunkSizeXZ = chunkSize.xz;
         }
 
         /// <summary>
@@ -30,22 +27,22 @@ namespace Runtime.Engine.Data
         /// </summary>
         internal ushort GetVoxelInChunk(int2 chunkPos, int3 voxelPos)
         {
-            if (voxelPos.y >= _chunkSize.y || voxelPos.y < 0) return 0;
+            if (voxelPos.y >= ChunkHeight || voxelPos.y < 0) return 0;
             int2 key = int2.zero;
 
-            if (!(voxelPos.x >= 0 && voxelPos.x < _chunkSize.x))
+            if (!(voxelPos.x >= 0 && voxelPos.x < ChunkWidth))
             {
-                key.x += voxelPos.x % (_chunkSize.x - 1);
-                voxelPos.x -= key.x * _chunkSize.x;
+                key.x += voxelPos.x % (ChunkWidth - 1);
+                voxelPos.x -= key.x * ChunkWidth;
             }
             
-            if (!(voxelPos.z >= 0 && voxelPos.z < _chunkSize.z))
+            if (!(voxelPos.z >= 0 && voxelPos.z < ChunkDepth))
             {
-                key.y += voxelPos.z % (_chunkSize.z - 1);
-                voxelPos.z -= key.y * _chunkSize.z;
+                key.y += voxelPos.z % (ChunkDepth - 1);
+                voxelPos.z -= key.y * ChunkDepth;
             }
 
-            key *= _chunkSizeXZ;
+            key *= ChunkSizeXY;
 
             return TryGetChunk(chunkPos + key, out Chunk chunk) ? chunk.GetVoxel(voxelPos) : (ushort)0;
         }
@@ -67,7 +64,7 @@ namespace Runtime.Engine.Data
         /// </summary>
         internal bool TryGetNeighborPx(int2 pos, out Chunk chunk)
         {
-            int2 px = pos + new int2(1 * _chunkSize.x, 0);
+            int2 px = pos + new int2(1 * ChunkWidth, 0);
 
             return _chunks.TryGetValue(px, out chunk);
         }
@@ -77,7 +74,7 @@ namespace Runtime.Engine.Data
         /// </summary>
         internal bool TryGetNeighborPz(int2 pos, out Chunk chunk)
         {
-            int2 pz = pos + new int2(0, 1 * _chunkSize.z);
+            int2 pz = pos + new int2(0, 1 * ChunkDepth);
 
             return _chunks.TryGetValue(pz, out chunk);
         }
@@ -87,7 +84,7 @@ namespace Runtime.Engine.Data
         /// </summary>
         internal bool TryGetNeighborNx(int2 pos, out Chunk chunk)
         {
-            int2 nx = pos + new int2(-1* _chunkSize.x, 0) ;
+            int2 nx = pos + new int2(-1* ChunkWidth, 0) ;
 
             return _chunks.TryGetValue(nx, out chunk);
         }
@@ -97,7 +94,7 @@ namespace Runtime.Engine.Data
         /// </summary>
         internal bool TryGetNeighborNz(int2 pos, out Chunk chunk)
         {
-            int2 nz = pos + new int2(0, -1* _chunkSize.z);
+            int2 nz = pos + new int2(0, -1* ChunkDepth);
 
             return _chunks.TryGetValue(nz, out chunk);
         }
@@ -107,11 +104,11 @@ namespace Runtime.Engine.Data
         /// <summary>
         /// Checks whether a voxel coordinate lies inside chunk bounds.
         /// </summary>
-        public bool InChunkBounds(int3 chunkItr)
+        public static bool InChunkBounds(int3 chunkLocalPos)
         {
-            return chunkItr.x >= 0 && chunkItr.x < _chunkSize.x &&
-                   chunkItr.y >= 0 && chunkItr.y < _chunkSize.y &&
-                   chunkItr.z >= 0 && chunkItr.z < _chunkSize.z;
+            return chunkLocalPos.x >= 0 && chunkLocalPos.x < ChunkWidth &&
+                   chunkLocalPos.y >= 0 && chunkLocalPos.y < ChunkHeight &&
+                   chunkLocalPos.z >= 0 && chunkLocalPos.z < ChunkDepth;
         }
     }
 }

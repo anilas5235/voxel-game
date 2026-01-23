@@ -10,6 +10,7 @@ using Runtime.Engine.ThirdParty.Priority_Queue;
 using Runtime.Engine.Utils.Extensions;
 using Unity.Mathematics;
 using static Runtime.Engine.Jobs.PriorityUtil;
+using static Runtime.Engine.Utils.VoxelConstants;
 
 namespace Runtime.Engine.Jobs
 {
@@ -147,18 +148,16 @@ namespace Runtime.Engine.Jobs
 
         private void UpdatedQueues(int3 focus, JobType jobType)
         {
-            int3 chunkSize = _settings.Chunk.ChunkSize;
-
             switch (jobType)
             {
                 case JobType.Data:
-                    EnqueueDataChunks(focus, _settings.Chunk.LoadDistance, chunkSize);
+                    EnqueueDataChunks(focus, _settings.Chunk.LoadDistance, ChunkSize);
                     break;
                 case JobType.Mesh:
-                    EnqueueMeshChunks(focus, _settings.Chunk.DrawDistance, chunkSize);
+                    EnqueueMeshChunks(focus, _settings.Chunk.DrawDistance, ChunkSize);
                     break;
                 case JobType.Collider:
-                    EnqueueColliderChunks(focus, _settings.Chunk.UpdateDistance, chunkSize);
+                    EnqueueColliderChunks(focus, _settings.Chunk.UpdateDistance, ChunkSize);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(jobType), jobType, null);
@@ -334,7 +333,7 @@ namespace Runtime.Engine.Jobs
             for (int x = -1; x <= 1; x++)
             for (int z = -1; z <= 1; z++)
             {
-                int3 pos = position + _settings.Chunk.ChunkSize.MemberMultiply(x, 0, z);
+                int3 pos = position + ChunkSize.MemberMultiply(x, 0, z);
                 result &= _chunkManager.IsChunkLoaded(pos.xz);
             }
 

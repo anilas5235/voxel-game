@@ -69,7 +69,7 @@ namespace Runtime.Engine.Jobs.Chunk
         /// </summary>
         private Data.Chunk WriteToChunkData(NativeArray<ushort> vox, int3 chunkWordPos)
         {
-            Data.Chunk data = new(chunkWordPos.xz, ChunkSize);
+            Data.Chunk data = new(chunkWordPos.xz);
             ushort last = 0;
             int run = 0;
             bool hasLast = false;
