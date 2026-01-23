@@ -40,7 +40,7 @@ namespace Runtime.Engine.Behaviour
         {
             foreach (ChunkPartition partition in chunkPartitions)
             {
-                int3 chunkPos = new(position.x, partition.PartitionId * 16, position.y);
+                int3 chunkPos = new(position.x, partition.PartitionId, position.y);
                 yield return new KeyValuePair<int3, ChunkPartition>(chunkPos, partition);
             }
         }

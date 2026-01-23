@@ -99,17 +99,17 @@ namespace Runtime.Engine.Components
                 reclaimBehaviour.ClearData();
                 _pool.Release(reclaimBehaviour);
                 _chunkMap.Remove(reclaim);
-                for (int pId = 0; pId < 16; pId++)
+                for (int pId = 0; pId < PartitionsPerChunk; pId++)
                 {
-                    int3 partitionPos = new(reclaim.x, pId * 16, reclaim.y);
+                    int3 partitionPos = new(reclaim.x, pId, reclaim.y);
                     _meshMap.Remove(partitionPos);
                     _colliderSet.Remove(partitionPos);
                 }
             }
 
             ChunkBehaviour behaviour = _pool.Get();
-            behaviour.transform.position = new float3(position.x, 0, position.y);
-            behaviour.name = $"Chunk({position.x / ChunkSize.x},{position.y / ChunkSize.z})";
+            behaviour.transform.position = new float3(position.x * ChunkWidth, 0, position.y * ChunkDepth);
+            behaviour.name = $"Chunk({position.x},{position.y})";
             _meshMap.AddRange(behaviour.GetMap(position));
             _chunkMap.Add(position, behaviour);
             _queue.Enqueue(position, PriorityCalc(position));

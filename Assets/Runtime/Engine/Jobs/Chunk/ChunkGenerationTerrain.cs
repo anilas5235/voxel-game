@@ -3,6 +3,7 @@ using Runtime.Engine.Utils.Extensions;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Mathematics;
+using static Runtime.Engine.Utils.VoxelConstants;
 
 namespace Runtime.Engine.Jobs.Chunk
 {
@@ -20,23 +21,18 @@ namespace Runtime.Engine.Jobs.Chunk
         /// <summary>
         /// Computes climate values, terrain height and biome information for every column of a chunk.
         /// </summary>
-        /// <param name="chunkSize">Size of the chunk in voxels (x, y, z).</param>
         /// <param name="noiseProfile">Noise profile used to sample base terrain height.</param>
         /// <param name="randomSeed">Random seed used to offset noise sampling for deterministic variation.</param>
         /// <param name="config">Generator configuration providing water level and voxel IDs.</param>
         /// <param name="chunkWordPos">World-space origin (in voxels) of the chunk.</param>
         /// <param name="chunkColumns">Output array that will receive per-column height, biome and climate data.</param>
-        public static void PrepareChunkMaps(ref int3 chunkSize, ref NoiseProfile noiseProfile, int randomSeed,
+        public static void PrepareChunkMaps(ref NoiseProfile noiseProfile, int randomSeed,
             ref GeneratorConfig config, ref int3 chunkWordPos, NativeArray<ChunkColumn> chunkColumns)
         {
-            int sx = chunkSize.x;
-            int sz = chunkSize.z;
-            int sy = chunkSize.y;
-
-            for (int x = 0; x < sx; x++)
-            for (int z = 0; z < sz; z++)
+            for (int x = 0; x < ChunkWidth; x++)
+            for (int z = 0; z < ChunkDepth; z++)
             {
-                int i = ChunkGenerationUtils.GetColumnIdx(x, z, sz);
+                int i = ChunkGenerationUtils.GetColumnIdx(x, z, ChunkDepth);
                 float2 worldPos = new(chunkWordPos.x + x, chunkWordPos.z + z);
 
                 float2 noiseSamplePos = worldPos + new float2(-randomSeed, randomSeed);
@@ -99,7 +95,7 @@ namespace Runtime.Engine.Jobs.Chunk
                 // Mappe finale Höhe mit Sicherheitsabstand zur Weltobergrenze (Top-Margin)
                 const int topMarginY = 8; // verhindert Abschneiden an WorldHeight
                 const int minY = 1;
-                int maxY = math.max(minY + 1, sy - topMarginY);
+                int maxY = math.max(minY + 1, ChunkHeight - topMarginY);
                 int height = math.clamp(minY + (int)(baseHeightFrac * (maxY - minY)), minY, maxY);
 
                 ChunkColumn col = new()
@@ -127,26 +123,22 @@ namespace Runtime.Engine.Jobs.Chunk
         /// Fills the voxel buffer for a chunk with terrain blocks based on the prepared column data
         /// and configuration values.
         /// </summary>
-        /// <param name="chunkSize">Size of the chunk in voxels (x, y, z).</param>
         /// <param name="vox">Voxel buffer to write to (one entry per voxel).</param>
         /// <param name="waterLevel">Global water level used to place water or surface blocks.</param>
         /// <param name="chunkColumns">Per-column terrain metadata produced by <see cref="PrepareChunkMaps"/>.</param>
         /// <param name="config">Generator configuration providing voxel IDs for stone, dirt, grass, etc.</param>
-        public static void FillTerrain(ref int3 chunkSize, NativeArray<ushort> vox,
+        public static void FillTerrain(NativeArray<ushort> vox,
             int waterLevel, NativeArray<ChunkColumn> chunkColumns, ref GeneratorConfig config)
         {
-            int sx = chunkSize.x;
-            int sz = chunkSize.z;
-            int sy = chunkSize.y;
             const ushort air = 0;
             ushort waterBlock = config.Water;
             ushort stone = config.Stone;
             ushort dirt = config.Dirt;
 
-            for (int x = 0; x < sx; x++)
-            for (int z = 0; z < sz; z++)
+            for (int x = 0; x < ChunkWidth; x++)
+            for (int z = 0; z < ChunkDepth; z++)
             {
-                int i = ChunkGenerationUtils.GetColumnIdx(x, z, sz);
+                int i = ChunkGenerationUtils.GetColumnIdx(x, z, ChunkDepth);
 
                 ChunkColumn col = chunkColumns[i];
 
@@ -160,7 +152,7 @@ namespace Runtime.Engine.Jobs.Chunk
 
                 int gy = col.Height;
 
-                for (int y = 0; y < sy; y++)
+                for (int y = 0; y < ChunkHeight; y++)
                 {
                     ushort v;
                     if (y < gy - 4) v = st;
@@ -170,7 +162,7 @@ namespace Runtime.Engine.Jobs.Chunk
 
                     if (y == waterLevel && v == waterBlock && col.Temperature < .2f) v = config.Ice;
 
-                    vox[chunkSize.Flatten(x, y, z)] = v;
+                    vox[ChunkSize.Flatten(x, y, z)] = v;
                 }
             }
         }

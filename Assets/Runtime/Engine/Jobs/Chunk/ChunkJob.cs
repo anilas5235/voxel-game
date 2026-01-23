@@ -4,6 +4,7 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
+using static Runtime.Engine.Utils.VoxelConstants;
 
 namespace Runtime.Engine.Jobs.Chunk
 {
@@ -14,7 +15,6 @@ namespace Runtime.Engine.Jobs.Chunk
     [BurstCompile]
     public struct ChunkJob : IJobParallelFor
     {
-        [ReadOnly] public int3 ChunkSize;
         [ReadOnly] public NoiseProfile NoiseProfile;
         [ReadOnly] public NativeList<int2> Jobs; // Chunk world positions
         [WriteOnly] public NativeParallelHashMap<int2, Data.Chunk>.ParallelWriter Results; // Result mapping
@@ -31,34 +31,36 @@ namespace Runtime.Engine.Jobs.Chunk
         public void Execute(int index)
         {
             int2 position = Jobs[index];
-            Data.Chunk chunk = GenerateChunkData(new int3(position.x, 0, position.y));
+            Data.Chunk chunk = GenerateChunkData(position);
             Results.TryAdd(position, chunk);
         }
 
         /// <summary>
         /// Generates all voxel data for a given chunk (terrain, ores, caves, structures, vegetation).
         /// </summary>
-        private Data.Chunk GenerateChunkData(int3 chunkWordPos)
+        private Data.Chunk GenerateChunkData(int2 chunkPos)
         {
-            int volume = ChunkSize.x * ChunkSize.y * ChunkSize.z;
+            int volume = VoxelsPerChunk;
             int surfaceArea = ChunkSize.x * ChunkSize.z;
             int waterLevel = Config.WaterLevel;
+
+            int3 chunkWorldPos = ChunkSize.MemberMultiply(chunkPos.x, 0, chunkPos.y);
 
             NativeArray<ushort> vox = new(volume, Allocator.Temp);
             NativeArray<ChunkColumn> chunkColumns = new(surfaceArea, Allocator.Temp);
 
-            ChunkGenerationTerrain.PrepareChunkMaps(ref ChunkSize, ref NoiseProfile, RandomSeed, ref Config,
-                ref chunkWordPos, chunkColumns);
-            ChunkGenerationTerrain.FillTerrain(ref ChunkSize, vox, waterLevel, chunkColumns, ref Config);
-            ChunkGenerationCavesOres.PlaceOres(ChunkSize, vox, Config, RandomSeed);
-            ChunkGenerationCavesOres.CarveCaves(ChunkSize, vox, chunkWordPos, chunkColumns, Config, RandomSeed,
+            ChunkGenerationTerrain.PrepareChunkMaps(ref NoiseProfile, RandomSeed, ref Config, ref chunkWorldPos,
+                chunkColumns);
+            ChunkGenerationTerrain.FillTerrain(vox, waterLevel, chunkColumns, ref Config);
+            ChunkGenerationCavesOres.PlaceOres(vox, Config, RandomSeed);
+            ChunkGenerationCavesOres.CarveCaves(vox, chunkWorldPos, chunkColumns, Config, RandomSeed,
                 CaveScale, LavaLevel);
-            ChunkGenerationStructures.PlaceStructures(ref vox, ref chunkColumns, ref chunkWordPos, ref ChunkSize,
+            ChunkGenerationStructures.PlaceStructures(ref vox, ref chunkColumns, ref chunkWorldPos,
                 RandomSeed, ref Config);
-            ChunkGenerationVegetation.PlaceVegetation(ref vox, ref chunkColumns, ref chunkWordPos, ref ChunkSize,
+            ChunkGenerationVegetation.PlaceVegetation(ref vox, ref chunkColumns, ref chunkWorldPos,
                 RandomSeed, ref Config);
 
-            Data.Chunk data = WriteToChunkData(vox, chunkWordPos);
+            Data.Chunk data = WriteToChunkData(vox, chunkWorldPos);
             vox.Dispose();
             chunkColumns.Dispose();
             return data;
@@ -90,6 +92,7 @@ namespace Runtime.Engine.Jobs.Chunk
                     hasLast = true;
                 }
             }
+
             if (hasLast && run > 0) data.AddVoxels(last, run);
 
             return data;

@@ -11,6 +11,7 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 using UnityEngine;
 using static Runtime.Engine.Utils.VoxelConstants;
+using static Runtime.Engine.Utils.VoxelUtils;
 
 namespace Runtime.Engine.Components
 {
@@ -56,10 +57,10 @@ namespace Runtime.Engine.Components
         /// </summary>
         internal ushort GetVoxel(Vector3Int position)
         {
-            int3 chunkPos = VoxelUtils.GetChunkCoords(position);
-            int3 blockPos = VoxelUtils.GetLocalVoxelCoords(position);
+            int2 chunkPos = GetChunkCoords(position);
+            int3 blockPos = GetLocalVoxelCoords(position);
             if (blockPos.y < 0 || blockPos.y >= ChunkSize.y) return 0;
-            if (_chunks.TryGetValue(chunkPos.xz, out Chunk chunk)) return chunk.GetVoxel(blockPos);
+            if (_chunks.TryGetValue(chunkPos, out Chunk chunk)) return chunk.GetVoxel(blockPos);
             VoxelEngineLogger.Warn<ChunkManager>($"Chunk : {chunkPos} not loaded");
             return 0;
         }
@@ -73,21 +74,23 @@ namespace Runtime.Engine.Components
         /// <returns>True if voxel actually changed.</returns>
         internal bool SetVoxel(ushort voxelId, Vector3Int position, bool remesh = true)
         {
-            int3 chunkPos = VoxelUtils.GetChunkCoords(position);
-            int3 blockPos = VoxelUtils.GetLocalVoxelCoords(position);
-            if (!_chunks.TryGetValue(chunkPos.xz, out Chunk chunk))
+            int2 chunkPos = GetChunkCoords(position);
+            int3 blockPos = GetLocalVoxelCoords(position);
+            if (!_chunks.TryGetValue(chunkPos, out Chunk chunk))
             {
                 VoxelEngineLogger.Warn<ChunkManager>($"Chunk : {chunkPos} not loaded");
                 return false;
             }
 
-            if (_reMeshPartitions.Contains(chunkPos))
+            int3 pCoords = GetPartitionCoords(position);
+
+            if (_reMeshPartitions.Contains(pCoords))
             {
                 return false;
             }
 
             bool result = chunk.SetVoxel(blockPos, voxelId);
-            _chunks[chunkPos.xz] = chunk;
+            _chunks[chunkPos] = chunk;
             if (remesh && result) ReMeshPartitions(position.Int3());
             return result;
         }
@@ -169,7 +172,7 @@ namespace Runtime.Engine.Components
                 for (int x = -1; x <= 1; x++)
                 for (int z = -1; z <= 1; z++)
                 {
-                    int2 pos = position.xz + ChunkSize.MemberMultiply(x, 0, z).xz;
+                    int2 pos = position.xz + new int2(x, z);
                     if (!_chunks.TryGetValue(pos, out Chunk chunk))
                         throw new InvalidOperationException($"Chunk {pos} has not been generated");
                     if (!_accessorMap.ContainsKey(pos)) _accessorMap.Add(pos, chunk);
@@ -199,39 +202,40 @@ namespace Runtime.Engine.Components
         }
 
         /// <summary>
-        /// Flags all neighbor chunks for remesh based on block modification.
+        /// Flags all neighbor partitions (including own) for remeshing.
         /// </summary>
+        /// <param name="blockPosition">World block position that changed.</param>
         private void ReMeshPartitions(int3 blockPosition)
         {
-            int3 pCoords = VoxelUtils.GetPartitionCoords(blockPosition);
+            int3 pCoords = GetPartitionCoords(blockPosition);
             _reMeshPartitions.Add(pCoords);
-            switch (blockPosition.x % 16)
+            switch (blockPosition.x % PartitionWidth)
             {
                 case 0:
-                    _reMeshPartitions.Add(pCoords + new int3(-16, 0, 0));
+                    _reMeshPartitions.Add(pCoords + new int3(-1, 0, 0));
                     break;
                 case 15:
-                    _reMeshPartitions.Add(pCoords + new int3(16, 0, 0));
+                    _reMeshPartitions.Add(pCoords + new int3(1, 0, 0));
                     break;
             }
 
-            switch (blockPosition.z % 16)
+            switch (blockPosition.z % PartitionDepth)
             {
                 case 0:
-                    _reMeshPartitions.Add(pCoords + new int3(0, 0, -16));
+                    _reMeshPartitions.Add(pCoords + new int3(0, 0, -1));
                     break;
                 case 15:
-                    _reMeshPartitions.Add(pCoords + new int3(0, 0, 16));
+                    _reMeshPartitions.Add(pCoords + new int3(0, 0, 1));
                     break;
             }
 
-            switch (blockPosition.y % 16)
+            switch (blockPosition.y % PartitionHeight)
             {
                 case 0:
-                    _reMeshPartitions.Add(pCoords + new int3(0, -16, 0));
+                    _reMeshPartitions.Add(pCoords + new int3(0, -1, 0));
                     break;
                 case 15:
-                    _reMeshPartitions.Add(pCoords + new int3(0, 16, 0));
+                    _reMeshPartitions.Add(pCoords + new int3(0, 1, 0));
                     break;
             }
         }

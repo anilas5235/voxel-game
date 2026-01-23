@@ -4,6 +4,7 @@ using Runtime.Engine.VoxelConfig.Data;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Mathematics;
+using static Runtime.Engine.Utils.VoxelConstants;
 
 namespace Runtime.Engine.Mesher
 {
@@ -17,11 +18,12 @@ namespace Runtime.Engine.Mesher
         private static readonly int3 YOne = new(0, 1, 0);
         private const float UVEdgeInset = 0.005f;
         private const float LiquidSurfaceLowering = 0.2f;
+        private const int VoxelCount4 = VoxelsPerPartition * 4;
+        private const int VoxelCount6 = VoxelsPerPartition * 6;
 
         private readonly ChunkAccessor _accessor;
         private readonly int3 _partitionPos;
         private readonly int2 _chunkPos;
-        private readonly int3 _partitionSize;
         private readonly int3 _yOffset;
         private readonly VoxelEngineRenderGenData _renderGenData;
         private readonly MeshBuffer _mesh;
@@ -32,31 +34,22 @@ namespace Runtime.Engine.Mesher
         /// <summary>
         /// Creates a new mesher with internal buffers sized from chunk dimensions.
         /// </summary>
-        internal GreedyMesher(
-            ChunkAccessor accessor, int3 partitionPos, int3 partitionSize, VoxelEngineRenderGenData renderGenData
-        )
+        internal GreedyMesher(ChunkAccessor accessor, int3 partitionPos, VoxelEngineRenderGenData renderGenData)
         {
             _accessor = accessor;
             _partitionPos = partitionPos;
             _chunkPos = partitionPos.xz;
-            _partitionSize = partitionSize;
-            _yOffset = new int3(0, partitionPos.y, 0);
+            _yOffset = new int3(0, partitionPos.y * PartitionHeight, 0);
             _renderGenData = renderGenData;
+
             _mesh = new MeshBuffer
             {
-                VertexBuffer = new NativeList<Vertex>(Allocator.Temp),
-                IndexBuffer0 = new NativeList<int>(Allocator.Temp),
-                IndexBuffer1 = new NativeList<int>(Allocator.Temp),
-                CVertexBuffer = new NativeList<CVertex>(Allocator.Temp),
-                CIndexBuffer = new NativeList<int>(Allocator.Temp)
+                VertexBuffer = new NativeList<Vertex>(VoxelCount4, Allocator.Temp),
+                CVertexBuffer = new NativeList<CVertex>(VoxelCount4, Allocator.Temp),
+                IndexBuffer0 = new NativeList<int>(VoxelCount6, Allocator.Temp),
+                IndexBuffer1 = new NativeList<int>(VoxelCount6, Allocator.Temp),
+                CIndexBuffer = new NativeList<int>(VoxelCount6, Allocator.Temp)
             };
-            // Pre-partitionSize buffers to reduce reallocations (rough upper bound heuristic)
-            int voxelCount = math.max(1, _partitionSize.Size());
-            _mesh.VertexBuffer.Capacity = math.max(_mesh.VertexBuffer.Capacity, voxelCount * 4);
-            _mesh.IndexBuffer0.Capacity = math.max(_mesh.IndexBuffer0.Capacity, voxelCount * 6);
-            _mesh.IndexBuffer1.Capacity = math.max(_mesh.IndexBuffer1.Capacity, voxelCount * 6);
-            _mesh.CVertexBuffer.Capacity = math.max(_mesh.CVertexBuffer.Capacity, voxelCount * 4);
-            _mesh.CIndexBuffer.Capacity = math.max(_mesh.CIndexBuffer.Capacity, voxelCount * 6);
 
             _foliageVoxels = new NativeHashMap<int3, byte>(64, Allocator.Temp);
             _meshVertexCount = 0;
@@ -78,14 +71,14 @@ namespace Runtime.Engine.Mesher
 
                 // We only generate faces for slices starting inside the chunk (0…size-1)
                 // so that negative-side faces are owned by the neighboring chunk.
-                int mainAxisLimit = _partitionSize[mainAxis];
+                int mainAxisLimit = PartitionSize[mainAxis];
 
                 AxisInfo axisInfo = new()
                 {
                     UAxis = uAxis,
                     VAxis = vAxis,
-                    ULimit = _partitionSize[uAxis],
-                    VLimit = _partitionSize[vAxis]
+                    ULimit = PartitionSize[uAxis],
+                    VLimit = PartitionSize[vAxis]
                 };
 
                 int3 pos = int3.zero;
@@ -130,10 +123,7 @@ namespace Runtime.Engine.Mesher
         }
 
         [BurstCompile]
-        private int3 GetVoxelWithYOffset(int3 pos)
-        {
-            return pos + _yOffset;
-        }
+        private int3 GetVoxelWithYOffset(int3 pos) => pos + _yOffset;
 
         /// <summary>
         /// Builds surface quads for one slice using greedy merging.

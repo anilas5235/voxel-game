@@ -1,5 +1,6 @@
 ﻿using Unity.Burst;
 using Unity.Mathematics;
+using static Runtime.Engine.Utils.VoxelConstants;
 
 namespace Runtime.Engine.Jobs.Chunk
 {
@@ -26,12 +27,11 @@ namespace Runtime.Engine.Jobs.Chunk
         /// Checks whether the given position lies inside the chunk bounds.
         /// </summary>
         /// <param name="pos">Position in chunk-local voxel coordinates.</param>
-        /// <param name="chunkSize">Size of the chunk in voxels (x, y, z).</param>
         /// <returns><c>true</c> if the position is inside the chunk; otherwise, <c>false</c>.</returns>
         [BurstCompile]
-        public static bool InChunk(ref int3 pos, ref int3 chunkSize)
+        public static bool InChunk(ref int3 pos)
         {
-            return InChunk(pos.x, pos.y, pos.z, ref chunkSize);
+            return InChunk(pos.x, pos.y, pos.z);
         }
 
         /// <summary>
@@ -40,14 +40,13 @@ namespace Runtime.Engine.Jobs.Chunk
         /// <param name="x">X coordinate in chunk-local voxel space.</param>
         /// <param name="y">Y coordinate in chunk-local voxel space.</param>
         /// <param name="z">Z coordinate in chunk-local voxel space.</param>
-        /// <param name="chunkSize">Size of the chunk in voxels (x, y, z).</param>
         /// <returns><c>true</c> if the coordinates are inside the chunk; otherwise, <c>false</c>.</returns>
         [BurstCompile]
-        public static bool InChunk(int x, int y, int z, ref int3 chunkSize)
+        public static bool InChunk(int x, int y, int z)
         {
-            return x >= 0 && x < chunkSize.x &&
-                   y >= 0 && y < chunkSize.y &&
-                   z >= 0 && z < chunkSize.z;
+            return x >= 0 && x < ChunkWidth &&
+                   y >= 0 && y < ChunkHeight &&
+                   z >= 0 && z < ChunkDepth;
         }
     }
 }

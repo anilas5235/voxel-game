@@ -1,6 +1,7 @@
 ﻿using Runtime.Engine.Settings;
 using UnityEngine;
 using UnityEngine.Rendering;
+using static Runtime.Engine.Utils.VoxelConstants;
 
 namespace Runtime.Engine.Behaviour
 {
@@ -34,7 +35,7 @@ namespace Runtime.Engine.Behaviour
         public void Init(RendererSettings settings, int pId)
         {
             PartitionId = (short)pId;
-            transform.localPosition = new Vector3(0, 16 * pId, 0);
+            transform.localPosition = new Vector3(0, PartitionHeight * pId, 0);
             if (!settings.CastShadows) _renderer.shadowCastingMode = ShadowCastingMode.Off;
         } 
     }

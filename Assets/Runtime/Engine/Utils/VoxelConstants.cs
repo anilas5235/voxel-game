@@ -13,11 +13,12 @@ namespace Runtime.Engine.Utils
         internal const int VoxelsPerChunk = ChunkWidth * ChunkHeight * ChunkDepth;
 
 
-        private const int PartitionWidth = 16;
+        internal const int PartitionWidth = 16;
         internal const int PartitionHeight = 16;
-        private const int PartitionDepth = 16;
+        internal const int PartitionDepth = 16;
         internal static readonly int3 PartitionSize = new(PartitionWidth, PartitionHeight, PartitionDepth);
 
         internal const int VoxelsPerPartition = PartitionWidth * PartitionHeight * PartitionDepth;
+        internal const int PartitionsPerChunk = ChunkHeight / PartitionHeight;
     }
 }

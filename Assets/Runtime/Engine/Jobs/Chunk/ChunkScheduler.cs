@@ -74,7 +74,6 @@ namespace Runtime.Engine.Jobs.Chunk
             ChunkJob job = new()
             {
                 Jobs = _jobs,
-                ChunkSize = ChunkSize,
                 NoiseProfile = _noiseProfile,
                 Results = _results.AsParallelWriter(),
                 RandomSeed = _config.GlobalSeed,

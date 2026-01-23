@@ -116,7 +116,6 @@ namespace Runtime.Engine.Jobs.Mesh
             MeshBuildJob job = new()
             {
                 Accessor = _chunkAccessor,
-                ChunkSize = ChunkSize,
                 Jobs = _jobs,
                 VertexParams = _vertexParams,
                 ColliderVertexParams = _colliderVertexParams,
@@ -147,7 +146,7 @@ namespace Runtime.Engine.Jobs.Mesh
                 ChunkBehaviour cb = _chunkPool.GetOrClaim(pos.xz);
                 _chunkManager.ReMeshedChunk(pos);
 
-                ChunkPartition partition = cb.ChunkPartitions[pos.y / 16];
+                ChunkPartition partition = cb.ChunkPartitions[pos.y];
 
                 meshes[_results[pos]] = partition.Mesh;
                 colliderMeshes[_results[pos]] = partition.ColliderMesh;
