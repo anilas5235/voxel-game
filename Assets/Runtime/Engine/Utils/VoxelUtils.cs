@@ -26,7 +26,11 @@ namespace Runtime.Engine.Utils
         /// <returns>Chunk origin coordinates this position belongs to.</returns>
         public static int2 GetChunkCoords(int3 position)
         {
-            return new int2(position.x / ChunkWidth, position.z / ChunkDepth);
+            int2 cCoords = new(
+                FloorDivide(position.x, ChunkWidth),
+                FloorDivide(position.z, ChunkDepth)
+            );
+            return cCoords;
         }
 
         public static int3 GetPartitionCoords(Vector3 position) =>
@@ -51,7 +55,10 @@ namespace Runtime.Engine.Utils
         public static int3 GetLocalVoxelCoords(Vector3Int position)
         {
             int2 chunkCoords = GetChunkCoords(position);
-            return new int3(position.x - chunkCoords.x, position.y, position.z - chunkCoords.y);
+            return position.Int3() - ChunkSize.MemberMultiply(chunkCoords.x, 0, chunkCoords.y);
         }
+
+        private static int FloorDivide(int value, int divisor) =>
+            value / divisor - (value < 0 && value % divisor != 0 ? 1 : 0);
     }
 }

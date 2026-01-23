@@ -28,23 +28,23 @@ namespace Runtime.Engine.Data
         internal ushort GetVoxelInChunk(int2 chunkPos, int3 voxelPos)
         {
             if (voxelPos.y >= ChunkHeight || voxelPos.y < 0) return 0;
-            int2 key = int2.zero;
+            int2 chunkOffset = int2.zero;
 
             if (!(voxelPos.x >= 0 && voxelPos.x < ChunkWidth))
             {
-                key.x += voxelPos.x % (ChunkWidth - 1);
-                voxelPos.x -= key.x * ChunkWidth;
+                chunkOffset.x = voxelPos.x / ChunkWidth;
+                voxelPos.x %= ChunkWidth;
+                if (voxelPos.x < 0) voxelPos.x += ChunkWidth;
             }
             
             if (!(voxelPos.z >= 0 && voxelPos.z < ChunkDepth))
             {
-                key.y += voxelPos.z % (ChunkDepth - 1);
-                voxelPos.z -= key.y * ChunkDepth;
+                chunkOffset.y = voxelPos.z / ChunkDepth;
+                voxelPos.z %= ChunkDepth;
+                if (voxelPos.z < 0) voxelPos.z += ChunkDepth;
             }
 
-            key *= ChunkSizeXY;
-
-            return TryGetChunk(chunkPos + key, out Chunk chunk) ? chunk.GetVoxel(voxelPos) : (ushort)0;
+            return TryGetChunk(chunkPos + chunkOffset, out Chunk chunk) ? chunk.GetVoxel(voxelPos) : (ushort)0;
         }
 
         /// <summary>

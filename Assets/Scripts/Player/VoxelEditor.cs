@@ -82,6 +82,7 @@ namespace Player
             else if (place)
             {
                 if (!GetLookAtVoxelPos(out Vector3Int voxelWorldPos, true)) return;
+                if (Physics.CheckBox(voxelWorldPos+ Vector3.one * .5f , Vector3.one * 0.45f)) return;
                 VoxelWorld.Instance.SetVoxel(voxelId, voxelWorldPos);
             }
         }
@@ -103,5 +104,16 @@ namespace Player
             voxelWorldPos = Vector3Int.FloorToInt(worldPos);
             return true;
         }
+        
+#if UNITY_EDITOR
+        private void OnDrawGizmos()
+        {
+            if (Application.isPlaying && GetLookAtVoxelPos(out Vector3Int voxelWorldPos))
+            {
+                Gizmos.color = Color.yellow;
+                Gizmos.DrawWireCube(voxelWorldPos + Vector3.one * .5f , Vector3.one * 0.45f);
+            }
+        }
+#endif
     }
 }
