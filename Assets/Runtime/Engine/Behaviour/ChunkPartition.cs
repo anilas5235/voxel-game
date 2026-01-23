@@ -33,7 +33,7 @@ namespace Runtime.Engine.Behaviour
         {
             Mesh = GetComponent<MeshFilter>().mesh;
             _renderer = GetComponent<MeshRenderer>();
-            ColliderMesh = new Mesh { name = "ChunkCollider" };
+            ColliderMesh = new Mesh { name = "PCollider" };
         }
 
         public void Init(RendererSettings settings, int pId)
