@@ -1,4 +1,5 @@
 ﻿using Runtime.Engine.Settings;
+using Runtime.Engine.Utils.Extensions;
 using UnityEngine;
 using UnityEngine.Rendering;
 using static Runtime.Engine.Utils.VoxelConstants;
@@ -10,20 +11,23 @@ namespace Runtime.Engine.Behaviour
     {
         private MeshRenderer _renderer;
         [SerializeField] private MeshCollider _Collider;
+
         /// <summary>
         /// Mesh used for visual rendering.
         /// </summary>
         public Mesh Mesh { get; private set; }
+
         /// <summary>
         /// Dedicated mesh for collider (not shared with render mesh).
         /// </summary>
         public Mesh ColliderMesh { get; private set; }
+
         /// <summary>
         /// Access to the underlying MeshCollider.
         /// </summary>
         public MeshCollider Collider => _Collider;
-        
-        public short PartitionId{get; private set;}
+
+        public short PartitionId { get; private set; }
 
         private void Awake()
         {
@@ -31,12 +35,31 @@ namespace Runtime.Engine.Behaviour
             _renderer = GetComponent<MeshRenderer>();
             ColliderMesh = new Mesh { name = "ChunkCollider" };
         }
-        
+
         public void Init(RendererSettings settings, int pId)
         {
             PartitionId = (short)pId;
             transform.localPosition = new Vector3(0, PartitionHeight * pId, 0);
             if (!settings.CastShadows) _renderer.shadowCastingMode = ShadowCastingMode.Off;
-        } 
+            UpdateRenderStatus();
+        }
+
+        public void UpdateRenderStatus()
+        {
+            gameObject.SetActive(Mesh.vertexCount > 4);
+        }
+
+#if UNITY_EDITOR
+        private void OnDrawGizmosSelected()
+        {
+            if (Mesh.vertexCount < 1) Gizmos.color = Color.grey;
+            else if (_Collider.sharedMesh == null) Gizmos.color = Color.magenta;
+            else Gizmos.color = Color.green;
+            Gizmos.DrawWireCube(
+                transform.position + PartitionSize.GetVector3() * 0.5f,
+                PartitionSize.GetVector3() * 0.95f
+            );
+        }
+#endif
     }
 }

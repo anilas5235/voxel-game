@@ -139,6 +139,8 @@ namespace Runtime.Engine.Jobs.Mesh
 
             UnityEngine.Mesh[] meshes = new UnityEngine.Mesh[_jobs.Length];
             UnityEngine.Mesh[] colliderMeshes = new UnityEngine.Mesh[_jobs.Length];
+            
+            List<ChunkPartition> changedPartitions = new();
 
             for (int index = 0; index < _jobs.Length; index++)
             {
@@ -147,6 +149,7 @@ namespace Runtime.Engine.Jobs.Mesh
                 _chunkManager.ReMeshedChunk(pos);
 
                 ChunkPartition partition = cb.ChunkPartitions[pos.y];
+                changedPartitions.Add(partition);
 
                 meshes[_results[pos]] = partition.Mesh;
                 colliderMeshes[_results[pos]] = partition.ColliderMesh;
@@ -172,6 +175,11 @@ namespace Runtime.Engine.Jobs.Mesh
             foreach (UnityEngine.Mesh cm in colliderMeshes)
             {
                 cm.RecalculateBounds();
+            }
+            
+            foreach (ChunkPartition partition in changedPartitions)
+            {
+                partition.UpdateRenderStatus();
             }
 
             double totalTime = (Time.realtimeSinceStartupAsDouble - start) * 1000;

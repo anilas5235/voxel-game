@@ -2,6 +2,7 @@
 using Runtime.Engine.Settings;
 using Unity.Mathematics;
 using UnityEngine;
+using static Runtime.Engine.Utils.VoxelConstants;
 
 namespace Runtime.Engine.Behaviour
 {
@@ -28,11 +29,12 @@ namespace Runtime.Engine.Behaviour
 
         public void ClearData()
         {
-            foreach (var partition in chunkPartitions)
+            foreach (ChunkPartition partition in chunkPartitions)
             {
                 partition.Mesh.Clear();
                 partition.ColliderMesh.Clear();
                 partition.Collider.sharedMesh = null;
+                partition.UpdateRenderStatus();
             }
         }
 
@@ -42,6 +44,14 @@ namespace Runtime.Engine.Behaviour
             {
                 int3 chunkPos = new(position.x, partition.PartitionId, position.y);
                 yield return new KeyValuePair<int3, ChunkPartition>(chunkPos, partition);
+            }
+        }
+
+        public void UpdatePartitionsRenderStatus()
+        {
+            foreach (ChunkPartition partition in chunkPartitions)
+            {
+                partition.UpdateRenderStatus();
             }
         }
     }
