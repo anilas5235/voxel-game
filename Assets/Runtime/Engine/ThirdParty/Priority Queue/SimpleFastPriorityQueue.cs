@@ -347,6 +347,15 @@ namespace Runtime.Engine.ThirdParty.Priority_Queue
 
             _queue.UpdatePriority(updateMe, priority);
         }
+        
+        public void UpdateAllPriorities(Func<TItem, TPriority> updateFunc)
+        {
+            foreach (SimpleNode node in _queue)
+            {
+                TPriority priority = updateFunc(node.Data);
+                _queue.UpdatePriority(node, priority);
+            }
+        }
 
         /// <summary>
         /// Returns the priority of the given item.

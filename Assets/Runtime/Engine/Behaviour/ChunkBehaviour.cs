@@ -2,18 +2,16 @@
 using Runtime.Engine.Settings;
 using Unity.Mathematics;
 using UnityEngine;
-using static Runtime.Engine.Utils.VoxelConstants;
 
 namespace Runtime.Engine.Behaviour
 {
     /// <summary>
     /// MonoBehaviour representation of a chunk with a dedicated render mesh and collider mesh.
     /// </summary>
-    [RequireComponent(typeof(MeshRenderer), typeof(MeshFilter))]
     public class ChunkBehaviour : MonoBehaviour
     {
         [SerializeField] private ChunkPartition[] chunkPartitions;
-        
+
         /// <summary>
         /// Initializes renderer-specific options (e.g. shadow casting) from settings.
         /// </summary>
@@ -22,7 +20,7 @@ namespace Runtime.Engine.Behaviour
             for (int pId = 0; pId < chunkPartitions.Length; pId++)
             {
                 ChunkPartition partition = chunkPartitions[pId];
-                partition.Init(settings,pId);
+                partition.Init(settings, pId);
             }
         }
 

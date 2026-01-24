@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Runtime.Engine.Behaviour;
 using Runtime.Engine.Settings;
 using Runtime.Engine.ThirdParty.Priority_Queue;
@@ -23,10 +24,14 @@ namespace Runtime.Engine.Components
         private readonly Dictionary<int3, ChunkPartition> _meshMap;
         private readonly Dictionary<int2, ChunkBehaviour> _chunkMap;
         private readonly HashSet<int3> _colliderSet;
-        private readonly SimpleFastPriorityQueue<int2, int> _queue;
+        private readonly SimpleFastPriorityQueue<int2, int> _chunkQueue;
+        private readonly SimpleFastPriorityQueue<int3, int> _partitionQueue;
+        private readonly SimpleFastPriorityQueue<int3, int> _colliderQueue;
 
         private int3 _focus;
         private readonly int _chunkPoolSize;
+        private readonly int _partitionPoolSize;
+        private readonly int _colliderPoolSize;
 
         /// <summary>
         /// Constructs a pool based on draw/update distances.
@@ -35,9 +40,17 @@ namespace Runtime.Engine.Components
         {
             _chunkPoolSize = (settings.Chunk.DrawDistance + 2).SquareSize();
             _chunkMap = new Dictionary<int2, ChunkBehaviour>(_chunkPoolSize);
-            _meshMap = new Dictionary<int3, ChunkPartition>(settings.Chunk.DrawDistance.CubedSize());
-            _colliderSet = new HashSet<int3>(settings.Chunk.UpdateDistance.CubedSize());
-            _queue = new SimpleFastPriorityQueue<int2, int>();
+
+            _partitionPoolSize = settings.Chunk.DrawDistance.SquareSize() * 16;
+            _meshMap = new Dictionary<int3, ChunkPartition>(_partitionPoolSize);
+
+            _colliderPoolSize = settings.Chunk.UpdateDistance.SquareSize() * 16;
+            _colliderSet = new HashSet<int3>(_colliderPoolSize);
+
+            _chunkQueue = new SimpleFastPriorityQueue<int2, int>();
+            _partitionQueue = new SimpleFastPriorityQueue<int3, int>();
+            _colliderQueue = new SimpleFastPriorityQueue<int3, int>();
+
             _pool = new ObjectPool<ChunkBehaviour>(
                 () =>
                 {
@@ -66,13 +79,14 @@ namespace Runtime.Engine.Components
         internal void FocusUpdate(int3 focus)
         {
             _focus = focus;
-            foreach (int2 position in _queue)
-            {
-                _queue.UpdatePriority(position, PriorityCalc(position));
-            }
+            _chunkQueue.UpdateAllPriorities(PriorityCalc);
+            _partitionQueue.UpdateAllPriorities(PriorityCalc);
+            _colliderQueue.UpdateAllPriorities(PriorityCalc);
         }
 
+
         private int PriorityCalc(int2 position) => -DistPriority(ref position, ref _focus);
+        private int PriorityCalc(int3 position) => -DistPriority(ref position, ref _focus);
 
         /// <summary>
         /// Returns whether a chunk is active (rendered).
@@ -92,13 +106,14 @@ namespace Runtime.Engine.Components
         {
             if (_chunkMap.ContainsKey(position))
                 throw new InvalidOperationException($"Chunk ({position}) already active");
-            if (_queue.Count >= _chunkPoolSize)
+            if (_chunkQueue.Count >= _chunkPoolSize)
             {
-                int2 reclaim = _queue.Dequeue();
+                int2 reclaim = _chunkQueue.Dequeue();
                 ChunkBehaviour reclaimBehaviour = _chunkMap[reclaim];
                 reclaimBehaviour.ClearData();
                 _pool.Release(reclaimBehaviour);
                 _chunkMap.Remove(reclaim);
+                Debug.Log($"Reclaimed Chunk");
                 for (int pId = 0; pId < PartitionsPerChunk; pId++)
                 {
                     int3 partitionPos = new(reclaim.x, pId, reclaim.y);
@@ -111,9 +126,13 @@ namespace Runtime.Engine.Components
             behaviour.transform.position = new float3(position.x * ChunkWidth, 0, position.y * ChunkDepth);
             behaviour.name = $"Chunk({position.x},{position.y})";
             _chunkMap.Add(position, behaviour);
-            _queue.Enqueue(position, PriorityCalc(position));
+            _chunkQueue.Enqueue(position, PriorityCalc(position));
             return behaviour;
         }
+
+        internal int GetPartitionPrioThreshold() => _partitionQueue.Count < _partitionPoolSize
+            ? int.MinValue
+            : PriorityCalc(_partitionQueue.First);
 
         internal ChunkPartition GetOrClaimPartition(int3 position) =>
             IsPartitionActive(position) ? _meshMap[position] : ClaimPartition(position);
@@ -128,7 +147,21 @@ namespace Runtime.Engine.Components
 
             partition.Clear();
             _meshMap.Add(position, partition);
+            _partitionQueue.Enqueue(position, PriorityCalc(position));
 
+            if (_partitionQueue.Count <= _partitionPoolSize)
+            {
+                Debug.Log(
+                    $"Claimed Partition() No Reclaim Needed Queue:{_partitionPoolSize}");
+                return partition;
+            }
+
+            int3 reclaim = _partitionQueue.Dequeue();
+            ChunkPartition reclaimPartition = _meshMap[reclaim];
+            reclaimPartition.Clear();
+            _meshMap.Remove(reclaim);
+            _colliderSet.Remove(reclaim);
+            Debug.Log($"Reclaimed Partition()");
             return partition;
         }
 

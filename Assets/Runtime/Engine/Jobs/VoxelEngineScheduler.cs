@@ -124,26 +124,9 @@ namespace Runtime.Engine.Jobs
 
         private void UpdateQueuePriorities(int3 focus)
         {
-            // View Queue
-            foreach (int3 pos in _meshQueue)
-            {
-                int3 position = pos;
-                _meshQueue.UpdatePriority(position, DistPriority(ref position, ref focus));
-            }
-
-            // Collider Queue
-            foreach (int3 pos in _colliderQueue)
-            {
-                int3 position = pos;
-                _colliderQueue.UpdatePriority(position, DistPriority(ref position, ref focus));
-            }
-
-            // Data Queue
-            foreach (int2 pos in _dataQueue)
-            {
-                int2 position = pos;
-                _dataQueue.UpdatePriority(position, DistPriority(ref position, ref focus));
-            }
+            _dataQueue.UpdateAllPriorities(pos => DistPriority(ref pos, ref focus));
+            _meshQueue.UpdateAllPriorities(pos => DistPriority(ref pos, ref focus));
+            _colliderQueue.UpdateAllPriorities(pos => DistPriority(ref pos, ref focus));
         }
 
         private void UpdatedQueues(int3 focus, JobType jobType)
@@ -166,6 +149,7 @@ namespace Runtime.Engine.Jobs
 
         private void EnqueueMeshChunks(int3 focus, int draw)
         {
+            int prioThreshold = _chunkPool.GetPartitionPrioThreshold();
             for (int x = -draw; x <= draw; x++)
             for (int z = -draw; z <= draw; z++)
             {
@@ -173,10 +157,11 @@ namespace Runtime.Engine.Jobs
                 for (int y = 0; y < PartitionsPerChunk; y++)
                 {
                     int3 pos = new(x + focus.x, y, z + focus.z);
-                    if (!_meshQueue.Contains(pos) && ShouldScheduleForMeshing(pos))
-                    {
-                        _meshQueue.Enqueue(pos, DistPriority(ref pos, ref focus));
-                    }
+                    if (_meshQueue.Contains(pos) || !ShouldScheduleForMeshing(pos)) continue;
+
+                    if (-DistPriority(ref pos, ref focus) <= prioThreshold) continue;
+                    
+                    _meshQueue.Enqueue(pos, DistPriority(ref pos, ref focus));
                 }
             }
         }

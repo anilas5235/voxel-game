@@ -40,7 +40,8 @@ namespace Runtime.Engine.Behaviour
         {
             PartitionId = (short)pId;
             transform.localPosition = new Vector3(0, PartitionHeight * pId, 0);
-            if (!settings.CastShadows) _renderer.shadowCastingMode = ShadowCastingMode.Off;
+            _renderer.shadowCastingMode = settings.CastShadows ? ShadowCastingMode.On : ShadowCastingMode.Off;
+            _renderer.allowOcclusionWhenDynamic = false;
             UpdateRenderStatus();
         }
 

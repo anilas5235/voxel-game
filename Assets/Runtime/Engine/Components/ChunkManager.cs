@@ -131,12 +131,7 @@ namespace Runtime.Engine.Components
         /// </summary>
         internal void FocusUpdate(int3 focus)
         {
-            _focus = focus;
-            foreach (int2 position in _queue)
-            {
-                int2 pos = position;
-                _queue.UpdatePriority(pos, -PriorityUtil.DistPriority(ref pos, ref _focus));
-            }
+            _queue.UpdateAllPriorities(pos => -PriorityUtil.DistPriority(ref pos, ref focus));
         }
 
         /// <summary>
