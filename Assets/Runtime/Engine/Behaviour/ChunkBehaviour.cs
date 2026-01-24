@@ -13,7 +13,6 @@ namespace Runtime.Engine.Behaviour
     public class ChunkBehaviour : MonoBehaviour
     {
         [SerializeField] private ChunkPartition[] chunkPartitions;
-        public ChunkPartition[] ChunkPartitions => chunkPartitions;
         
         /// <summary>
         /// Initializes renderer-specific options (e.g. shadow casting) from settings.
@@ -31,10 +30,7 @@ namespace Runtime.Engine.Behaviour
         {
             foreach (ChunkPartition partition in chunkPartitions)
             {
-                partition.Mesh.Clear();
-                partition.ColliderMesh.Clear();
-                partition.Collider.sharedMesh = null;
-                partition.UpdateRenderStatus();
+                partition.Clear();
             }
         }
 
@@ -54,5 +50,7 @@ namespace Runtime.Engine.Behaviour
                 partition.UpdateRenderStatus();
             }
         }
+
+        public ChunkPartition GetPartition(int y) => chunkPartitions[y];
     }
 }

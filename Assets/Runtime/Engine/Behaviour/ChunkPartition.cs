@@ -46,13 +46,21 @@ namespace Runtime.Engine.Behaviour
 
         public void UpdateRenderStatus()
         {
-            gameObject.SetActive(Mesh.vertexCount > 4);
+            gameObject.SetActive(Mesh.vertexCount > 2);
+        }
+
+        public void Clear()
+        {
+            Mesh.Clear();
+            ColliderMesh.Clear();
+            Collider.sharedMesh = null;
+            UpdateRenderStatus();
         }
 
 #if UNITY_EDITOR
         private void OnDrawGizmosSelected()
         {
-            if (Mesh.vertexCount < 1) Gizmos.color = Color.grey;
+            if (Mesh.vertexCount < 3) Gizmos.color = Color.grey;
             else if (_Collider.sharedMesh == null) Gizmos.color = Color.magenta;
             else Gizmos.color = Color.green;
             Gizmos.DrawWireCube(

@@ -9,7 +9,6 @@ using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
-using static Runtime.Engine.Utils.VoxelConstants;
 
 namespace Runtime.Engine.Jobs.Chunk
 {
@@ -19,7 +18,7 @@ namespace Runtime.Engine.Jobs.Chunk
     /// </summary>
     public class ChunkScheduler : JobScheduler
     {
-        private readonly ChunkManager _chunkStore;
+        private readonly ChunkManager _chunkManager;
         private readonly NoiseProfile _noiseProfile;
         private JobHandle _handle;
         private NativeList<int2> _jobs;
@@ -30,17 +29,17 @@ namespace Runtime.Engine.Jobs.Chunk
         /// Initializes a new instance of the <see cref="ChunkScheduler"/> class with its own result collection.
         /// </summary>
         /// <param name="settings">Voxel engine settings providing chunk dimensions and load distance.</param>
-        /// <param name="chunkStore">Chunk manager that receives finished chunk data.</param>
+        /// <param name="chunkManager">Chunk manager that receives finished chunk data.</param>
         /// <param name="noiseProfile">Noise profile used for terrain height generation.</param>
         /// <param name="config">Generator configuration used by chunk jobs.</param>
         public ChunkScheduler(
             VoxelEngineSettings settings,
-            ChunkManager chunkStore,
+            ChunkManager chunkManager,
             NoiseProfile noiseProfile,
             GeneratorConfig config
         )
         {
-            _chunkStore = chunkStore;
+            _chunkManager = chunkManager;
             _noiseProfile = noiseProfile;
             _config = config;
             _jobs = new NativeList<int2>(Allocator.Persistent);
@@ -54,7 +53,7 @@ namespace Runtime.Engine.Jobs.Chunk
         /// Indicates whether the scheduler is ready to start a new chunk generation batch.
         /// </summary>
         internal bool IsReady = true;
-       
+
 
         /// <summary>
         /// Gets a value indicating whether the scheduled job has completed.
@@ -91,7 +90,7 @@ namespace Runtime.Engine.Jobs.Chunk
         {
             double start = Time.realtimeSinceStartupAsDouble;
             _handle.Complete();
-            _chunkStore.AddChunks(_results);
+            _chunkManager.AddChunks(_results);
             double totalTime = (Time.realtimeSinceStartupAsDouble - start) * 1000;
             if (totalTime >= 1)
             {
@@ -99,6 +98,7 @@ namespace Runtime.Engine.Jobs.Chunk
                     $"Built {_jobs.Length} ChunkData, Collected Results in <color=red>{totalTime:0.000}</color>ms"
                 );
             }
+
             _jobs.Clear();
             _results.Clear();
             IsReady = true;

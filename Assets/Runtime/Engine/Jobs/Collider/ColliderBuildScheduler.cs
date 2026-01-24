@@ -86,7 +86,7 @@ namespace Runtime.Engine.Jobs.Collider
             foreach ((int3 position, ChunkPartition behaviour) in _meshes)
             {
                 _chunkPool.ColliderBaked(position);
-                _chunkManager.ReCollidedChunk(position);
+                _chunkManager.ReCollidedPartition(position);
 
                 if (behaviour.ColliderMesh.vertexCount <= 0) continue;
                 behaviour.Collider.sharedMesh = behaviour.ColliderMesh;

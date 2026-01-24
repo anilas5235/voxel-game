@@ -7,6 +7,7 @@ using Runtime.Engine.Jobs.Collider;
 using Runtime.Engine.Jobs.Mesh;
 using Runtime.Engine.Settings;
 using Runtime.Engine.ThirdParty.Priority_Queue;
+using Runtime.Engine.Utils.Extensions;
 using Unity.Mathematics;
 using static Runtime.Engine.Jobs.PriorityUtil;
 using static Runtime.Engine.Utils.VoxelConstants;

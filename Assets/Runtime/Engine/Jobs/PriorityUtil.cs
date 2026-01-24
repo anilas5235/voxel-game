@@ -11,18 +11,12 @@ namespace Runtime.Engine.Jobs
         /// Calculates priority based on squared distance from focus.
         /// </summary>
         [BurstCompile]
-        public static int DistPriority(ref int3 position, ref int3 focus)
-        {
-            return (position - focus).SqrMagnitude();
-        }
+        public static int DistPriority(ref int3 position, ref int3 focus) => (position - focus).SqrMagnitude();
 
         /// <summary>
         /// Calculates priority based on squared distance from focus.
         /// </summary>
         [BurstCompile]
-        public static int DistPriority(ref int2 position,ref int3 focus)
-        {
-            return (position - focus.xz).SqrMagnitude();
-        }
+        public static int DistPriority(ref int2 position,ref int3 focus) => (position - focus.xz).SqrMagnitude();
     }
 }

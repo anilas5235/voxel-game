@@ -5,9 +5,9 @@ using Runtime.Engine.Settings;
 using Runtime.Engine.ThirdParty.Priority_Queue;
 using Runtime.Engine.Utils.Extensions;
 using Unity.Mathematics;
-using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Pool;
+using static Runtime.Engine.Jobs.PriorityUtil;
 using static Runtime.Engine.Utils.VoxelConstants;
 using Object = UnityEngine.Object;
 
@@ -34,9 +34,9 @@ namespace Runtime.Engine.Components
         internal ChunkPool(Transform transform, VoxelEngineSettings settings)
         {
             _chunkPoolSize = (settings.Chunk.DrawDistance + 2).SquareSize();
-            _meshMap = new Dictionary<int3, ChunkPartition>(_chunkPoolSize * 16);
             _chunkMap = new Dictionary<int2, ChunkBehaviour>(_chunkPoolSize);
-            _colliderSet = new HashSet<int3>((settings.Chunk.UpdateDistance + 2).SquareSize() * 8);
+            _meshMap = new Dictionary<int3, ChunkPartition>(settings.Chunk.DrawDistance.CubedSize());
+            _colliderSet = new HashSet<int3>(settings.Chunk.UpdateDistance.CubedSize());
             _queue = new SimpleFastPriorityQueue<int2, int>();
             _pool = new ObjectPool<ChunkBehaviour>(
                 () =>
@@ -52,11 +52,6 @@ namespace Runtime.Engine.Components
                 null, false, _chunkPoolSize, _chunkPoolSize
             );
         }
-
-        /// <summary>
-        /// Returns whether a chunk is active (rendered).
-        /// </summary>
-        internal bool IsChunkActive(int2 pos) => _chunkMap.ContainsKey(pos);
 
         internal bool IsPartitionActive(int3 pos) => _meshMap.ContainsKey(pos);
 
@@ -77,18 +72,23 @@ namespace Runtime.Engine.Components
             }
         }
 
-        private int PriorityCalc(int2 position) => -(position - _focus.xz).SqrMagnitude();
+        private int PriorityCalc(int2 position) => -DistPriority(ref position, ref _focus);
+
+        /// <summary>
+        /// Returns whether a chunk is active (rendered).
+        /// </summary>
+        internal bool IsChunkActive(int2 pos) => _chunkMap.ContainsKey(pos);
 
         /// <summary>
         /// Returns existing instance or claims a new one.
         /// </summary>
-        internal ChunkBehaviour GetOrClaim(int2 position) =>
-            IsChunkActive(position) ? _chunkMap[position] : Claim(position);
+        internal ChunkBehaviour GetOrClaimChunk(int2 position) =>
+            IsChunkActive(position) ? _chunkMap[position] : ClaimChunk(position);
 
         /// <summary>
         /// Claims a new instance; evicts oldest if capacity reached.
         /// </summary>
-        internal ChunkBehaviour Claim(int2 position)
+        internal ChunkBehaviour ClaimChunk(int2 position)
         {
             if (_chunkMap.ContainsKey(position))
                 throw new InvalidOperationException($"Chunk ({position}) already active");
@@ -110,10 +110,26 @@ namespace Runtime.Engine.Components
             ChunkBehaviour behaviour = _pool.Get();
             behaviour.transform.position = new float3(position.x * ChunkWidth, 0, position.y * ChunkDepth);
             behaviour.name = $"Chunk({position.x},{position.y})";
-            _meshMap.AddRange(behaviour.GetMap(position));
             _chunkMap.Add(position, behaviour);
             _queue.Enqueue(position, PriorityCalc(position));
             return behaviour;
+        }
+
+        internal ChunkPartition GetOrClaimPartition(int3 position) =>
+            IsPartitionActive(position) ? _meshMap[position] : ClaimPartition(position);
+
+        internal ChunkPartition ClaimPartition(int3 position)
+        {
+            if (_meshMap.ContainsKey(position))
+                throw new InvalidOperationException($"Partition ({position}) already active");
+
+            ChunkBehaviour behaviour = GetOrClaimChunk(position.xz);
+            ChunkPartition partition = behaviour.GetPartition(position.y);
+
+            partition.Clear();
+            _meshMap.Add(position, partition);
+
+            return partition;
         }
 
         /// <summary>

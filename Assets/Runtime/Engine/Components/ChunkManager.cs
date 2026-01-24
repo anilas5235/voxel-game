@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using Runtime.Engine.Data;
+using Runtime.Engine.Jobs;
 using Runtime.Engine.Settings;
 using Runtime.Engine.ThirdParty.Priority_Queue;
-using Runtime.Engine.Utils;
 using Runtime.Engine.Utils.Extensions;
 using Runtime.Engine.Utils.Logger;
 using Unity.Collections;
@@ -133,7 +133,10 @@ namespace Runtime.Engine.Components
         {
             _focus = focus;
             foreach (int2 position in _queue)
-                _queue.UpdatePriority(position, -(position - focus.xz).SqrMagnitude());
+            {
+                int2 pos = position;
+                _queue.UpdatePriority(pos, -PriorityUtil.DistPriority(ref pos, ref _focus));
+            }
         }
 
         /// <summary>
@@ -185,7 +188,7 @@ namespace Runtime.Engine.Components
         /// <summary>
         /// Callback after chunk remesh completes: remove flag and flag for collider rebuild.
         /// </summary>
-        internal void ReMeshedChunk(int3 position)
+        internal void ReMeshedPartition(int3 position)
         {
             if (!_reMeshPartitions.Contains(position)) return;
             _reMeshPartitions.Remove(position);
@@ -195,7 +198,7 @@ namespace Runtime.Engine.Components
         /// <summary>
         /// Callback after collider bake completes: remove flag.
         /// </summary>
-        internal void ReCollidedChunk(int3 position)
+        internal void ReCollidedPartition(int3 position)
         {
             if (!_reCollidePartitions.Contains(position)) return;
             _reCollidePartitions.Remove(position);
