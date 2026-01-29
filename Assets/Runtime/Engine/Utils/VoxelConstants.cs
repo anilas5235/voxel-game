@@ -1,4 +1,5 @@
-﻿using Unity.Collections;
+﻿using Unity.Burst;
+using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine.Rendering;
 
@@ -22,16 +23,7 @@ namespace Runtime.Engine.Utils
 
         internal const int VoxelsPerPartition = PartitionWidth * PartitionHeight * PartitionDepth;
         internal const int PartitionsPerChunk = ChunkHeight / PartitionHeight;
-        
-        
-        internal static readonly NativeArray<VertexAttributeDescriptor> VertexParams = new(5, Allocator.Persistent)
-        {
-            [0] = new VertexAttributeDescriptor(VertexAttribute.Position),
-            [1] = new VertexAttributeDescriptor(VertexAttribute.Normal),
-            [2] = new VertexAttributeDescriptor(VertexAttribute.TexCoord0, VertexAttributeFormat.Float32, 4),
-            [3] = new VertexAttributeDescriptor(VertexAttribute.TexCoord1, VertexAttributeFormat.Float32, 4),
-            [4] = new VertexAttributeDescriptor(VertexAttribute.TexCoord2, VertexAttributeFormat.Float32, 4)
-        };
+       
         
         internal const MeshUpdateFlags MeshFlags = MeshUpdateFlags.DontRecalculateBounds |
                                                    MeshUpdateFlags.DontValidateIndices |

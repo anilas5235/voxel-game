@@ -22,6 +22,15 @@ namespace Runtime.Engine.Jobs.MeshHandling
     /// </summary>
     public class MeshBuildScheduler : JobScheduler
     {
+        private static readonly NativeArray<VertexAttributeDescriptor> VertexParams = new(5, Allocator.Persistent)
+        {
+            [0] = new VertexAttributeDescriptor(VertexAttribute.Position),
+            [1] = new VertexAttributeDescriptor(VertexAttribute.Normal),
+            [2] = new VertexAttributeDescriptor(VertexAttribute.TexCoord0, VertexAttributeFormat.Float32, 4),
+            [3] = new VertexAttributeDescriptor(VertexAttribute.TexCoord1, VertexAttributeFormat.Float32, 4),
+            [4] = new VertexAttributeDescriptor(VertexAttribute.TexCoord2, VertexAttributeFormat.Float32, 4)
+        };
+        
         private readonly ChunkManager _chunkManager;
         private readonly ChunkPool _chunkPool;
         private readonly VoxelRegistry _voxelRegistry;
@@ -126,6 +135,7 @@ namespace Runtime.Engine.Jobs.MeshHandling
             Mesh[] meshes = new Mesh[_jobs.Length];
             Mesh[] colliderMeshes = new Mesh[_jobs.Length];
 
+            List<ChunkBehaviour> changedChunks = new();
             List<ChunkPartition> changedPartitions = new();
 
             for (int index = 0; index < _jobs.Length; index++)
@@ -135,6 +145,7 @@ namespace Runtime.Engine.Jobs.MeshHandling
                 ChunkPartition partition = _chunkPool.GetOrClaimPartition(pos);
                 _chunkManager.ReMeshedPartition(pos);
                 changedPartitions.Add(partition);
+                changedChunks.Add(chunk);
 
                 chunk.SetMeshData(pos.y, _meshDataArray[index]);
 
@@ -142,9 +153,7 @@ namespace Runtime.Engine.Jobs.MeshHandling
                 colliderMeshes[_results[pos]] = partition.ColliderMesh;
             }
 
-            Mesh.MeshDataArray meshDataArray = _meshDataArray;
-
-            Mesh.ApplyAndDisposeWritableMeshData(
+            /*Mesh.ApplyAndDisposeWritableMeshData(
                 _meshDataArray,
                 meshes,
                 MeshFlags
@@ -169,6 +178,11 @@ namespace Runtime.Engine.Jobs.MeshHandling
             foreach (ChunkPartition partition in changedPartitions)
             {
                 partition.UpdateRenderStatus();
+            }*/
+
+            foreach (ChunkBehaviour chunk in changedChunks)
+            {
+                chunk.CombineMeshesManual();
             }
 
             double totalTime = (Time.realtimeSinceStartupAsDouble - start) * 1000;
