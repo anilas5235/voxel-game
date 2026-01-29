@@ -1,11 +1,13 @@
 ﻿using System.Collections.Generic;
 using Runtime.Engine.Mesher;
 using Runtime.Engine.Settings;
+using Runtime.Engine.Utils;
 using Unity.Collections;
 using Unity.Mathematics;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Rendering;
+using static Runtime.Engine.Utils.VoxelConstants;
 
 namespace Runtime.Engine.Behaviour
 {
@@ -15,6 +17,7 @@ namespace Runtime.Engine.Behaviour
     public class ChunkBehaviour : MonoBehaviour
     {
         [SerializeField] private ChunkPartition[] chunkPartitions;
+        private Mesh.MeshData[] _meshData;
 
         /// <summary>
         /// Initializes renderer-specific options (e.g. shadow casting) from settings.
@@ -26,6 +29,8 @@ namespace Runtime.Engine.Behaviour
                 ChunkPartition partition = chunkPartitions[pId];
                 partition.Init(settings, pId);
             }
+
+            meshData = new Mesh.MeshData[PartitionsPerChunk];
         }
 
         public void ClearData()
@@ -83,7 +88,7 @@ namespace Runtime.Engine.Behaviour
             if (combineInstances.Count == 0) return;
 
             Mesh combinedMesh = new();
-            var vertexParams = new NativeArray<VertexAttributeDescriptor>(5, Allocator.Persistent)
+            NativeArray<VertexAttributeDescriptor> vertexParams = new NativeArray<VertexAttributeDescriptor>(5, Allocator.Persistent)
             {
                 // Int interpolation cause issues
                 [0] = new VertexAttributeDescriptor(VertexAttribute.Position),
@@ -93,16 +98,111 @@ namespace Runtime.Engine.Behaviour
                 [4] = new VertexAttributeDescriptor(VertexAttribute.TexCoord2, VertexAttributeFormat.Float32, 4)
             };
             combinedMesh.SetVertexBufferParams(totalVertexCount, vertexParams);
-            
+
             CombineInstance[] instances = combineInstances.ToArray();
             combinedMesh.CombineMeshes(instances, true, false);
             combinedMesh.RecalculateBounds();
             gameObject.GetComponent<MeshFilter>().sharedMesh = combinedMesh;
         }
+
+        public void CombineMeshesManual()
+        {
+            List<(int, Mesh.MeshData)> meshDataList = new();
+            int totalVertices = 0;
+            int totalSIndices = 0;
+            int totalTIndices = 0;
+
+            for (int i = 0; i < _meshData.Length; i++)
+            {
+                Mesh.MeshData data = _meshData[i];
+                if (data.vertexCount < 2) continue;
+                meshDataList.Add((i, data));
+                totalVertices += data.vertexCount;
+                totalSIndices += data.GetSubMesh(0).indexCount;
+                totalTIndices += data.GetSubMesh(1).indexCount;
+            }
+
+            // 2. Allocate NativeArrays for the new mesh data
+            NativeArray<Vertex> allVertices = new NativeArray<Vertex>(totalVertices, Allocator.Temp);
+            NativeArray<int> allSIndices = new NativeArray<int>(totalSIndices, Allocator.Temp);
+            NativeArray<int> allTIndices = new NativeArray<int>(totalTIndices, Allocator.Temp);
+
+            int vertexOffset = 0;
+            int indexSOffset = 0;
+            int indexTOffset = 0;
+
+            foreach ((int, Mesh.MeshData) data in meshDataList)
+            {
+                Matrix4x4 localToTarget = Matrix4x4.Translate(new Vector3(0, data.Item1 * PartitionHeight, 0));
+
+                // Get source data
+                NativeArray<Vertex> sourceVertices = data.Item2.GetVertexData<Vertex>();
+                NativeArray<int> sourceIndices = data.Item2.GetIndexData<int>();
+                SubMeshDescriptor subMesh0 = data.Item2.GetSubMesh(0);
+                SubMeshDescriptor subMesh1 = data.Item2.GetSubMesh(1);
+
+                // 3. Copy and Transform Vertices
+                for (int i = 0; i < sourceVertices.Length; i++)
+                {
+                    Vertex v = sourceVertices[i];
+                    // Manually apply the matrix to Position and Normal
+                    v.Position = localToTarget.MultiplyPoint3x4(v.Position);
+
+                    // UVs (Custom Attributes) are copied exactly as they are
+                    allVertices[vertexOffset + i] = v;
+                }
+
+                // 4. Copy and Offset Indices
+                for (int i = 0; i < subMesh0.indexCount; i++)
+                {
+                    int originalIndex = sourceIndices[subMesh0.indexStart + i];
+                    allSIndices[indexSOffset + i] = originalIndex + vertexOffset;
+                }
+                
+                for (int i = 0; i < subMesh1.indexCount; i++)
+                {
+                    int originalIndex = sourceIndices[subMesh1.indexStart + i];
+                    allTIndices[indexTOffset + i] = originalIndex + vertexOffset;
+                }
+
+                vertexOffset += sourceVertices.Length;
+                indexSOffset += subMesh0.indexCount;
+                indexTOffset += subMesh1.indexCount;
+
+                sourceVertices.Dispose();
+                sourceIndices.Dispose();
+            }
+
+            // 5. Apply to the final mesh
+            Mesh combinedMesh = new Mesh();
+            Mesh.MeshData combinedMeshData = new();
+            combinedMeshData.SetVertexBufferParams(totalVertices, VertexParams);
+            combinedMeshData.GetVertexData<Vertex>().CopyFrom(allVertices);
+            combinedMeshData.SetIndexBufferParams(totalSIndices + totalTIndices, IndexFormat.UInt32);
+            NativeArray<int> combinedIndexBuffer = combinedMeshData.GetIndexData<int>();
+            NativeArray<int>.Copy(allSIndices, 0, combinedIndexBuffer, 0, totalSIndices);
+            NativeArray<int>.Copy(allTIndices, 0, combinedIndexBuffer, totalSIndices, totalTIndices);
+            combinedMeshData.subMeshCount = 2;
+            SubMeshDescriptor descriptor0 = new(0, totalSIndices);
+            SubMeshDescriptor descriptor1 = new(totalSIndices, totalTIndices);
+            combinedMeshData.SetSubMesh(0, descriptor0, MeshFlags);
+            combinedMeshData.SetSubMesh(1, descriptor1, MeshFlags);
+            Mesh.ApplyAndDisposeWritableMeshData(new Mesh.MeshDataArray(new[]{ combinedMeshData }), combinedMesh, MeshFlags);
+            combinedMesh.RecalculateBounds();
+            GetComponent<MeshFilter>().sharedMesh = combinedMesh;
+
+            allVertices.Dispose();
+            allSIndices.Dispose();
+            allTIndices.Dispose();
+        }
+
+        public void SetMeshData(int index, Mesh.MeshData meshData)
+        {
+            _meshData[index] = meshData;
+        }
     }
 
     [CustomEditor(typeof(ChunkBehaviour))]
-
     public class ChunkBehaviourCustomEditor : Editor
     {
         public override void OnInspectorGUI()
@@ -115,6 +215,5 @@ namespace Runtime.Engine.Behaviour
                 chunkBehaviour.CombineMeshes();
             }
         }
-        
     }
 }

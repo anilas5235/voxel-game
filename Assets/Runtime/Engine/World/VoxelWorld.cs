@@ -2,7 +2,7 @@
 using Runtime.Engine.Jobs;
 using Runtime.Engine.Jobs.Chunk;
 using Runtime.Engine.Jobs.Collider;
-using Runtime.Engine.Jobs.Mesh;
+using Runtime.Engine.Jobs.MeshHandling;
 using Runtime.Engine.Noise;
 using Runtime.Engine.Settings;
 using Runtime.Engine.Utils;
