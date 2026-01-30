@@ -77,6 +77,8 @@ MonoBehaviour:
   - {fileID: 5572586375320887327}
   - {fileID: 6255202116156214270}
   - {fileID: 6664077313202281787}
+  solidMaterial: {fileID: 2100000, guid: b6215133664aff74dad83d56615f47d0, type: 2}
+  transparentMaterial: {fileID: 2100000, guid: e8e8dbf7c2062df49bf757b4e9d3a636, type: 2}
 --- !u!1001 &522114745107223262
 PrefabInstance:
   m_ObjectHideFlags: 0

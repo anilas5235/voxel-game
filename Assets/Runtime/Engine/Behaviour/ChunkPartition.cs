@@ -12,6 +12,18 @@ namespace Runtime.Engine.Behaviour
         private MeshRenderer _renderer;
         [SerializeField] private MeshCollider _Collider;
 
+        private bool _shouldBeVisible = true;
+        internal bool ShouldBeVisible
+        {
+            get => _shouldBeVisible;
+            set
+            {
+                if (_shouldBeVisible == value) return;
+                _shouldBeVisible = value;
+                UpdateRenderStatus();
+            }
+        }
+
         /// <summary>
         /// Mesh used for visual rendering.
         /// </summary>
@@ -47,7 +59,8 @@ namespace Runtime.Engine.Behaviour
 
         public void UpdateRenderStatus()
         {
-            gameObject.SetActive(Mesh.vertexCount > 2);
+            bool isRendered = Mesh.vertexCount > 2 && ShouldBeVisible;
+            _renderer.enabled = isRendered;
         }
 
         public void Clear()

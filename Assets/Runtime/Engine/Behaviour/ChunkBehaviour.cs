@@ -1,7 +1,9 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using Runtime.Engine.Settings;
 using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace Runtime.Engine.Behaviour
 {
@@ -11,6 +13,9 @@ namespace Runtime.Engine.Behaviour
     public class ChunkBehaviour : MonoBehaviour
     {
         [SerializeField] private ChunkPartition[] chunkPartitions;
+
+        [SerializeField] private Material solidMaterial;
+        [SerializeField] private Material transparentMaterial;
 
         /// <summary>
         /// Initializes renderer-specific options (e.g. shadow casting) from settings.
@@ -41,7 +46,12 @@ namespace Runtime.Engine.Behaviour
             }
         }
 
-        public void UpdatePartitionsRenderStatus()
+        private void FixedUpdate()
+        {
+            UpdatePartitionsRenderStatus();
+        }
+
+        private void UpdatePartitionsRenderStatus()
         {
             foreach (ChunkPartition partition in chunkPartitions)
             {

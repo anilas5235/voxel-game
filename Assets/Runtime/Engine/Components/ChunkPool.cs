@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Runtime.Engine.Behaviour;
 using Runtime.Engine.Settings;
 using Runtime.Engine.ThirdParty.Priority_Queue;
@@ -113,11 +112,11 @@ namespace Runtime.Engine.Components
                 reclaimBehaviour.ClearData();
                 _pool.Release(reclaimBehaviour);
                 _chunkMap.Remove(reclaim);
-                Debug.Log($"Reclaimed Chunk");
                 for (int pId = 0; pId < PartitionsPerChunk; pId++)
                 {
                     int3 partitionPos = new(reclaim.x, pId, reclaim.y);
                     _meshMap.Remove(partitionPos);
+                    _partitionQueue.Remove(partitionPos);
                     _colliderSet.Remove(partitionPos);
                 }
             }
@@ -151,8 +150,6 @@ namespace Runtime.Engine.Components
 
             if (_partitionQueue.Count <= _partitionPoolSize)
             {
-                Debug.Log(
-                    $"Claimed Partition() No Reclaim Needed Queue:{_partitionPoolSize}");
                 return partition;
             }
 
@@ -161,7 +158,6 @@ namespace Runtime.Engine.Components
             reclaimPartition.Clear();
             _meshMap.Remove(reclaim);
             _colliderSet.Remove(reclaim);
-            Debug.Log($"Reclaimed Partition()");
             return partition;
         }
 

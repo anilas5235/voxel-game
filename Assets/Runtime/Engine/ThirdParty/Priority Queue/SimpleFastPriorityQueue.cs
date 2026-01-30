@@ -311,11 +311,7 @@ namespace Runtime.Engine.ThirdParty.Priority_Queue
             }
             else
             {
-                if (!_itemToNodesCache.TryGetValue(item, out nodes))
-                {
-                    throw new InvalidOperationException("Cannot call Remove() on a node which is not enqueued: " +
-                                                        item);
-                }
+                if (!_itemToNodesCache.TryGetValue(item, out nodes)) return;
 
                 removeMe = nodes[0];
                 if (nodes.Count == 1)
@@ -347,7 +343,7 @@ namespace Runtime.Engine.ThirdParty.Priority_Queue
 
             _queue.UpdatePriority(updateMe, priority);
         }
-        
+
         public void UpdateAllPriorities(Func<TItem, TPriority> updateFunc)
         {
             foreach (SimpleNode node in _queue)
