@@ -14,7 +14,7 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using static Runtime.Engine.Utils.VoxelConstants;
 
-namespace Runtime.Engine.Jobs.Mesh
+namespace Runtime.Engine.Jobs.Meshing
 {
     /// <summary>
     /// Schedules and executes mesh build jobs for chunks, generating both render and collider meshes

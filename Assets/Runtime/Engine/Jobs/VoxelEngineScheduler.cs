@@ -4,10 +4,9 @@ using System.Linq;
 using Runtime.Engine.Components;
 using Runtime.Engine.Jobs.Chunk;
 using Runtime.Engine.Jobs.Collider;
-using Runtime.Engine.Jobs.Mesh;
+using Runtime.Engine.Jobs.Meshing;
 using Runtime.Engine.Settings;
 using Runtime.Engine.ThirdParty.Priority_Queue;
-using Runtime.Engine.Utils.Extensions;
 using Unity.Mathematics;
 using static Runtime.Engine.Jobs.PriorityUtil;
 using static Runtime.Engine.Utils.VoxelConstants;
@@ -160,7 +159,7 @@ namespace Runtime.Engine.Jobs
                     if (_meshQueue.Contains(pos) || !ShouldScheduleForMeshing(pos)) continue;
 
                     if (-DistPriority(ref pos, ref focus) <= prioThreshold) continue;
-                    
+
                     _meshQueue.Enqueue(pos, DistPriority(ref pos, ref focus));
                 }
             }

@@ -7,7 +7,7 @@ using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine.Rendering;
 
-namespace Runtime.Engine.Jobs.Mesh
+namespace Runtime.Engine.Jobs.Meshing
 {
     /// <summary>
     /// Burst-compiled parallel job that generates render and collider mesh data for a list of chunk positions
