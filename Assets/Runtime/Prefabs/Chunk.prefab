@@ -79,6 +79,9 @@ MonoBehaviour:
   - {fileID: 6664077313202281787}
   solidMaterial: {fileID: 2100000, guid: b6215133664aff74dad83d56615f47d0, type: 2}
   transparentMaterial: {fileID: 2100000, guid: e8e8dbf7c2062df49bf757b4e9d3a636, type: 2}
+  enablePartitionCulling: 0
+  cullingCamera: {fileID: 0}
+  boundsPadding: 0.05
 --- !u!1001 &522114745107223262
 PrefabInstance:
   m_ObjectHideFlags: 0

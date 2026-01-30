@@ -13,6 +13,7 @@ namespace Runtime.Engine.Behaviour
         [SerializeField] private MeshCollider _Collider;
 
         private bool _shouldBeVisible = true;
+        private bool _initialized;
         internal bool ShouldBeVisible
         {
             get => _shouldBeVisible;
@@ -54,12 +55,14 @@ namespace Runtime.Engine.Behaviour
             transform.localPosition = new Vector3(0, PartitionHeight * pId, 0);
             _renderer.shadowCastingMode = settings.CastShadows ? ShadowCastingMode.On : ShadowCastingMode.Off;
             _renderer.allowOcclusionWhenDynamic = false;
+            _initialized = true;
             UpdateRenderStatus();
         }
 
         public void UpdateRenderStatus()
         {
-            bool isRendered = Mesh.vertexCount > 2 && ShouldBeVisible;
+            if (!_initialized) return;
+            bool isRendered = Mesh && Mesh.vertexCount > 2 && ShouldBeVisible;
             _renderer.enabled = isRendered;
         }
 
@@ -68,7 +71,6 @@ namespace Runtime.Engine.Behaviour
             Mesh.Clear();
             ColliderMesh.Clear();
             Collider.sharedMesh = null;
-            UpdateRenderStatus();
         }
 
 #if UNITY_EDITOR
