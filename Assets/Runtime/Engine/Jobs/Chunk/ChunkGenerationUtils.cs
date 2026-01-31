@@ -7,8 +7,7 @@ namespace Runtime.Engine.Jobs.Chunk
     /// <summary>
     /// Utility helpers used by chunk generation code for index conversion and bounds checks.
     /// </summary>
-    [BurstCompile]
-    internal static class ChunkGenerationUtils
+    internal partial struct ChunkJob
     {
         /// <summary>
         /// Computes the linear column index from x and z coordinates in a chunk.

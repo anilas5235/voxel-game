@@ -11,8 +11,7 @@ namespace Runtime.Engine.Jobs.Chunk
     /// Provides Burst-compiled helpers to prepare biome-aware terrain metadata and fill voxel buffers
     /// for a single chunk based on noise, configuration and climate.
     /// </summary>
-    [BurstCompile]
-    internal static class ChunkGenerationTerrain
+    internal partial struct ChunkJob
     {
         private const float BiomeScale = 0.0012f;
 
@@ -32,7 +31,7 @@ namespace Runtime.Engine.Jobs.Chunk
             for (int x = 0; x < ChunkWidth; x++)
             for (int z = 0; z < ChunkDepth; z++)
             {
-                int i = ChunkGenerationUtils.GetColumnIdx(x, z, ChunkDepth);
+                int i = GetColumnIdx(x, z, ChunkDepth);
                 float2 worldPos = new(chunkWordPos.x + x, chunkWordPos.z + z);
 
                 float2 noiseSamplePos = worldPos + new float2(-randomSeed, randomSeed);
@@ -101,7 +100,7 @@ namespace Runtime.Engine.Jobs.Chunk
                 ChunkColumn col = new()
                 {
                     Height = height,
-                    Biome = BiomeHelper.SelectBiome(
+                    Biome = SelectBiome(
                         temperature,
                         humidity,
                         (float)height / maxY,
@@ -138,7 +137,7 @@ namespace Runtime.Engine.Jobs.Chunk
             for (int x = 0; x < ChunkWidth; x++)
             for (int z = 0; z < ChunkDepth; z++)
             {
-                int i = ChunkGenerationUtils.GetColumnIdx(x, z, ChunkDepth);
+                int i = GetColumnIdx(x, z, ChunkDepth);
 
                 ChunkColumn col = chunkColumns[i];
 

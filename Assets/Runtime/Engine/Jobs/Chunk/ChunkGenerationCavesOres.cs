@@ -1,6 +1,7 @@
 ﻿using Runtime.Engine.Utils.Extensions;
 using Unity.Burst;
 using Unity.Collections;
+using Unity.Jobs;
 using Unity.Mathematics;
 using static Runtime.Engine.Utils.VoxelConstants;
 
@@ -9,8 +10,7 @@ namespace Runtime.Engine.Jobs.Chunk
     /// <summary>
     /// Provides Burst-compiled helpers to carve caves and place ore veins inside generated terrain.
     /// </summary>
-    [BurstCompile]
-    internal static class ChunkGenerationCavesOres
+    internal partial struct ChunkJob
     {
         /// <summary>
         /// Carves cave tunnels and pockets into the voxel buffer using layered 3D noise,
@@ -30,7 +30,7 @@ namespace Runtime.Engine.Jobs.Chunk
             for (int x = 0; x < ChunkWidth; x++)
             for (int z = 0; z < ChunkDepth; z++)
             {
-                int height = chunkColumns[ChunkGenerationUtils.GetColumnIdx(x, z, ChunkDepth)].Height;
+                int height = chunkColumns[GetColumnIdx(x, z, ChunkDepth)].Height;
                 for (int y = 2; y <= height; y++)
                 {
                     int idx = ChunkSize.Flatten(x, y, z);

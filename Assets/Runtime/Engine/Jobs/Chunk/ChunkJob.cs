@@ -13,7 +13,7 @@ namespace Runtime.Engine.Jobs.Chunk
     /// for multiple chunks in parallel.
     /// </summary>
     [BurstCompile]
-    public struct ChunkJob : IJobParallelFor
+    internal partial struct ChunkJob : IJobParallelFor
     {
         [ReadOnly] public NoiseProfile NoiseProfile;
         [ReadOnly] public NativeList<int2> Jobs; // Chunk world positions
@@ -49,15 +49,15 @@ namespace Runtime.Engine.Jobs.Chunk
             NativeArray<ushort> vox = new(volume, Allocator.Temp);
             NativeArray<ChunkColumn> chunkColumns = new(surfaceArea, Allocator.Temp);
 
-            ChunkGenerationTerrain.PrepareChunkMaps(ref NoiseProfile, RandomSeed, ref Config, ref chunkWorldPos,
+            PrepareChunkMaps(ref NoiseProfile, RandomSeed, ref Config, ref chunkWorldPos,
                 chunkColumns);
-            ChunkGenerationTerrain.FillTerrain(vox, waterLevel, chunkColumns, ref Config);
-            ChunkGenerationCavesOres.PlaceOres(vox, Config, RandomSeed);
-            ChunkGenerationCavesOres.CarveCaves(vox, chunkWorldPos, chunkColumns, Config, RandomSeed,
+            FillTerrain(vox, waterLevel, chunkColumns, ref Config);
+            PlaceOres(vox, Config, RandomSeed);
+            CarveCaves(vox, chunkWorldPos, chunkColumns, Config, RandomSeed,
                 CaveScale, LavaLevel);
-            ChunkGenerationStructures.PlaceStructures(ref vox, ref chunkColumns, ref chunkWorldPos,
+            PlaceStructures(ref vox, ref chunkColumns, ref chunkWorldPos,
                 RandomSeed, ref Config);
-            ChunkGenerationVegetation.PlaceVegetation(ref vox, ref chunkColumns, ref chunkWorldPos,
+            PlaceVegetation(ref vox, ref chunkColumns, ref chunkWorldPos,
                 RandomSeed, ref Config);
 
             Data.Chunk data = WriteToChunkData(vox, chunkWorldPos);

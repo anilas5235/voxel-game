@@ -11,8 +11,7 @@ namespace Runtime.Engine.Jobs.Chunk
     /// Provides Burst-compiled helpers to place biome-dependent vegetation such as trees,
     /// grass, cacti, crops and mushrooms on top of generated terrain.
     /// </summary>
-    [BurstCompile]
-    internal static class ChunkGenerationVegetation
+    internal partial struct ChunkJob
     {
         /// <summary>
         /// Places vegetation for every suitable surface column in the chunk using biome information
@@ -34,7 +33,7 @@ namespace Runtime.Engine.Jobs.Chunk
             for (int x = 1; x < ChunkWidth - 1; x++)
             for (int z = 1; z < ChunkDepth - 1; z++)
             {
-                int gi = ChunkGenerationUtils.GetColumnIdx(x, z, ChunkDepth);
+                int gi = GetColumnIdx(x, z, ChunkDepth);
                 ChunkColumn chunkCol = chunkColumns[gi];
                 int gy = chunkCol.Height;
                 if (gy <= 0 || gy >= ChunkHeight - 2) continue;
@@ -54,7 +53,7 @@ namespace Runtime.Engine.Jobs.Chunk
         {
             if (!IsEarthLike(surface, ref config)) return;
 
-            if (!ChunkGenerationUtils.InChunk(x, gy + 1, z) ||
+            if (!InChunk(x, gy + 1, z) ||
                 vox[ChunkSize.Flatten(x, gy + 1, z)] != 0) return;
 
             int oneAboveIdx = ChunkSize.Flatten(x, gy + 1, z);
@@ -183,7 +182,7 @@ namespace Runtime.Engine.Jobs.Chunk
                 int tx = x + wx;
                 int tz = z + wz;
                 if (tx < 0 || tx >= ChunkWidth || tz < 0 || tz >= ChunkDepth) continue;
-                int tgi = ChunkGenerationUtils.GetColumnIdx(tx, tz, ChunkDepth);
+                int tgi = GetColumnIdx(tx, tz, ChunkDepth);
                 int tgy = chunkColumns[tgi].Height;
                 if (tgy <= 0 || tgy >= ChunkHeight - 1) continue;
                 int belowIdx = ChunkSize.Flatten(tx, tgy, tz);
@@ -209,7 +208,7 @@ namespace Runtime.Engine.Jobs.Chunk
         {
             int neighbors = 0;
             int3 pos = new(cx - 1, cy, cz);
-            if (ChunkGenerationUtils.InChunk(ref pos))
+            if (InChunk(ref pos))
             {
                 ushort voxel = vox[ChunkSize.Flatten(pos)];
                 if (voxel != 0 && voxel != waterId)
@@ -217,7 +216,7 @@ namespace Runtime.Engine.Jobs.Chunk
             }
 
             pos = new int3(cx + 1, cy, cz);
-            if (ChunkGenerationUtils.InChunk(ref pos))
+            if (InChunk(ref pos))
             {
                 ushort voxel = vox[ChunkSize.Flatten(pos)];
                 if (voxel != 0 && voxel != waterId)
@@ -225,7 +224,7 @@ namespace Runtime.Engine.Jobs.Chunk
             }
 
             pos = new int3(cx, cy, cz + 1);
-            if (ChunkGenerationUtils.InChunk(ref pos))
+            if (InChunk(ref pos))
             {
                 ushort voxel = vox[ChunkSize.Flatten(pos)];
                 if (voxel != 0 && voxel != waterId)
@@ -233,7 +232,7 @@ namespace Runtime.Engine.Jobs.Chunk
             }
 
             pos = new int3(cx, cy, cz - 1);
-            if (ChunkGenerationUtils.InChunk(ref pos))
+            if (InChunk(ref pos))
             {
                 ushort voxel = vox[ChunkSize.Flatten(pos)];
                 if (voxel != 0 && voxel != waterId)
@@ -265,7 +264,7 @@ namespace Runtime.Engine.Jobs.Chunk
                 int tz = cz + oz;
 
                 int3 pos = new(tx, cy, tz);
-                if (!ChunkGenerationUtils.InChunk(ref pos)) continue;
+                if (!InChunk(ref pos)) continue;
                 ushort v = vox[ChunkSize.Flatten(tx, cy, tz)];
                 if (v == logA || v == logB) return false;
             }
@@ -284,7 +283,7 @@ namespace Runtime.Engine.Jobs.Chunk
 
             for (int i = 0; i < height && y + i < ChunkHeight - 1; i++)
             {
-                if (!ChunkGenerationUtils.InChunk(x, y + i, z)) break;
+                if (!InChunk(x, y + i, z)) break;
                 vox[ChunkSize.Flatten(x, y + i, z)] = idLog;
             }
 
@@ -300,7 +299,7 @@ namespace Runtime.Engine.Jobs.Chunk
                     int yy = top + oy;
                     int tx = x + ox;
                     int tz = z + oz;
-                    if (!ChunkGenerationUtils.InChunk(tx, yy, tz)) continue;
+                    if (!InChunk(tx, yy, tz)) continue;
                     vox[ChunkSize.Flatten(tx, yy, tz)] = idLeaves;
                 }
             }
@@ -315,11 +314,11 @@ namespace Runtime.Engine.Jobs.Chunk
                 int bx = x + ox;
                 int bz = z + oz;
                 int by = y - 1;
-                if (!ChunkGenerationUtils.InChunk(bx, by, bz)) continue;
+                if (!InChunk(bx, by, bz)) continue;
                 int groundIdx = ChunkSize.Flatten(bx, by, bz);
                 int idx = ChunkSize.Flatten(bx, by + 1, bz);
 
-                if (!ChunkGenerationUtils.InChunk(bx, by + 1, bz) || vox[idx] != 0 ||
+                if (!InChunk(bx, by + 1, bz) || vox[idx] != 0 ||
                     !IsEarthLike(vox[groundIdx], ref config)) continue;
 
                 int m = rng.NextInt(0, 100);
@@ -332,7 +331,7 @@ namespace Runtime.Engine.Jobs.Chunk
         {
             for (int i = 0; i < count && y + i < ChunkHeight - 1; i++)
             {
-                if (!ChunkGenerationUtils.InChunk(x, y + i, z)) break;
+                if (!InChunk(x, y + i, z)) break;
                 vox[ChunkSize.Flatten(x, y + i, z)] = (ushort)blockId;
             }
         }
@@ -346,7 +345,7 @@ namespace Runtime.Engine.Jobs.Chunk
         /// <param name="cz">Z coordinate of the trunk base in chunk space.</param>
         /// <param name="rng">Random generator used to vary palm height and leaf placement.</param>
         /// <param name="config">Generator configuration providing log and leaf voxel IDs.</param>
-        internal static void PlacePalm(ref NativeArray<ushort> vox, int cx, int cy, int cz, ref Random rng, ref GeneratorConfig config)
+        private static void PlacePalm(ref NativeArray<ushort> vox, int cx, int cy, int cz, ref Random rng, ref GeneratorConfig config)
         {
             ushort log = config.LogOak;
             ushort leaves = config.Leaves;
@@ -354,7 +353,7 @@ namespace Runtime.Engine.Jobs.Chunk
             for (int i = 0; i < h; i++)
             {
                 int y = cy + i;
-                if (!ChunkGenerationUtils.InChunk(cx, y, cz)) break;
+                if (!InChunk(cx, y, cz)) break;
                 vox[ChunkSize.Flatten(cx, y, cz)] = log;
             }
 
@@ -366,7 +365,7 @@ namespace Runtime.Engine.Jobs.Chunk
                 int x = cx + ox;
                 int y = top + rng.NextInt(0, 2);
                 int z = cz + oz;
-                if (!ChunkGenerationUtils.InChunk(x, y, z)) continue;
+                if (!InChunk(x, y, z)) continue;
                 vox[ChunkSize.Flatten(x, y, z)] = leaves;
             }
         }

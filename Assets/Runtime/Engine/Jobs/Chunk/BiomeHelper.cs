@@ -10,15 +10,14 @@ namespace Runtime.Engine.Jobs.Chunk
     /// <summary>
     /// Helper utilities to select a biome based on climate parameters and to sample coverage (editor diagnostics).
     /// </summary>
-    [BurstCompile]
-    public static class BiomeHelper
+    internal partial struct ChunkJob
     {
         /// <summary>
         /// Selects a biome given temperature, humidity, elevation, ground height, water level threshold,
         /// continentality and mountain mask, and returns the resulting biome classification.
         /// </summary>
         [BurstCompile]
-        internal static Biome SelectBiome(float temp, float hum, float elev, int groundY, int waterThreshold,
+        private static Biome SelectBiome(float temp, float hum, float elev, int groundY, int waterThreshold,
             float continentality, float mountainMask)
         {
             // --- 0) Wasser & Strand (harte Extrema) ---
