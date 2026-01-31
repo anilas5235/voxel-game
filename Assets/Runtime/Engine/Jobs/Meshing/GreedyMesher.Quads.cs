@@ -1,10 +1,8 @@
-﻿using Runtime.Engine.Data;
-using Runtime.Engine.Utils.Extensions;
+﻿using Runtime.Engine.Utils.Extensions;
 using Runtime.Engine.VoxelConfig.Data;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Mathematics;
-using static Runtime.Engine.Utils.VoxelConstants;
 
 namespace Runtime.Engine.Jobs.Meshing
 {
@@ -16,38 +14,36 @@ namespace Runtime.Engine.Jobs.Meshing
         #region Quad Creation
 
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
-        private int CreateQuad( PartitionJobData jobData,
+        private int CreateQuad(PartitionJobData jobData,
             VoxelRenderDef info, int vertexCount, Mask mask, int3 directionMask, int2 size, in VQuad verts
         )
         {
-            switch (mask.MeshLayer)
+            return mask.MeshLayer switch
             {
-                case MeshLayer.Solid:
-                    return CreateSolidQuad( jobData, info, vertexCount, mask, directionMask, size, in verts);
-                case MeshLayer.Transparent:
-                    return CreateTransparentQuad( jobData, info, vertexCount, mask, directionMask, size, in verts);
-                default:
-                    return 0;
-            }
+                MeshLayer.Solid => CreateSolidQuad(jobData, info, vertexCount, mask, directionMask, size, in verts),
+                MeshLayer.Transparent => CreateTransparentQuad(jobData, info, vertexCount, mask, directionMask, size,
+                    in verts),
+                _ => 0
+            };
         }
 
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
-        private int CreateColliderQuad( PartitionJobData jobData, int cVertexCount, Mask mask, int3 directionMask,
+        private int CreateColliderQuad(PartitionJobData jobData, int cVertexCount, Mask mask, int3 directionMask,
             in VQuad verts
         )
         {
             float3 normal = directionMask * mask.Normal;
 
-            AddColliderVertices( jobData, in verts,  normal);
+            AddColliderVertices(jobData, in verts, normal);
 
             // Use AO zeros for a deterministic diagonal, reuse existing helper for correct winding
             int4 ao = int4.zero;
-            AddQuadIndices( jobData.MeshBuffer.CIndexBuffer, cVertexCount, mask.Normal,  ao);
+            AddQuadIndices(jobData.MeshBuffer.CIndexBuffer, cVertexCount, mask.Normal, ao);
             return 4;
         }
 
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
-        private int CreateSolidQuad( PartitionJobData jobData, VoxelRenderDef info, int vertexCount, Mask mask,
+        private int CreateSolidQuad(PartitionJobData jobData, VoxelRenderDef info, int vertexCount, Mask mask,
             int3 directionMask, int2 size, in VQuad verts
         )
         {
@@ -59,14 +55,14 @@ namespace Runtime.Engine.Jobs.Meshing
             float4 uv1 = new(texIndex, 0, 0, 0);
             float3 n = normal;
             float4 ao = mask.AO;
-            AddVertices( jobData.MeshBuffer, in verts,  n,  in uv,  uv1,  ao);
+            AddVertices(jobData.MeshBuffer, in verts, n, in uv, uv1, ao);
 
-            AddQuadIndices( jobData.MeshBuffer.IndexBuffer0, vertexCount, mask.Normal,  mask.AO);
+            AddQuadIndices(jobData.MeshBuffer.IndexBuffer0, vertexCount, mask.Normal, mask.AO);
             return 4;
         }
 
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
-        private int CreateTransparentQuad( PartitionJobData jobData,
+        private int CreateTransparentQuad(PartitionJobData jobData,
             VoxelRenderDef info, int vertexCount, Mask mask, int3 directionMask, int2 size, in VQuad verts
         )
         {
@@ -104,14 +100,14 @@ namespace Runtime.Engine.Jobs.Meshing
             float4 uv1 = new(texIndex, info.DepthFadeDistance, 0, 0);
             float3 n = normal;
             float4 ao = mask.AO;
-            AddVertices( jobData.MeshBuffer, in mutableVerts,  n,  in uv,  uv1,  ao);
+            AddVertices(jobData.MeshBuffer, in mutableVerts, n, in uv, uv1, ao);
 
-            AddQuadIndices( jobData.MeshBuffer.IndexBuffer1, vertexCount, mask.Normal,  mask.AO);
+            AddQuadIndices(jobData.MeshBuffer.IndexBuffer1, vertexCount, mask.Normal, mask.AO);
             return 4;
         }
 
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
-        private int AddFloraQuad( PartitionJobData jobData, VoxelRenderDef info, int vertexCount, in VQuad verts,
+        private int AddFloraQuad(PartitionJobData jobData, VoxelRenderDef info, int vertexCount, in VQuad verts,
             float4 ao)
         {
             int texIndex = info.TexUp;
@@ -119,10 +115,10 @@ namespace Runtime.Engine.Jobs.Meshing
             float3 normal = new(0, 1, 0);
 
             float4 uv1 = new(texIndex, -1, 0, 0);
-            AddVertices( jobData.MeshBuffer, in verts,  normal,  in uv,  uv1,  ao);
+            AddVertices(jobData.MeshBuffer, in verts, normal, in uv, uv1, ao);
 
             NativeList<int> indexBuffer = jobData.MeshBuffer.IndexBuffer1;
-            EnsureIndexCapacity(indexBuffer, 6);
+            EnsureCapacity(indexBuffer, 6);
             indexBuffer.AddNoResize(vertexCount);
             indexBuffer.AddNoResize(vertexCount + 1);
             indexBuffer.AddNoResize(vertexCount + 2);
@@ -134,15 +130,15 @@ namespace Runtime.Engine.Jobs.Meshing
         }
 
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
-        private void AddVertices( MeshBuffer mesh,  in VQuad verts,  float3 normal,  in UVQuad uv0,
-             float4 uv1,  float4 uv2)
+        private void AddVertices(MeshBuffer mesh, in VQuad verts, float3 normal, in UVQuad uv0,
+            float4 uv1, float4 uv2)
         {
             Vertex vertex1 = new(verts.V1, normal, uv0.Uv1, uv1, uv2);
             Vertex vertex2 = new(verts.V2, normal, uv0.Uv2, uv1, uv2);
             Vertex vertex3 = new(verts.V3, normal, uv0.Uv3, uv1, uv2);
             Vertex vertex4 = new(verts.V4, normal, uv0.Uv4, uv1, uv2);
 
-            EnsureVertexCapacity(mesh.VertexBuffer, 4);
+            EnsureCapacity(mesh.VertexBuffer, 4);
             mesh.VertexBuffer.AddNoResize(vertex1);
             mesh.VertexBuffer.AddNoResize(vertex2);
             mesh.VertexBuffer.AddNoResize(vertex3);
@@ -150,7 +146,7 @@ namespace Runtime.Engine.Jobs.Meshing
         }
 
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
-        private void AddColliderVertices( PartitionJobData jobData,  in VQuad verts,  float3 normal)
+        private void AddColliderVertices(PartitionJobData jobData, in VQuad verts, float3 normal)
         {
             MeshBuffer mesh = jobData.MeshBuffer;
             CVertex vertex1 = new(verts.V1, normal);
@@ -158,7 +154,7 @@ namespace Runtime.Engine.Jobs.Meshing
             CVertex vertex3 = new(verts.V3, normal);
             CVertex vertex4 = new(verts.V4, normal);
 
-            EnsureCVertexCapacity(mesh.CVertexBuffer, 4);
+            EnsureCapacity(mesh.CVertexBuffer, 4);
             mesh.CVertexBuffer.AddNoResize(vertex1);
             mesh.CVertexBuffer.AddNoResize(vertex2);
             mesh.CVertexBuffer.AddNoResize(vertex3);
@@ -191,11 +187,11 @@ namespace Runtime.Engine.Jobs.Meshing
         }
 
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
-        private void AddQuadIndices( NativeList<int> indexBuffer, int baseVertexIndex, sbyte normalSign,
-             int4 ao)
+        private void AddQuadIndices(NativeList<int> indexBuffer, int baseVertexIndex, sbyte normalSign,
+            int4 ao)
         {
             // Choose diagonal based on AO to minimize artifacts
-            EnsureIndexCapacity(indexBuffer, 6);
+            EnsureCapacity(indexBuffer, 6);
             if (ao[0] + ao[3] > ao[1] + ao[2])
             {
                 indexBuffer.AddNoResize(baseVertexIndex);

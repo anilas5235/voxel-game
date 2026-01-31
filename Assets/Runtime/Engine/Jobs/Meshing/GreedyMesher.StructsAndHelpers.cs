@@ -94,38 +94,19 @@ namespace Runtime.Engine.Jobs.Meshing
         }
 
         [BurstCompile]
-        private void ClearMaskRegion(NativeArray<Mask> normalMask, int n, int width, int height,
-            int axis1Limit)
+        private void ClearMaskRegion(NativeArray<Mask> normalMask, int n, int width, int height, int axis1Limit)
         {
             for (int l = 0; l < height; ++l)
             for (int k = 0; k < width; ++k)
                 normalMask[n + k + l * axis1Limit] = default;
         }
 
-        private void EnsureVertexCapacity(NativeList<Vertex> list, int add)
+        private void EnsureCapacity<T>(NativeList<T> list, int add) where T : unmanaged
         {
             int need = list.Length + add;
             if (need <= list.Capacity) return;
             int newCap = math.max(list.Capacity * 2, need);
             list.Capacity = newCap;
-        }
-
-        private void EnsureCVertexCapacity(NativeList<CVertex> list, int add)
-        {
-            int need = list.Length + add;
-            if (need <= list.Capacity) return;
-            int newCap = math.max(list.Capacity * 2, need);
-            list.Capacity = newCap;
-        }
-
-        private void EnsureIndexCapacity(NativeList<int> list, int add)
-        {
-            int need = list.Length + add;
-            if (need > list.Capacity)
-            {
-                int newCap = math.max(list.Capacity * 2, need);
-                list.Capacity = newCap;
-            }
         }
 
         #endregion
