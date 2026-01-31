@@ -1,4 +1,5 @@
-﻿using Runtime.Engine.Utils.Extensions;
+﻿using System;
+using Runtime.Engine.Utils.Extensions;
 using Runtime.Engine.VoxelConfig.Data;
 using Unity.Burst;
 using Unity.Collections;
@@ -14,27 +15,29 @@ namespace Runtime.Engine.Jobs.Meshing
         #region Quad Creation
 
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
-        private int CreateQuad(PartitionJobData jobData,
-            VoxelRenderDef info, int vertexCount, Mask mask, int3 directionMask, int2 size, in VQuad verts
+        private void CreateQuad(ref PartitionJobData jobData, VoxelRenderDef info, Mask mask, int3 directionMask, int2 size,
+            in VQuad verts
         )
         {
-            return mask.MeshLayer switch
+            switch (mask.MeshLayer)
             {
-                MeshLayer.Solid => CreateSolidQuad(jobData, info, vertexCount, mask, directionMask, size, in verts),
-                MeshLayer.Transparent => CreateTransparentQuad(jobData, info, vertexCount, mask, directionMask, size,
-                    in verts),
-                _ => 0
-            };
+                case MeshLayer.Solid:
+                    CreateSolidQuad(ref jobData, info, mask, directionMask, size, in verts);
+                    break;
+                case MeshLayer.Transparent:
+                    CreateTransparentQuad(ref jobData, info, mask, directionMask, size, in verts);
+                    break;
+            }
         }
 
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
-        private int CreateColliderQuad(PartitionJobData jobData, int cVertexCount, Mask mask, int3 directionMask,
+        private int CreateColliderQuad(ref PartitionJobData jobData, int cVertexCount, Mask mask, int3 directionMask,
             in VQuad verts
         )
         {
             float3 normal = directionMask * mask.Normal;
 
-            AddColliderVertices(jobData, in verts, normal);
+            AddColliderVertices(ref jobData, in verts, normal);
 
             // Use AO zeros for a deterministic diagonal, reuse existing helper for correct winding
             int4 ao = int4.zero;
@@ -43,7 +46,7 @@ namespace Runtime.Engine.Jobs.Meshing
         }
 
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
-        private int CreateSolidQuad(PartitionJobData jobData, VoxelRenderDef info, int vertexCount, Mask mask,
+        private void CreateSolidQuad(ref PartitionJobData jobData, VoxelRenderDef info, Mask mask,
             int3 directionMask, int2 size, in VQuad verts
         )
         {
@@ -57,13 +60,13 @@ namespace Runtime.Engine.Jobs.Meshing
             float4 ao = mask.AO;
             AddVertices(jobData.MeshBuffer, in verts, n, in uv, uv1, ao);
 
-            AddQuadIndices(jobData.MeshBuffer.IndexBuffer0, vertexCount, mask.Normal, mask.AO);
-            return 4;
+            AddQuadIndices(jobData.MeshBuffer.IndexBuffer0, jobData.RenderVertexCount, mask.Normal, mask.AO);
+            jobData.RenderVertexCount += 4;
         }
 
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
-        private int CreateTransparentQuad(PartitionJobData jobData,
-            VoxelRenderDef info, int vertexCount, Mask mask, int3 directionMask, int2 size, in VQuad verts
+        private void CreateTransparentQuad(ref PartitionJobData jobData, VoxelRenderDef info, Mask mask, int3 directionMask,
+            int2 size, in VQuad verts
         )
         {
             // Create a local copy because liquids may modify vertex positions.
@@ -102,13 +105,12 @@ namespace Runtime.Engine.Jobs.Meshing
             float4 ao = mask.AO;
             AddVertices(jobData.MeshBuffer, in mutableVerts, n, in uv, uv1, ao);
 
-            AddQuadIndices(jobData.MeshBuffer.IndexBuffer1, vertexCount, mask.Normal, mask.AO);
-            return 4;
+            AddQuadIndices(jobData.MeshBuffer.IndexBuffer1, jobData.RenderVertexCount, mask.Normal, mask.AO);
+            jobData.RenderVertexCount += 4;
         }
 
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
-        private int AddFloraQuad(PartitionJobData jobData, VoxelRenderDef info, int vertexCount, in VQuad verts,
-            float4 ao)
+        private void AddFloraQuad(ref PartitionJobData jobData, VoxelRenderDef info, in VQuad verts, float4 ao)
         {
             int texIndex = info.TexUp;
             UVQuad uv = ComputeFaceUVs(new int3(1, 1, 0), new int2(1, 1));
@@ -119,14 +121,16 @@ namespace Runtime.Engine.Jobs.Meshing
 
             NativeList<int> indexBuffer = jobData.MeshBuffer.IndexBuffer1;
             EnsureCapacity(indexBuffer, 6);
-            indexBuffer.AddNoResize(vertexCount);
-            indexBuffer.AddNoResize(vertexCount + 1);
-            indexBuffer.AddNoResize(vertexCount + 2);
-            indexBuffer.AddNoResize(vertexCount + 2);
-            indexBuffer.AddNoResize(vertexCount + 1);
-            indexBuffer.AddNoResize(vertexCount + 3);
 
-            return 4;
+            int vCount = jobData.RenderVertexCount;
+            indexBuffer.AddNoResize(vCount);
+            indexBuffer.AddNoResize(vCount + 1);
+            indexBuffer.AddNoResize(vCount + 2);
+            indexBuffer.AddNoResize(vCount + 2);
+            indexBuffer.AddNoResize(vCount + 1);
+            indexBuffer.AddNoResize(vCount + 3);
+
+            jobData.RenderVertexCount += 4;
         }
 
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
@@ -146,7 +150,7 @@ namespace Runtime.Engine.Jobs.Meshing
         }
 
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
-        private void AddColliderVertices(PartitionJobData jobData, in VQuad verts, float3 normal)
+        private void AddColliderVertices(ref PartitionJobData jobData, in VQuad verts, float3 normal)
         {
             MeshBuffer mesh = jobData.MeshBuffer;
             CVertex vertex1 = new(verts.V1, normal);

@@ -42,8 +42,18 @@ namespace Runtime.Engine.Jobs.Meshing
             public MeshBuffer MeshBuffer;
 
             public NativeHashSet<int3> AirVoxels;
-            public NativeHashSet<int3> FoliageVoxels;
-            public NativeHashSet<int3> SolidVoxels;
+            public NativeHashSet<int3> CollisionVoxels;
+            public NativeHashMap<int3, ushort> FoliageVoxels;
+            public NativeHashMap<int3, ushort> TransparentVoxels;
+            public NativeHashMap<int3, ushort> SolidVoxels;
+
+            public int RenderVertexCount;
+            public int CollisionVertexCount;
+
+            public bool HasNoCollision => CollisionVoxels.IsEmpty;
+            public bool HasNoFoliage => FoliageVoxels.IsEmpty;
+            public bool HasNoTransparent => TransparentVoxels.IsEmpty;
+            public bool HasNoSolid => SolidVoxels.IsEmpty;
 
             internal PartitionJobData(Mesh.MeshData mesh, Mesh.MeshData colliderMesh, int3 partitionPos)
             {
@@ -62,14 +72,21 @@ namespace Runtime.Engine.Jobs.Meshing
                 };
 
                 AirVoxels = new NativeHashSet<int3>(VoxelsPerPartition, Allocator.Temp);
-                FoliageVoxels = new NativeHashSet<int3>(VoxelsPerPartition, Allocator.Temp);
-                SolidVoxels = new NativeHashSet<int3>(VoxelsPerPartition, Allocator.Temp);
+                CollisionVoxels = new NativeHashSet<int3>(VoxelsPerPartition, Allocator.Temp);
+                FoliageVoxels = new NativeHashMap<int3, ushort>(VoxelsPerPartition, Allocator.Temp);
+                TransparentVoxels = new NativeHashMap<int3, ushort>(VoxelsPerPartition, Allocator.Temp);
+                SolidVoxels = new NativeHashMap<int3, ushort>(VoxelsPerPartition, Allocator.Temp);
+
+                RenderVertexCount = 0;
+                CollisionVertexCount = 0;
             }
 
             public void Dispose()
             {
                 MeshBuffer.Dispose();
                 AirVoxels.Dispose();
+                CollisionVoxels.Dispose();
+                TransparentVoxels.Dispose();
                 FoliageVoxels.Dispose();
                 SolidVoxels.Dispose();
             }
@@ -84,18 +101,113 @@ namespace Runtime.Engine.Jobs.Meshing
         {
             PartitionJobData jobData = new(MeshDataArray[index], ColliderMeshDataArray[index], Jobs[index]);
 
-            GenerateMesh(jobData);
+            SortVoxels(ref jobData);
 
-            FillRenderMeshData(jobData);
+            ConstructSolid(ref jobData);
 
-            FillColliderMeshData(jobData);
+            //ConstructTransparent(ref jobData);
+
+            //ConstructFoliage(ref jobData);
+
+            //ConstructCollision(ref jobData);
+
+            FillRenderMeshData(in jobData);
+
+            //FillColliderMeshData(in jobData);
 
             Results.TryAdd(jobData.PartitionPos, index);
 
             jobData.Dispose();
         }
 
-        private void FillColliderMeshData(PartitionJobData jobData)
+        private void ConstructCollision(ref PartitionJobData jobData)
+        {
+        }
+
+        private void ConstructTransparent(ref PartitionJobData jobData)
+        {
+        }
+
+        private void ConstructSolid(ref PartitionJobData jobData)
+        {
+            if (jobData.HasNoSolid) return;
+
+            // Sweep along each principal axis (X, Y, Z)
+            for (int mainAxis = 0; mainAxis < 3; mainAxis++)
+            {
+                // Define orthogonal axes for the 2D slice (U and V plane)
+                int uAxis = (mainAxis + 1) % 3;
+                int vAxis = (mainAxis + 2) % 3;
+
+                // We only generate faces for slices starting inside the chunk (0…size-1)
+                // so that negative-side faces are owned by the neighboring chunk.
+                int mainAxisLimit = PartitionSize[mainAxis];
+
+                AxisInfo axisInfo = new()
+                {
+                    UAxis = uAxis,
+                    VAxis = vAxis,
+                    ULimit = PartitionSize[uAxis],
+                    VLimit = PartitionSize[vAxis]
+                };
+
+                BuildMasksAndQuads(ref jobData, mainAxis, mainAxisLimit, axisInfo, true);
+                BuildMasksAndQuads(ref jobData, mainAxis, mainAxisLimit, axisInfo, false);
+            }
+        }
+
+        private void BuildMasksAndQuads(ref PartitionJobData jobData, int mainAxis, int mainAxisLimit,
+            AxisInfo axisInfo, bool positive)
+        {
+            int3 pos = int3.zero;
+
+            int3 directionMask = int3.zero;
+            directionMask[mainAxis] = positive ? 1 : -1;
+
+            // Temporary mask buffer for the current slice (U x V)
+            NativeArray<Mask> normalMask = default;
+
+            for (pos[mainAxis] = 0; pos[mainAxis] < mainAxisLimit;)
+            {
+                // Build both masks in a single pass to minimize voxel/def lookups
+                bool info = BuildMasks(ref jobData, pos, directionMask, axisInfo, out normalMask, positive);
+
+                // Move to the actual slice index we just built the mask for
+                ++pos[mainAxis];
+
+                if (!info) continue;
+                
+                var p = positive ? pos: pos + directionMask;
+                BuildSurfaceQuads(ref jobData, axisInfo, p, normalMask, directionMask);
+            }
+
+            normalMask.Dispose();
+        }
+
+        private void SortVoxels(ref PartitionJobData jobData)
+        {
+            for (int y = 0; y < PartitionHeight; y++)
+            {
+                for (int z = 0; z < PartitionDepth; z++)
+                {
+                    for (int x = 0; x < PartitionWidth; x++)
+                    {
+                        int3 localPos = new(x, y + jobData.YOffset.y, z);
+                        ushort voxelId = Accessor.GetVoxelInChunk(jobData.ChunkPos, localPos);
+                        VoxelRenderDef renderDef = RenderGenData.GetRenderDef(voxelId);
+
+                        if (renderDef.Collision) jobData.CollisionVoxels.Add(localPos);
+
+                        if (renderDef.IsAir) jobData.AirVoxels.Add(localPos);
+                        else if (renderDef.IsFoliage) jobData.FoliageVoxels.Add(localPos, voxelId);
+                        else if (renderDef.IsTransparent) jobData.TransparentVoxels.Add(localPos, voxelId);
+                        else jobData.SolidVoxels.Add(localPos, voxelId);
+                    }
+                }
+            }
+        }
+
+        private void FillColliderMeshData(in PartitionJobData jobData)
         {
             MeshBuffer meshBuffer = jobData.MeshBuffer;
             Mesh.MeshData colliderMesh = jobData.ColliderMesh;
@@ -115,7 +227,7 @@ namespace Runtime.Engine.Jobs.Meshing
             colliderMesh.SetSubMesh(0, cDesc, MeshFlags);
         }
 
-        private void FillRenderMeshData(PartitionJobData jobData)
+        private void FillRenderMeshData(in PartitionJobData jobData)
         {
             MeshBuffer meshBuffer = jobData.MeshBuffer;
             Mesh.MeshData mesh = jobData.Mesh;

@@ -3,7 +3,6 @@ using Runtime.Engine.VoxelConfig.Data;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Mathematics;
-using static Runtime.Engine.Utils.VoxelConstants;
 
 namespace Runtime.Engine.Jobs.Meshing
 {
@@ -14,76 +13,10 @@ namespace Runtime.Engine.Jobs.Meshing
     internal partial struct MeshBuildJob
     {
         /// <summary>
-        /// Executes the meshing process: sweeps 3 axes, builds surface & collider quads, then foliage.
-        /// </summary>
-        [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
-        private void GenerateMesh(PartitionJobData jobData)
-        {
-            int meshVertexCount = 0;
-            int colliderVertexCount = 0;
-
-            // Sweep along each principal axis (X, Y, Z)
-            for (int mainAxis = 0; mainAxis < 3; mainAxis++)
-            {
-                // Define orthogonal axes for the 2D slice (U and V plane)
-                int uAxis = (mainAxis + 1) % 3;
-                int vAxis = (mainAxis + 2) % 3;
-
-                // We only generate faces for slices starting inside the chunk (0…size-1)
-                // so that negative-side faces are owned by the neighboring chunk.
-                int mainAxisLimit = PartitionSize[mainAxis];
-
-                AxisInfo axisInfo = new()
-                {
-                    UAxis = uAxis,
-                    VAxis = vAxis,
-                    ULimit = PartitionSize[uAxis],
-                    VLimit = PartitionSize[vAxis]
-                };
-
-                int3 pos = int3.zero;
-
-                int3 directionMask = int3.zero;
-                directionMask[mainAxis] = 1;
-
-                // Temporary mask buffer for the current slice (U x V)
-                NativeArray<Mask> normalMask = new(axisInfo.ULimit * axisInfo.VLimit, Allocator.Temp);
-                NativeArray<Mask> colliderMask = new(axisInfo.ULimit * axisInfo.VLimit, Allocator.Temp);
-
-                for (pos[mainAxis] = 0; pos[mainAxis] < mainAxisLimit;)
-                {
-                    // Build both masks in a single pass to minimize voxel/def lookups
-                    SliceInfo info = BuildMasks(jobData, pos, directionMask, axisInfo, normalMask, colliderMask);
-
-                    // Move to the actual slice index we just built the mask for
-                    ++pos[mainAxis];
-
-                    if (info.HasSurface)
-                    {
-                        meshVertexCount = BuildSurfaceQuads(jobData, meshVertexCount, axisInfo, pos,
-                            normalMask, directionMask);
-                    }
-
-                    if (info.HasCollider)
-                    {
-                        colliderVertexCount = BuildColliderQuads(jobData, colliderVertexCount, axisInfo, pos,
-                            colliderMask, directionMask);
-                    }
-                }
-
-                normalMask.Dispose();
-                colliderMask.Dispose();
-            }
-
-            // Note: return value isn't used outside this method; keep local update for clarity.
-            meshVertexCount = BuildFoliage(meshVertexCount, jobData);
-        }
-
-        /// <summary>
         /// Builds surface quads for one slice using greedy merging.
         /// </summary>
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
-        private int BuildSurfaceQuads(PartitionJobData jobData, int vertexCount, AxisInfo axInfo, int3 pos,
+        private void BuildSurfaceQuads(ref PartitionJobData jobData, AxisInfo axInfo, int3 pos,
             NativeArray<Mask> normalMask, int3 directionMask)
         {
             int3 uDelta = int3.zero;
@@ -103,8 +36,7 @@ namespace Runtime.Engine.Jobs.Meshing
 
                         int quadWidth = FindQuadWidth(normalMask, maskIndex, current, u, axInfo.ULimit);
                         int quadHeight = FindQuadHeight(normalMask, maskIndex, current, axInfo.ULimit,
-                            axInfo.VLimit,
-                            quadWidth, v);
+                            axInfo.VLimit, quadWidth, v);
 
                         uDelta[axInfo.UAxis] = quadWidth;
                         vDelta[axInfo.VAxis] = quadHeight;
@@ -116,10 +48,9 @@ namespace Runtime.Engine.Jobs.Meshing
                             pos + uDelta + vDelta
                         );
 
-                        vertexCount += CreateQuad(
-                            jobData,
+                        CreateQuad(
+                            ref jobData,
                             RenderGenData.GetRenderDef(current.VoxelId),
-                            vertexCount,
                             current,
                             directionMask,
                             new int2(quadWidth, quadHeight),
@@ -142,23 +73,22 @@ namespace Runtime.Engine.Jobs.Meshing
                     }
                 }
             }
-
-            return vertexCount;
         }
 
         /// <summary>
         /// Builds foliage billboard quads from collected flora voxels.
         /// </summary>
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
-        private int BuildFoliage(int vertexCount, PartitionJobData jobData)
+        private void ConstructFoliage(ref PartitionJobData jobData)
         {
+            if (jobData.HasNoFoliage) return;
+
             // Build cross (billboard) quads for flora collected during the surface pass
-            foreach (int3 voxelPos in jobData.FoliageVoxels)
+            foreach (KVPair<int3, ushort> foliageVoxel in jobData.FoliageVoxels)
             {
-                int3 p = voxelPos;
+                int3 p = foliageVoxel.Key;
+                VoxelRenderDef def = RenderGenData.GetRenderDef(foliageVoxel.Value);
                 if (!ChunkAccessor.InChunkBounds(p)) continue;
-                ushort voxelId = Accessor.GetVoxelInChunk(jobData.ChunkPos, p);
-                VoxelRenderDef def = RenderGenData.GetRenderDef(voxelId);
                 p -= jobData.YOffset;
 
                 // Diagonal 1
@@ -169,7 +99,7 @@ namespace Runtime.Engine.Jobs.Meshing
                     p + new float3(1, 1, 1)
                 );
 
-                vertexCount += AddFloraQuad(jobData, def, vertexCount, in flora1, int4.zero);
+                AddFloraQuad(ref jobData, def, in flora1, int4.zero);
 
                 // Diagonal 2
                 VQuad flora2 = new(
@@ -179,17 +109,15 @@ namespace Runtime.Engine.Jobs.Meshing
                     p + new float3(0, 1, 1)
                 );
 
-                vertexCount += AddFloraQuad(jobData, def, vertexCount, in flora2, int4.zero);
+                AddFloraQuad(ref jobData, def, in flora2, int4.zero);
             }
-
-            return vertexCount;
         }
 
         /// <summary>
         /// Builds collider quads for one slice using greedy merging.
         /// </summary>
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
-        private int BuildColliderQuads(PartitionJobData jobData, int vertexCount, AxisInfo axInfo, int3 pos,
+        private int BuildColliderQuads(ref PartitionJobData jobData, int vertexCount, AxisInfo axInfo, int3 pos,
             NativeArray<Mask> colliderMask,
             int3 directionMask)
         {
@@ -223,7 +151,7 @@ namespace Runtime.Engine.Jobs.Meshing
                         );
 
                         vertexCount += CreateColliderQuad(
-                            jobData,
+                            ref jobData,
                             vertexCount,
                             current,
                             directionMask,

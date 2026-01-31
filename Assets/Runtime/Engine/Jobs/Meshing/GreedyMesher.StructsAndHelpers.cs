@@ -54,7 +54,7 @@ namespace Runtime.Engine.Jobs.Meshing
 
             internal int4 AO;
 
-            public Mask(ushort voxelId, MeshLayer meshLayer, sbyte normal, int4 ao, sbyte topOpen)
+            public Mask(ushort voxelId, MeshLayer meshLayer, sbyte normal, int4 ao, sbyte topOpen = 0)
             {
                 MeshLayer = meshLayer;
                 VoxelId = voxelId;
@@ -69,20 +69,12 @@ namespace Runtime.Engine.Jobs.Meshing
                     MeshLayer == other.MeshLayer &&
                     VoxelId == other.VoxelId &&
                     Normal == other.Normal &&
-                    TopOpen == other.TopOpen &&
                     AO[0] == other.AO[0] &&
                     AO[1] == other.AO[1] &&
                     AO[2] == other.AO[2] &&
                     AO[3] == other.AO[3];
             }
         }
-
-        private struct SliceInfo
-        {
-            public bool HasSurface;
-            public bool HasCollider;
-        }
-
         #endregion
 
         #region Helpers

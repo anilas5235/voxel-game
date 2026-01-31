@@ -36,11 +36,11 @@ namespace Runtime.Engine.VoxelConfig.Data
         /// <summary>
         /// Gets the full render definition for the voxel with the given ID.
         /// </summary>
-        /// <param name="maskVoxelId">Voxel ID used to index into the render definition array.</param>
+        /// <param name="voxelId">Voxel ID used to index into the render definition array.</param>
         /// <returns>Render definition for the voxel.</returns>
-        public readonly VoxelRenderDef GetRenderDef(ushort maskVoxelId)
+        public readonly VoxelRenderDef GetRenderDef(ushort voxelId)
         {
-            return VoxelRenderDefs[maskVoxelId];
+            return VoxelRenderDefs[voxelId];
         }
     }
 }

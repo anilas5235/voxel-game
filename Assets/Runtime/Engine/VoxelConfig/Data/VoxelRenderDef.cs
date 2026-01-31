@@ -9,6 +9,7 @@ namespace Runtime.Engine.VoxelConfig.Data
     [BurstCompile]
     public struct VoxelRenderDef
     {
+        public ushort Id;
         /// <summary>Mesh layer (solid, transparent or air).</summary>
         public MeshLayer MeshLayer;
         /// <summary>Whether all faces should always be rendered, even when hidden by neighbors.</summary>
@@ -31,6 +32,10 @@ namespace Runtime.Engine.VoxelConfig.Data
         public int TexFront;
         /// <summary>Texture index for the back face.</summary>
         public int TexBack;
+
+        public bool IsAir => MeshLayer == MeshLayer.Air;
+        public bool IsFoliage => VoxelType == VoxelType.Flora;
+        public bool IsTransparent => MeshLayer == MeshLayer.Transparent;
 
         /// <summary>
         /// Returns the texture index for a given direction.
