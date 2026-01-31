@@ -1,5 +1,5 @@
-﻿using Runtime.Engine.Data;
-using Runtime.Engine.Mesher;
+﻿using System;
+using Runtime.Engine.Data;
 using Runtime.Engine.VoxelConfig.Data;
 using Unity.Burst;
 using Unity.Collections;
@@ -17,16 +17,63 @@ namespace Runtime.Engine.Jobs.Meshing
     /// instances while recording the position-to-index mapping.
     /// </summary>
     [BurstCompile]
-    internal struct MeshBuildJob : IJobParallelFor
+    internal partial struct MeshBuildJob : IJobParallelFor
     {
+        private const int VoxelCount4 = VoxelsPerPartition * 4;
+        private const int VoxelCount6 = VoxelsPerPartition * 6;
+
         [ReadOnly] public NativeArray<VertexAttributeDescriptor> VertexParams;
         [ReadOnly] public NativeArray<VertexAttributeDescriptor> ColliderVertexParams;
         [ReadOnly] public ChunkAccessor Accessor;
         [ReadOnly] public NativeList<int3> Jobs;
         [WriteOnly] public NativeParallelHashMap<int3, int>.ParallelWriter Results;
-        [ReadOnly] public VoxelEngineRenderGenData VoxelEngineRenderGenData;
+        [ReadOnly] public VoxelEngineRenderGenData RenderGenData;
         public Mesh.MeshDataArray MeshDataArray;
         public Mesh.MeshDataArray ColliderMeshDataArray;
+
+        private struct PartitionJobData : IDisposable
+        {
+            public readonly Mesh.MeshData Mesh;
+            public readonly Mesh.MeshData ColliderMesh;
+            public readonly int2 ChunkPos;
+            public readonly int3 PartitionPos;
+            public readonly int3 YOffset;
+
+            public MeshBuffer MeshBuffer;
+
+            public NativeHashSet<int3> AirVoxels;
+            public NativeHashSet<int3> FoliageVoxels;
+            public NativeHashSet<int3> SolidVoxels;
+
+            internal PartitionJobData(Mesh.MeshData mesh, Mesh.MeshData colliderMesh, int3 partitionPos)
+            {
+                Mesh = mesh;
+                ColliderMesh = colliderMesh;
+                PartitionPos = partitionPos;
+                ChunkPos = partitionPos.xz;
+                YOffset = new int3(0, partitionPos.y * PartitionHeight, 0);
+                MeshBuffer = new MeshBuffer
+                {
+                    VertexBuffer = new NativeList<Vertex>(VoxelCount4, Allocator.Temp),
+                    CVertexBuffer = new NativeList<CVertex>(VoxelCount4, Allocator.Temp),
+                    IndexBuffer0 = new NativeList<int>(VoxelCount6, Allocator.Temp),
+                    IndexBuffer1 = new NativeList<int>(VoxelCount6, Allocator.Temp),
+                    CIndexBuffer = new NativeList<int>(VoxelCount6, Allocator.Temp)
+                };
+
+                AirVoxels = new NativeHashSet<int3>(VoxelsPerPartition, Allocator.Temp);
+                FoliageVoxels = new NativeHashSet<int3>(VoxelsPerPartition, Allocator.Temp);
+                SolidVoxels = new NativeHashSet<int3>(VoxelsPerPartition, Allocator.Temp);
+            }
+
+            public void Dispose()
+            {
+                MeshBuffer.Dispose();
+                AirVoxels.Dispose();
+                FoliageVoxels.Dispose();
+                SolidVoxels.Dispose();
+            }
+        }
 
         /// <summary>
         /// Executes mesh generation for the given job index and fills mesh and collider submesh data
@@ -35,24 +82,24 @@ namespace Runtime.Engine.Jobs.Meshing
         /// <param name="index">Index of the chunk position to process within the <see cref="Jobs"/> list.</param>
         public void Execute(int index)
         {
-            Mesh.MeshData mesh = MeshDataArray[index];
-            Mesh.MeshData colliderMesh = ColliderMeshDataArray[index];
-            int3 partitionPos = Jobs[index];
+            PartitionJobData jobData = new(MeshDataArray[index], ColliderMeshDataArray[index], Jobs[index]);
 
-            GreedyMesher greedyMesher = new(Accessor, partitionPos, VoxelEngineRenderGenData);
-            MeshBuffer meshBuffer = greedyMesher.GenerateMesh();
+            GenerateMesh(jobData);
 
-            FillRenderMeshData(meshBuffer, mesh);
+            FillRenderMeshData(jobData);
 
-            FillColliderMeshData(meshBuffer, colliderMesh);
+            FillColliderMeshData(jobData);
 
-            Results.TryAdd(partitionPos, index);
+            Results.TryAdd(jobData.PartitionPos, index);
 
-            meshBuffer.Dispose();
+            jobData.Dispose();
         }
 
-        private void FillColliderMeshData(MeshBuffer meshBuffer, Mesh.MeshData colliderMesh)
+        private void FillColliderMeshData(PartitionJobData jobData)
         {
+            MeshBuffer meshBuffer = jobData.MeshBuffer;
+            Mesh.MeshData colliderMesh = jobData.ColliderMesh;
+
             int cVertexCount = meshBuffer.CVertexBuffer.Length;
             colliderMesh.SetVertexBufferParams(cVertexCount, ColliderVertexParams);
             colliderMesh.GetVertexData<CVertex>().CopyFrom(meshBuffer.CVertexBuffer.AsArray());
@@ -68,8 +115,11 @@ namespace Runtime.Engine.Jobs.Meshing
             colliderMesh.SetSubMesh(0, cDesc, MeshFlags);
         }
 
-        private void FillRenderMeshData(MeshBuffer meshBuffer, Mesh.MeshData mesh)
+        private void FillRenderMeshData(PartitionJobData jobData)
         {
+            MeshBuffer meshBuffer = jobData.MeshBuffer;
+            Mesh.MeshData mesh = jobData.Mesh;
+
             int vertexCount = meshBuffer.VertexBuffer.Length;
             mesh.SetVertexBufferParams(vertexCount, VertexParams);
             mesh.GetVertexData<Vertex>().CopyFrom(meshBuffer.VertexBuffer.AsArray());

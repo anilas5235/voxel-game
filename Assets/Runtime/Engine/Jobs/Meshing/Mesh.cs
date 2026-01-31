@@ -2,7 +2,7 @@
 using Unity.Collections;
 using Unity.Mathematics;
 
-namespace Runtime.Engine.Mesher
+namespace Runtime.Engine.Jobs.Meshing
 {
     /// <summary>
     /// Vertex structure for rendered voxels (position, normal, 3 UV layers for texture atlas / AO / extra data).
@@ -57,6 +57,7 @@ namespace Runtime.Engine.Mesher
         public NativeList<Vertex> VertexBuffer;
         public NativeList<int> IndexBuffer0;
         public NativeList<int> IndexBuffer1;
+        
         public NativeList<CVertex> CVertexBuffer;
         public NativeList<int> CIndexBuffer;
 

@@ -121,7 +121,7 @@ namespace Runtime.Engine.Jobs.Meshing
                 ColliderVertexParams = _colliderVertexParams,
                 MeshDataArray = _meshDataArray,
                 ColliderMeshDataArray = _colliderMeshDataArray,
-                VoxelEngineRenderGenData = _voxelRegistry.GetVoxelGenData(),
+                RenderGenData = _voxelRegistry.GetVoxelGenData(),
                 Results = _results.AsParallelWriter()
             };
 
