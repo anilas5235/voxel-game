@@ -36,8 +36,8 @@ namespace Runtime.Engine.Jobs.Meshing
         private ChunkAccessor _chunkAccessor;
         private NativeParallelHashMap<int3, int> _results;
 
-        private UnityEngine.Mesh.MeshDataArray _meshDataArray;
-        private UnityEngine.Mesh.MeshDataArray _colliderMeshDataArray;
+        private Mesh.MeshDataArray _meshDataArray;
+        private Mesh.MeshDataArray _colliderMeshDataArray;
 
         private NativeArray<VertexAttributeDescriptor> _vertexParams;
         private NativeArray<VertexAttributeDescriptor> _colliderVertexParams;
@@ -110,8 +110,8 @@ namespace Runtime.Engine.Jobs.Meshing
                 _jobs.Add(j);
             }
 
-            _meshDataArray = UnityEngine.Mesh.AllocateWritableMeshData(_jobs.Length);
-            _colliderMeshDataArray = UnityEngine.Mesh.AllocateWritableMeshData(_jobs.Length);
+            _meshDataArray = Mesh.AllocateWritableMeshData(_jobs.Length);
+            _colliderMeshDataArray = Mesh.AllocateWritableMeshData(_jobs.Length);
 
             MeshBuildJob job = new()
             {
@@ -137,8 +137,8 @@ namespace Runtime.Engine.Jobs.Meshing
             double start = Time.realtimeSinceStartupAsDouble;
             _handle.Complete();
 
-            UnityEngine.Mesh[] meshes = new UnityEngine.Mesh[_jobs.Length];
-            UnityEngine.Mesh[] colliderMeshes = new UnityEngine.Mesh[_jobs.Length];
+            Mesh[] meshes = new Mesh[_jobs.Length];
+            Mesh[] colliderMeshes = new Mesh[_jobs.Length];
             
             List<ChunkPartition> changedPartitions = new();
 
@@ -153,24 +153,24 @@ namespace Runtime.Engine.Jobs.Meshing
                 colliderMeshes[_results[pos]] = partition.ColliderMesh;
             }
 
-            UnityEngine.Mesh.ApplyAndDisposeWritableMeshData(
+            Mesh.ApplyAndDisposeWritableMeshData(
                 _meshDataArray,
                 meshes,
                 MeshFlags
             );
 
-            UnityEngine.Mesh.ApplyAndDisposeWritableMeshData(
+            Mesh.ApplyAndDisposeWritableMeshData(
                 _colliderMeshDataArray,
                 colliderMeshes,
                 MeshFlags
             );
 
-            foreach (UnityEngine.Mesh m in meshes)
+            foreach (Mesh m in meshes)
             {
                 m.RecalculateBounds();
             }
 
-            foreach (UnityEngine.Mesh cm in colliderMeshes)
+            foreach (Mesh cm in colliderMeshes)
             {
                 cm.RecalculateBounds();
             }

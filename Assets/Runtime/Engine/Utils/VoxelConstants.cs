@@ -1,4 +1,5 @@
 ﻿using Unity.Mathematics;
+using UnityEngine.Rendering;
 
 namespace Runtime.Engine.Utils
 {
@@ -20,5 +21,9 @@ namespace Runtime.Engine.Utils
 
         internal const int VoxelsPerPartition = PartitionWidth * PartitionHeight * PartitionDepth;
         internal const int PartitionsPerChunk = ChunkHeight / PartitionHeight;
+
+        internal const MeshUpdateFlags MeshFlags = MeshUpdateFlags.DontRecalculateBounds |
+                                                   MeshUpdateFlags.DontValidateIndices |
+                                                   MeshUpdateFlags.DontResetBoneBounds;
     }
 }
