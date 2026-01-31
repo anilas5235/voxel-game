@@ -9,7 +9,6 @@ namespace Runtime.Engine.VoxelConfig.Data
     [BurstCompile]
     public struct VoxelRenderDef
     {
-        public ushort Id;
         /// <summary>Mesh layer (solid, transparent or air).</summary>
         public MeshLayer MeshLayer;
         /// <summary>Whether all faces should always be rendered, even when hidden by neighbors.</summary>

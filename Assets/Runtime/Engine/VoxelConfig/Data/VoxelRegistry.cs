@@ -66,7 +66,6 @@ namespace Runtime.Engine.VoxelConfig.Data
 
             ushort id = Register(packagePrefix + ":" + definition.name, type);
             if (id == 0) return;
-            type.Id = id;
             _idToVoxelDefinition.Add(id, definition);
         }
 
