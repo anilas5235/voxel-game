@@ -1,11 +1,12 @@
-﻿using Unity.Burst;
+﻿using Runtime.Engine.Utils.Extensions;
+using Unity.Burst;
 using Unity.Mathematics;
 
 namespace Runtime.Engine.Jobs.Meshing
 {
     internal partial struct MeshBuildJob
     {
-        private static readonly int3 YOne = new(0, 1, 0);
+        private static readonly int3 YOne = VectorConstants.Int3Up;
 
         #region AO Calculation
 

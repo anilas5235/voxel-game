@@ -84,7 +84,7 @@ namespace Runtime.Engine.Utils.Extensions
         /// </summary>
         [BurstCompile]
         public static Vector3 GetVector3(this int3 vec) => new(vec.x, vec.y, vec.z);
-        
+
         /// <summary>
         /// Konvertiert int2 nach Vector2.
         /// </summary>
@@ -101,7 +101,7 @@ namespace Runtime.Engine.Utils.Extensions
         /// Quadratische Länge eines int3 Vektors.
         /// </summary>
         public static int SqrMagnitude(this int3 vec) => vec.x * vec.x + vec.y * vec.y + vec.z * vec.z;
-        
+
         /// <summary>
         /// Quadratische Länge eines int3 Vektors.
         /// </summary>
@@ -116,6 +116,57 @@ namespace Runtime.Engine.Utils.Extensions
         /// Komponentenweise Multiplikation mit Einzelwerten.
         /// </summary>
         public static int3 MemberMultiply(this int3 a, int x, int y, int z) => new(a.x * x, a.y * y, a.z * z);
+    }
+
+    public static class VectorConstants
+    {
+        /// <summary> (0,0,0) Vektor. </summary>
+        public static readonly int3 Int3Zero = new(0, 0, 0);
+
+        /// <summary> (1,1,1) Vektor. </summary>
+        public static readonly int3 Int3One = new(1, 1, 1);
+
+        /// <summary> (0,1,0) Vektor. </summary>
+        public static readonly int3 Int3Up = new(0, 1, 0);
+
+        /// <summary> (0,-1,0) Vektor. </summary>
+        public static readonly int3 Int3Down = new(0, -1, 0);
+
+        /// <summary> (1,0,0) Vektor. </summary>
+        public static readonly int3 Int3Right = new(1, 0, 0);
+
+        /// <summary> (-1,0,0) Vektor. </summary>
+        public static readonly int3 Int3Left = new(-1, 0, 0);
+
+        /// <summary> (0,0,1) Vektor. </summary>
+        public static readonly int3 Int3Forward = new(0, 0, 1);
+
+        /// <summary> (0,0,-1) Vektor. </summary>
+        public static readonly int3 Int3Backward = new(0, 0, -1);
+
+        /// <summary> (0,0,0) Vektor. </summary>
+        public static readonly float3 Float3Zero = new(0, 0, 0);
+
+        /// <summary> (1,1,1) Vektor. </summary>
+        public static readonly float3 Float3One = new(1, 1, 1);
+
+        /// <summary> (0,1,0) Vektor. </summary>
+        public static readonly float3 Float3Up = new(0, 1, 0);
+
+        /// <summary> (0,-1,0) Vektor. </summary>
+        public static readonly float3 Float3Down = new(0, -1, 0);
+
+        /// <summary> (1,0,0) Vektor. </summary>
+        public static readonly float3 Float3Right = new(1, 0, 0);
+
+        /// <summary> (-1,0,0) Vektor. </summary>
+        public static readonly float3 Float3Left = new(-1, 0, 0);
+
+        /// <summary> (0,0,1) Vektor. </summary>
+        public static readonly float3 Float3Forward = new(0, 0, 1);
+
+        /// <summary> (0,0,-1) Vektor. </summary>
+        public static readonly float3 Float3Backward = new(0, 0, -1);
     }
 
     /// <summary>

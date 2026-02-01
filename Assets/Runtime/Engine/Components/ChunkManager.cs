@@ -10,6 +10,7 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 using UnityEngine;
+using static Runtime.Engine.Utils.Extensions.VectorConstants;
 using static Runtime.Engine.Utils.VoxelConstants;
 using static Runtime.Engine.Utils.VoxelUtils;
 
@@ -211,30 +212,30 @@ namespace Runtime.Engine.Components
             switch (localPos.x % PartitionWidth)
             {
                 case 0:
-                    _reMeshPartitions.Add(pCoords + new int3(-1, 0, 0));
+                    _reMeshPartitions.Add(pCoords + Int3Left);
                     break;
                 case 15:
-                    _reMeshPartitions.Add(pCoords + new int3(1, 0, 0));
+                    _reMeshPartitions.Add(pCoords + Int3Right);
                     break;
             }
 
             switch (localPos.z % PartitionDepth)
             {
                 case 0:
-                    _reMeshPartitions.Add(pCoords + new int3(0, 0, -1));
+                    _reMeshPartitions.Add(pCoords + Int3Backward);
                     break;
                 case 15:
-                    _reMeshPartitions.Add(pCoords + new int3(0, 0, 1));
+                    _reMeshPartitions.Add(pCoords + Int3Forward);
                     break;
             }
 
             switch (localPos.y % PartitionHeight)
             {
                 case 0:
-                    _reMeshPartitions.Add(pCoords + new int3(0, -1, 0));
+                    _reMeshPartitions.Add(pCoords + Int3Down);
                     break;
                 case 15:
-                    _reMeshPartitions.Add(pCoords + new int3(0, 1, 0));
+                    _reMeshPartitions.Add(pCoords + Int3Up);
                     break;
             }
         }

@@ -4,6 +4,7 @@ using Runtime.Engine.VoxelConfig.Data;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Mathematics;
+using static Runtime.Engine.Utils.Extensions.VectorConstants;
 
 namespace Runtime.Engine.Jobs.Meshing
 {
@@ -114,10 +115,8 @@ namespace Runtime.Engine.Jobs.Meshing
         {
             int texIndex = info.TexUp;
             UVQuad uv = ComputeFaceUVs(new int3(1, 1, 0), new int2(1, 1));
-            float3 normal = new(0, 1, 0);
-
             float4 uv1 = new(texIndex, -1, 0, 0);
-            AddVertices(jobData.MeshBuffer, in verts, normal, in uv, uv1, ao);
+            AddVertices(jobData.MeshBuffer, in verts, Float3Up, in uv, uv1, ao);
 
             NativeList<int> indexBuffer = jobData.MeshBuffer.FoliageIndexBuffer;
             EnsureCapacity(indexBuffer, 6);
