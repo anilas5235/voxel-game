@@ -15,7 +15,8 @@ namespace Runtime.Engine.Jobs.Meshing
         #region Quad Creation
 
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
-        private void CreateQuad(ref PartitionJobData jobData, VoxelRenderDef info, Mask mask, int3 directionMask, int2 size,
+        private void CreateQuad(ref PartitionJobData jobData, VoxelRenderDef info, Mask mask, int3 directionMask,
+            int2 size,
             in VQuad verts
         )
         {
@@ -31,9 +32,7 @@ namespace Runtime.Engine.Jobs.Meshing
         }
 
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
-        private int CreateColliderQuad(ref PartitionJobData jobData, int cVertexCount, Mask mask, int3 directionMask,
-            in VQuad verts
-        )
+        private void CreateColliderQuad(ref PartitionJobData jobData, CMask mask, int3 directionMask, in VQuad verts)
         {
             float3 normal = directionMask * mask.Normal;
 
@@ -41,8 +40,8 @@ namespace Runtime.Engine.Jobs.Meshing
 
             // Use AO zeros for a deterministic diagonal, reuse existing helper for correct winding
             int4 ao = int4.zero;
-            AddQuadIndices(jobData.MeshBuffer.CIndexBuffer, cVertexCount, mask.Normal, ao);
-            return 4;
+            AddQuadIndices(jobData.MeshBuffer.CIndexBuffer, jobData.CollisionVertexCount, mask.Normal, ao);
+            jobData.CollisionVertexCount += 4;
         }
 
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
@@ -65,7 +64,8 @@ namespace Runtime.Engine.Jobs.Meshing
         }
 
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
-        private void CreateTransparentQuad(ref PartitionJobData jobData, VoxelRenderDef info, Mask mask, int3 directionMask,
+        private void CreateTransparentQuad(ref PartitionJobData jobData, VoxelRenderDef info, Mask mask,
+            int3 directionMask,
             int2 size, in VQuad verts
         )
         {
@@ -191,8 +191,7 @@ namespace Runtime.Engine.Jobs.Meshing
         }
 
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
-        private void AddQuadIndices(NativeList<int> indexBuffer, int baseVertexIndex, sbyte normalSign,
-            int4 ao)
+        private void AddQuadIndices(NativeList<int> indexBuffer, int baseVertexIndex, sbyte normalSign, int4 ao)
         {
             // Choose diagonal based on AO to minimize artifacts
             EnsureCapacity(indexBuffer, 6);

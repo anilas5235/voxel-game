@@ -110,19 +110,15 @@ namespace Runtime.Engine.Jobs.Meshing
 
             ConstructFoliage(ref jobData);
 
-            //ConstructCollision(ref jobData);
+            ConstructCollision(ref jobData);
 
             FillRenderMeshData(in jobData);
 
-            //FillColliderMeshData(in jobData);
+            FillColliderMeshData(in jobData);
 
             Results.TryAdd(jobData.PartitionPos, index);
 
             jobData.Dispose();
-        }
-
-        private void ConstructCollision(ref PartitionJobData jobData)
-        {
         }
 
         private void SortVoxels(ref PartitionJobData jobData)

@@ -42,9 +42,30 @@ namespace Runtime.Engine.Jobs.Meshing
                 V4 += offset;
             }
         }
+        
+        private interface IMaskComparable<T>
+        {
+            bool CompareTo(T other);
+        }
+        
+        [BurstCompile]
+        private struct CMask: IMaskComparable<CMask>
+        {
+            internal readonly sbyte Normal;
+
+            public CMask( sbyte normal)
+            {
+                Normal = normal;
+            }
+
+            public bool CompareTo(CMask other)
+            {
+                return Normal == other.Normal ;
+            }
+        }
 
         [BurstCompile]
-        private struct Mask
+        private struct Mask: IMaskComparable<Mask>
         {
             public readonly ushort VoxelId;
 
@@ -87,6 +108,14 @@ namespace Runtime.Engine.Jobs.Meshing
 
         [BurstCompile]
         private void ClearMaskRegion(NativeArray<Mask> normalMask, int n, int width, int height, int axis1Limit)
+        {
+            for (int l = 0; l < height; ++l)
+            for (int k = 0; k < width; ++k)
+                normalMask[n + k + l * axis1Limit] = default;
+        }
+        
+        [BurstCompile]
+        private void ClearColMaskRegion(NativeArray<CMask> normalMask, int n, int width, int height, int axis1Limit)
         {
             for (int l = 0; l < height; ++l)
             for (int k = 0; k < width; ++k)
