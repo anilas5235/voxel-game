@@ -45,6 +45,16 @@ namespace Runtime.Engine.Utils
                 cCoords.y
             );
         }
+        
+        public static int3 GetPartitionLocalVoxelCoords(int3 partitionPosition, int3 worldPosition)
+        {
+            int3 localVoxelPos = worldPosition - new int3(
+                partitionPosition.x * ChunkWidth,
+                partitionPosition.y * PartitionHeight,
+                partitionPosition.z * ChunkDepth
+            );
+            return localVoxelPos;
+        }
 
 
         /// <summary>

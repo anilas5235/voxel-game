@@ -207,7 +207,8 @@ namespace Runtime.Engine.Components
         {
             int3 pCoords = GetPartitionCoords(blockPosition);
             _reMeshPartitions.Add(pCoords);
-            switch (blockPosition.x % PartitionWidth)
+            int3 localPos = GetPartitionLocalVoxelCoords(pCoords, blockPosition);
+            switch (localPos.x % PartitionWidth)
             {
                 case 0:
                     _reMeshPartitions.Add(pCoords + new int3(-1, 0, 0));
@@ -217,7 +218,7 @@ namespace Runtime.Engine.Components
                     break;
             }
 
-            switch (blockPosition.z % PartitionDepth)
+            switch (localPos.z % PartitionDepth)
             {
                 case 0:
                     _reMeshPartitions.Add(pCoords + new int3(0, 0, -1));
@@ -227,7 +228,7 @@ namespace Runtime.Engine.Components
                     break;
             }
 
-            switch (blockPosition.y % PartitionHeight)
+            switch (localPos.y % PartitionHeight)
             {
                 case 0:
                     _reMeshPartitions.Add(pCoords + new int3(0, -1, 0));
@@ -236,6 +237,8 @@ namespace Runtime.Engine.Components
                     _reMeshPartitions.Add(pCoords + new int3(0, 1, 0));
                     break;
             }
+
+            Debug.Log($"Block local {localPos} changed; Flagged partitions for remesh: {string.Join(", ", _reMeshPartitions)}");
         }
     }
 }
