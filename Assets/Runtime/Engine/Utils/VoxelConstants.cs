@@ -3,7 +3,7 @@ using UnityEngine.Rendering;
 
 namespace Runtime.Engine.Utils
 {
-    internal static class VoxelConstants
+    public static class VoxelConstants
     {
         internal const int ChunkWidth = 16;
         internal const int ChunkHeight = 256;

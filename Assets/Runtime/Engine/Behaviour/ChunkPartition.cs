@@ -1,4 +1,5 @@
-﻿using Runtime.Engine.Settings;
+﻿using Runtime.Engine.Jobs.Meshing;
+using Runtime.Engine.Settings;
 using Runtime.Engine.Utils.Extensions;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -14,6 +15,7 @@ namespace Runtime.Engine.Behaviour
 
         private bool _shouldBeVisible = true;
         private bool _initialized;
+
         internal bool ShouldBeVisible
         {
             get => _shouldBeVisible;
@@ -41,6 +43,7 @@ namespace Runtime.Engine.Behaviour
         public MeshCollider Collider => _Collider;
 
         public short PartitionId { get; private set; }
+        internal PartitionOcclusionData OcclusionData { get; set; }
 
         private void Awake()
         {
@@ -74,15 +77,81 @@ namespace Runtime.Engine.Behaviour
         }
 
 #if UNITY_EDITOR
+        private static readonly Color[] FaceColors =
+            { Color.red, Color.blue, Color.green, Color.yellow, Color.cyan, Color.magenta };
+
+        private static readonly Vector3[] FaceNormals =
+            { Vector3.right, Vector3.left, Vector3.up, Vector3.down, Vector3.forward, Vector3.back };
+
         private void OnDrawGizmosSelected()
         {
             if (Mesh.vertexCount < 3) Gizmos.color = Color.grey;
-            else if (_Collider.sharedMesh == null) Gizmos.color = Color.magenta;
+            else if (!_Collider.sharedMesh) Gizmos.color = Color.magenta;
             else Gizmos.color = Color.green;
             Gizmos.DrawWireCube(
                 transform.position + PartitionSize.GetVector3() * 0.5f,
                 PartitionSize.GetVector3() * 0.95f
             );
+
+            // Draw partition ID
+            Gizmos.color = Color.white;
+            UnityEditor.Handles.Label(
+                transform.position + PartitionSize.GetVector3() * 0.5f,
+                $"Id:{PartitionId}",
+                new GUIStyle()
+                {
+                    fontSize = 20,
+                    normal = new GUIStyleState() { textColor = Color.white }
+                }
+            );
+
+            // Draw occlusion data as colored lines between faces of the partition cube same color as the face
+            Vector3 center = transform.position + PartitionSize.GetVector3() * 0.5f;
+            float faceSize = PartitionSize.y * 0.9f;
+
+
+            for (int i = 0; i < PartitionOcclusionData.AllDirections.Length; i++)
+            {
+                PartitionOcclusionData.OccDirection occDirection =
+                    PartitionOcclusionData.AllDirections[i];
+                Color color = FaceColors[i % FaceColors.Length];
+                Vector3 normal = FaceNormals[i % FaceNormals.Length];
+
+                DrawFace(normal, color);
+
+                for (int j = 0; j < PartitionOcclusionData.AllDirections.Length; j++)
+                {
+                    PartitionOcclusionData.OccDirection otherDirection = PartitionOcclusionData.AllDirections[j];
+
+                    if (occDirection == otherDirection) continue;
+                    if (!OcclusionData.ArePartitionFacesConnected(occDirection, otherDirection)) continue;
+
+                    Vector3 otherNormal = FaceNormals[j % FaceNormals.Length];
+
+                    Gizmos.color = color;
+                    Vector3 start = center + normal * (PartitionSize.x * 0.5f);
+                    Vector3 end = center + otherNormal * (PartitionSize.x * 0.5f);
+                    Vector3 mid = (start + end) * 0.5f;
+                    
+                    Gizmos.DrawLine(start, mid);
+                }
+            }
+            return;
+
+            void DrawFace(Vector3 normal, Color color)
+            {
+                Gizmos.color = color;
+                Vector3 faceCenter = center + normal * (PartitionSize.x * 0.5f);
+                // Determine size based on normal
+                var size = normal switch
+                {
+                    _ when normal == Vector3.right || normal == Vector3.left => new Vector3(0.1f, faceSize, faceSize),
+                    _ when normal == Vector3.up || normal == Vector3.down => new Vector3(faceSize, 0.1f, faceSize),
+                    _ when normal == Vector3.forward || normal == Vector3.back => new Vector3(faceSize, faceSize, 0.1f),
+                    _ => Vector3.zero
+                };
+                Gizmos.DrawWireCube(faceCenter, size);
+            }
         }
 #endif
     }

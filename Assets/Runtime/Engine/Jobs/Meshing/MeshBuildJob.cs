@@ -1,5 +1,6 @@
 ﻿using System;
 using Runtime.Engine.Data;
+using Runtime.Engine.Utils.Extensions;
 using Runtime.Engine.VoxelConfig.Data;
 using Unity.Burst;
 using Unity.Collections;
@@ -26,10 +27,26 @@ namespace Runtime.Engine.Jobs.Meshing
         [ReadOnly] public NativeArray<VertexAttributeDescriptor> ColliderVertexParams;
         [ReadOnly] public ChunkAccessor Accessor;
         [ReadOnly] public NativeList<int3> Jobs;
-        [WriteOnly] public NativeParallelHashMap<int3, int>.ParallelWriter Results;
         [ReadOnly] public VoxelEngineRenderGenData RenderGenData;
+
+        [WriteOnly] public NativeParallelHashMap<int3, PartitionJobResult>.ParallelWriter Results;
         public Mesh.MeshDataArray MeshDataArray;
         public Mesh.MeshDataArray ColliderMeshDataArray;
+
+        internal struct PartitionJobResult
+        {
+            public readonly int Index;
+            public readonly int3 PartitionPos;
+
+            public PartitionOcclusionData Occlusion;
+
+            public PartitionJobResult(int index, int3 partitionPos, PartitionOcclusionData occlusion)
+            {
+                Index = index;
+                PartitionPos = partitionPos;
+                Occlusion = occlusion;
+            }
+        }
 
         private struct PartitionJobData : IDisposable
         {
@@ -41,7 +58,7 @@ namespace Runtime.Engine.Jobs.Meshing
 
             public MeshBuffer MeshBuffer;
 
-            public NativeHashSet<int3> AirVoxels;
+            public NativeHashSet<int3> SeeThroughVoxels;
             public NativeHashSet<int3> CollisionVoxels;
             public NativeHashMap<int3, ushort> FoliageVoxels;
             public NativeHashMap<int3, ushort> TransparentVoxels;
@@ -72,7 +89,7 @@ namespace Runtime.Engine.Jobs.Meshing
                     CIndexBuffer = new NativeList<int>(VoxelCount6, Allocator.Temp)
                 };
 
-                AirVoxels = new NativeHashSet<int3>(VoxelsPerPartition, Allocator.Temp);
+                SeeThroughVoxels = new NativeHashSet<int3>(VoxelsPerPartition, Allocator.Temp);
                 CollisionVoxels = new NativeHashSet<int3>(VoxelsPerPartition, Allocator.Temp);
                 FoliageVoxels = new NativeHashMap<int3, ushort>(VoxelsPerPartition, Allocator.Temp);
                 TransparentVoxels = new NativeHashMap<int3, ushort>(VoxelsPerPartition, Allocator.Temp);
@@ -85,7 +102,7 @@ namespace Runtime.Engine.Jobs.Meshing
             public void Dispose()
             {
                 MeshBuffer.Dispose();
-                AirVoxels.Dispose();
+                SeeThroughVoxels.Dispose();
                 CollisionVoxels.Dispose();
                 TransparentVoxels.Dispose();
                 FoliageVoxels.Dispose();
@@ -116,31 +133,110 @@ namespace Runtime.Engine.Jobs.Meshing
 
             FillColliderMeshData(in jobData);
 
-            Results.TryAdd(jobData.PartitionPos, index);
+            DetermineOcclusion(ref jobData, out PartitionOcclusionData occlusion);
+
+            Results.TryAdd(jobData.PartitionPos, new PartitionJobResult(index, jobData.PartitionPos, occlusion));
 
             jobData.Dispose();
+        }
+
+        private void DetermineOcclusion(ref PartitionJobData jobData, out PartitionOcclusionData partitionOcclusionData)
+        {
+            partitionOcclusionData = new PartitionOcclusionData();
+
+            if (jobData.SolidVoxels.Count < PartitionWidth * PartitionHeight)
+            {
+                partitionOcclusionData.SetAll(true);
+                return;
+            }
+            
+            NativeHashSet<int3>.ReadOnly seeThroughVoxels = jobData.SeeThroughVoxels.AsReadOnly();
+            NativeHashSet<int3> checkedVoxels = new(seeThroughVoxels.Count, Allocator.Temp);
+            NativeQueue<int3> voxelQueue = new(Allocator.Temp);
+
+            NativeArray<int3> voxelNeighborOffsets = new(6, Allocator.Temp)
+            {
+                [0] = VectorConstants.Int3Forward,
+                [1] = VectorConstants.Int3Backward,
+                [2] = VectorConstants.Int3Right,
+                [3] = VectorConstants.Int3Left,
+                [4] = VectorConstants.Int3Up,
+                [5] = VectorConstants.Int3Down
+            };
+
+            NativeHashSet<byte> connectedDirections = new(6, Allocator.Temp);
+            foreach (int3 voxel in seeThroughVoxels)
+            {
+                // Try to mark seed voxel as visited; if it was already visited skip it
+                if (!checkedVoxels.Add(voxel)) continue;
+                connectedDirections.Clear();
+
+                voxelQueue.Enqueue(voxel);
+
+                while (voxelQueue.TryDequeue(out int3 currentVoxel))
+                {
+                    foreach (int3 offset in voxelNeighborOffsets)
+                    {
+                        int3 neighborPos = currentVoxel + offset;
+                        if (!ChunkAccessor.InChunkBounds(neighborPos))
+                        {
+                            connectedDirections.Add((byte)PartitionOcclusionData.GetOccFromNormal(in offset));
+                            continue;
+                        }
+
+                        // If neighbor is not see-through skip
+                        if (!seeThroughVoxels.Contains(neighborPos)) continue;
+
+                        // Mark as visited and enqueue only if this thread successfully added it
+                        if (checkedVoxels.Add(neighborPos))
+                        {
+                            voxelQueue.Enqueue(neighborPos);
+                        }
+                    }
+                }
+
+                partitionOcclusionData.SetFaceConnected(connectedDirections);
+            }
+
+            voxelNeighborOffsets.Dispose();
+            checkedVoxels.Dispose();
+            voxelQueue.Dispose();
+            connectedDirections.Dispose();
         }
 
         private void SortVoxels(ref PartitionJobData jobData)
         {
             for (int y = 0; y < PartitionHeight; y++)
+            for (int z = 0; z < PartitionDepth; z++)
+            for (int x = 0; x < PartitionWidth; x++)
             {
-                for (int z = 0; z < PartitionDepth; z++)
+                int3 localPos = new(x, y + jobData.YOffset.y, z);
+                ushort voxelId = Accessor.GetVoxelInChunk(jobData.ChunkPos, localPos);
+                VoxelRenderDef renderDef = RenderGenData.GetRenderDef(voxelId);
+
+                if (renderDef.Collision) jobData.CollisionVoxels.Add(localPos);
+
+                if (renderDef.IsAir)
                 {
-                    for (int x = 0; x < PartitionWidth; x++)
-                    {
-                        int3 localPos = new(x, y + jobData.YOffset.y, z);
-                        ushort voxelId = Accessor.GetVoxelInChunk(jobData.ChunkPos, localPos);
-                        VoxelRenderDef renderDef = RenderGenData.GetRenderDef(voxelId);
-
-                        if (renderDef.Collision) jobData.CollisionVoxels.Add(localPos);
-
-                        if (renderDef.IsAir) jobData.AirVoxels.Add(localPos);
-                        else if (renderDef.IsFoliage) jobData.FoliageVoxels.Add(localPos, voxelId);
-                        else if (renderDef.IsTransparent) jobData.TransparentVoxels.Add(localPos, voxelId);
-                        else jobData.SolidVoxels.Add(localPos, voxelId);
-                    }
+                    jobData.SeeThroughVoxels.Add(localPos);
+                    continue;
                 }
+
+                if (renderDef.IsFoliage)
+                {
+                    jobData.FoliageVoxels.Add(localPos, voxelId);
+                    jobData.SeeThroughVoxels.Add(localPos);
+                    continue;
+                }
+
+                if (renderDef.IsTransparent)
+                {
+                    jobData.TransparentVoxels.Add(localPos, voxelId);
+                    jobData.SeeThroughVoxels.Add(localPos);
+                    continue;
+                }
+
+                jobData.SolidVoxels.Add(localPos, voxelId);
             }
         }
 
@@ -176,7 +272,7 @@ namespace Runtime.Engine.Jobs.Meshing
             int solidIndexes = meshBuffer.SolidIndexBuffer.Length;
             int transparentIndexes = meshBuffer.TransparentIndexBuffer.Length;
             int foliageIndexes = meshBuffer.FoliageIndexBuffer.Length;
-            
+
             mesh.SetIndexBufferParams(solidIndexes + transparentIndexes + foliageIndexes, IndexFormat.UInt32);
             NativeArray<int> indexBuffer = mesh.GetIndexData<int>();
             NativeArray<int>.Copy(meshBuffer.SolidIndexBuffer.AsArray(), 0, indexBuffer, 0, solidIndexes);
@@ -185,10 +281,11 @@ namespace Runtime.Engine.Jobs.Meshing
                 NativeArray<int>.Copy(meshBuffer.TransparentIndexBuffer.AsArray(), 0, indexBuffer, solidIndexes,
                     transparentIndexes);
             }
-            
-            if(foliageIndexes > 1)
+
+            if (foliageIndexes > 1)
             {
-                NativeArray<int>.Copy(meshBuffer.FoliageIndexBuffer.AsArray(), 0, indexBuffer, solidIndexes + transparentIndexes,
+                NativeArray<int>.Copy(meshBuffer.FoliageIndexBuffer.AsArray(), 0, indexBuffer,
+                    solidIndexes + transparentIndexes,
                     foliageIndexes);
             }
 

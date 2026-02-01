@@ -12,7 +12,6 @@ using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Rendering;
-using static Runtime.Engine.Utils.VoxelConstants;
 
 namespace Runtime.Engine.Jobs.Meshing
 {
@@ -34,7 +33,7 @@ namespace Runtime.Engine.Jobs.Meshing
 
         private NativeList<int3> _jobs;
         private ChunkAccessor _chunkAccessor;
-        private NativeParallelHashMap<int3, int> _results;
+        private NativeParallelHashMap<int3, MeshBuildJob.PartitionJobResult> _results;
 
         private Mesh.MeshDataArray _meshDataArray;
         private Mesh.MeshDataArray _colliderMeshDataArray;
@@ -77,8 +76,8 @@ namespace Runtime.Engine.Jobs.Meshing
                 [1] = new VertexAttributeDescriptor(VertexAttribute.Normal)
             };
 
-            _results = new NativeParallelHashMap<int3, int>(settings.Chunk.DrawDistance.SquareSize(),
-                Allocator.Persistent);
+            _results = new NativeParallelHashMap<int3, MeshBuildJob.PartitionJobResult>(
+                settings.Chunk.DrawDistance.SquareSize(), Allocator.Persistent);
             _jobs = new NativeList<int3>(Allocator.Persistent);
         }
 
@@ -139,7 +138,7 @@ namespace Runtime.Engine.Jobs.Meshing
 
             Mesh[] meshes = new Mesh[_jobs.Length];
             Mesh[] colliderMeshes = new Mesh[_jobs.Length];
-            
+
             List<ChunkPartition> changedPartitions = new();
 
             for (int index = 0; index < _jobs.Length; index++)
@@ -149,8 +148,9 @@ namespace Runtime.Engine.Jobs.Meshing
                 _chunkManager.ReMeshedPartition(pos);
                 changedPartitions.Add(partition);
 
-                meshes[_results[pos]] = partition.Mesh;
-                colliderMeshes[_results[pos]] = partition.ColliderMesh;
+                meshes[_results[pos].Index] = partition.Mesh;
+                colliderMeshes[_results[pos].Index] = partition.ColliderMesh;
+                partition.OcclusionData = _results[pos].Occlusion;
             }
 
             Mesh.ApplyAndDisposeWritableMeshData(
@@ -174,7 +174,7 @@ namespace Runtime.Engine.Jobs.Meshing
             {
                 cm.RecalculateBounds();
             }
-            
+
             foreach (ChunkPartition partition in changedPartitions)
             {
                 partition.UpdateRenderStatus();

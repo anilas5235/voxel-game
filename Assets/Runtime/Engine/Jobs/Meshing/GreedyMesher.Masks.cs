@@ -14,12 +14,8 @@ namespace Runtime.Engine.Jobs.Meshing
         /// </summary>
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
         private bool BuildMasks(ref PartitionJobData jobData, ref NativeHashMap<int3, ushort> sortedVoxels, int3 posItr,
-            int3 dirMask, AxisInfo axInfo, out NativeArray<Mask> posNormalMask, out NativeArray<Mask> negNormalMask)
+            int3 dirMask, AxisInfo axInfo, ref NativeArray<Mask> posNormalMask, ref NativeArray<Mask> negNormalMask)
         {
-            int uvGridSize = axInfo.ULimit * axInfo.VLimit;
-            posNormalMask = new NativeArray<Mask>(uvGridSize, Allocator.Temp);
-            negNormalMask = new NativeArray<Mask>(uvGridSize, Allocator.Temp);
-
             int n = 0;
             bool hasSurface = false;
 
@@ -27,12 +23,13 @@ namespace Runtime.Engine.Jobs.Meshing
             {
                 for (posItr[axInfo.UAxis] = 0; posItr[axInfo.UAxis] < axInfo.ULimit; ++posItr[axInfo.UAxis])
                 {
+                    posNormalMask[n] = default;
+                    negNormalMask[n] = default;
+                    
                     int3 pos = posItr + jobData.YOffset;
 
                     if (!sortedVoxels.ContainsKey(pos))
                     {
-                        posNormalMask[n] = default;
-                        negNormalMask[n] = default;
                         n++;
                         continue;
                     }
@@ -48,12 +45,8 @@ namespace Runtime.Engine.Jobs.Meshing
 
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
         private bool BuildColliderMasks(ref PartitionJobData jobData, int3 posItr, int3 dirMask, AxisInfo axInfo,
-            out NativeArray<CMask> posNormalMask, out NativeArray<CMask> negNormalMask)
+            ref NativeArray<CMask> posNormalMask, ref NativeArray<CMask> negNormalMask)
         {
-            int uvGridSize = axInfo.ULimit * axInfo.VLimit;
-            posNormalMask = new NativeArray<CMask>(uvGridSize, Allocator.Temp);
-            negNormalMask = new NativeArray<CMask>(uvGridSize, Allocator.Temp);
-
             int n = 0;
             bool hasCollision = false;
 
@@ -61,12 +54,13 @@ namespace Runtime.Engine.Jobs.Meshing
             {
                 for (posItr[axInfo.UAxis] = 0; posItr[axInfo.UAxis] < axInfo.ULimit; ++posItr[axInfo.UAxis])
                 {
+                    posNormalMask[n] = default;
+                    negNormalMask[n] = default;
+                    
                     int3 pos = posItr + jobData.YOffset;
 
                     if (!jobData.CollisionVoxels.Contains(pos))
                     {
-                        posNormalMask[n] = default;
-                        negNormalMask[n] = default;
                         n++;
                         continue;
                     }
@@ -115,7 +109,6 @@ namespace Runtime.Engine.Jobs.Meshing
 
             if (ShouldSkipFace(currentDef, neighborDef))
             {
-                nMask[n] = default;
                 return false;
             }
 

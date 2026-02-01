@@ -35,7 +35,8 @@ namespace Runtime.Engine.Jobs.Meshing
             SliceMeshBuild(ref jobData, ref map, true);
         }
 
-        private void SliceMeshBuild(ref PartitionJobData jobData, ref NativeHashMap<int3, ushort> sortedVoxels, bool collider = false)
+        private void SliceMeshBuild(ref PartitionJobData jobData, ref NativeHashMap<int3, ushort> sortedVoxels,
+            bool collider = false)
         {
             // Sweep along each principal axis (X, Y, Z)
             for (int mainAxis = 0; mainAxis < 3; mainAxis++)
@@ -58,29 +59,31 @@ namespace Runtime.Engine.Jobs.Meshing
 
                 int3 directionMask = int3.zero;
                 directionMask[mainAxis] = 1;
-                
-                if(collider)
+
+                if (collider)
                 {
                     BuildColliderSlice(ref jobData, pos, mainAxis, mainAxisLimit, directionMask, axisInfo);
                 }
                 else
                 {
-                    BuildRenderSlice(ref jobData, ref sortedVoxels, pos, mainAxis, mainAxisLimit, directionMask, axisInfo);
+                    BuildRenderSlice(ref jobData, ref sortedVoxels, pos, mainAxis, mainAxisLimit, directionMask,
+                        axisInfo);
                 }
             }
         }
 
-        private void BuildRenderSlice(ref PartitionJobData jobData, ref NativeHashMap<int3, ushort> sortedVoxels, int3 pos, int mainAxis,
-            int mainAxisLimit, int3 directionMask, AxisInfo axisInfo)
+        private void BuildRenderSlice(ref PartitionJobData jobData, ref NativeHashMap<int3, ushort> sortedVoxels,
+            int3 pos, int mainAxis, int mainAxisLimit, int3 directionMask, AxisInfo axisInfo)
         {
             // Temporary mask buffer for the current slice (U x V)
-            NativeArray<Mask> posNormalMask = default;
-            NativeArray<Mask> negNormalMask = default;
+            int uvGridSize = axisInfo.ULimit * axisInfo.VLimit;
+            NativeArray<Mask> posNormalMask = new(uvGridSize, Allocator.Temp);
+            NativeArray<Mask> negNormalMask = new(uvGridSize, Allocator.Temp);
 
             for (pos[mainAxis] = 0; pos[mainAxis] < mainAxisLimit;)
             {
                 bool info = BuildMasks(ref jobData, ref sortedVoxels, pos, directionMask, axisInfo,
-                    out posNormalMask, out negNormalMask);
+                    ref posNormalMask, ref negNormalMask);
 
                 // Move to the actual slice index we just built the mask for
                 ++pos[mainAxis];
@@ -99,13 +102,14 @@ namespace Runtime.Engine.Jobs.Meshing
             int3 directionMask, AxisInfo axisInfo)
         {
             // Temporary mask buffer for the current slice (U x V)
-            NativeArray<CMask> posColMask = default;
-            NativeArray<CMask> negColMask = default;
+            int uvGridSize = axisInfo.ULimit * axisInfo.VLimit;
+            NativeArray<CMask> posColMask = new(uvGridSize, Allocator.Temp);
+            NativeArray<CMask> negColMask = new(uvGridSize, Allocator.Temp);
 
             for (pos[mainAxis] = 0; pos[mainAxis] < mainAxisLimit;)
             {
-                bool info = BuildColliderMasks(ref jobData, pos, directionMask, axisInfo, out posColMask,
-                    out negColMask);
+                bool info = BuildColliderMasks(ref jobData, pos, directionMask, axisInfo, ref posColMask,
+                    ref negColMask);
 
                 // Move to the actual slice index we just built the mask for
                 ++pos[mainAxis];
@@ -244,7 +248,8 @@ namespace Runtime.Engine.Jobs.Meshing
                         pos[axInfo.VAxis] = v;
 
                         int quadWidth = FindColQuadWidth(colliderMask, maskIndex, current, u, axInfo.ULimit);
-                        int quadHeight = FindColQuadHeight(colliderMask, maskIndex, current, axInfo.ULimit, axInfo.VLimit,
+                        int quadHeight = FindColQuadHeight(colliderMask, maskIndex, current, axInfo.ULimit,
+                            axInfo.VLimit,
                             quadWidth, v);
 
                         uDelta[axInfo.UAxis] = quadWidth;
