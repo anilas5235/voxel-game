@@ -168,7 +168,6 @@ namespace Runtime.Engine.Jobs.Meshing
             foreach (int3 voxel in seeThroughVoxels)
             {
                 // Try to mark seed voxel as visited; if it was already visited skip it
-                if (!checkedVoxels.Add(voxel)) continue;
                 connectedDirections.Clear();
 
                 voxelQueue.Enqueue(voxel);
@@ -193,15 +192,26 @@ namespace Runtime.Engine.Jobs.Meshing
                             voxelQueue.Enqueue(neighborPos);
                         }
                     }
+
+                    if (connectedDirections.Count < 6) continue;
+                    // All directions are already connected, no need to continue
+                    partitionOcclusionData.SetAll(true);
+                    DisposeNativeCollections();
+                    return;
                 }
 
                 partitionOcclusionData.SetFaceConnected(connectedDirections);
             }
 
-            voxelNeighborOffsets.Dispose();
-            checkedVoxels.Dispose();
-            voxelQueue.Dispose();
-            connectedDirections.Dispose();
+            DisposeNativeCollections();
+            return;
+            void DisposeNativeCollections()
+            {
+                voxelNeighborOffsets.Dispose();
+                checkedVoxels.Dispose();
+                voxelQueue.Dispose();
+                connectedDirections.Dispose();
+            }
         }
 
         private void SortVoxels(ref PartitionJobData jobData)
