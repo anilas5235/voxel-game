@@ -9,31 +9,31 @@ namespace Runtime.Engine.Utils.Extensions
 {
     /// <summary>
     /// Burst-kompatible mathematische Erweiterungen für int / int2 / int3 sowie bool3 und Vektor-Konvertierungen.
-    /// Fokus auf Flatten/Größenoperationen für Chunk- und Voxelberechnung.
+    /// Fokus auf Flatten/Größenoperationen für Chunk- und Voxel-Berechnung.
     /// </summary>
     [GenerateTestsForBurstCompatibility]
     public static class BurstMathExtensions
     {
         /// <summary>
-        /// Liefert (2*r+1)^3 – Anzahl Zellen in einem kubischen Bereich mit Radius r.
+        /// Liefert (2·r+1)^3 – Anzahl Zellen in einem kubischen Bereich mit Radius r.
         /// </summary>
         [BurstCompile]
         public static int CubedSize(this int r) => (2 * r + 1) * (2 * r + 1) * (2 * r + 1);
 
         /// <summary>
-        /// Liefert (2*r+1)^2 – Anzahl Zellen in einem quadratischen Bereich mit Radius r.
+        /// Liefert (2·r+1)^2 – Anzahl Zellen in einem quadratischen Bereich mit Radius r.
         /// </summary>
         [BurstCompile]
         public static int SquareSize(this int r) => (2 * r + 1) * (2 * r + 1);
 
         /// <summary>
-        /// Liefert (2*r.x+1)*(2*r.y+1)*(2*r.z+1) für anisotropen Radius.
+        /// Liefert (2·r.x+1)·(2·r.y+1)·(2·r.z+1) für anisotropen Radius.
         /// </summary>
         [BurstCompile]
         public static int CubedSize(this int3 r) => (2 * r.x + 1) * (2 * r.y + 1) * (2 * r.z + 1);
 
         /// <summary>
-        /// Flacht 2D Koordinaten (x,y) auf eindimensionalen Index basierend auf Größe (vec.x, vec.y) ab.
+        /// Flacht 2D Koordinaten (x, y) auf eindimensionalen Index basierend auf Größe (vec.x, vec.y) ab.
         /// </summary>
         [BurstCompile]
         public static int Flatten(this int2 vec, int x, int y) =>
@@ -41,7 +41,7 @@ namespace Runtime.Engine.Utils.Extensions
             y;
 
         /// <summary>
-        /// Flacht 3D Koordinaten (x,y,z) auf eindimensionalen Index ab (x*Y*Z + z*Y + y).
+        /// Flacht 3D Koordinaten (x, y, z) auf eindimensionalen Index ab (x·Y·Z + z·Y + y).
         /// </summary>
         [BurstCompile]
         public static int Flatten(this int3 vec, int x, int y, int z) =>
@@ -65,10 +65,10 @@ namespace Runtime.Engine.Utils.Extensions
         /// Reduziert bool3 mit AND Verknüpfung.
         /// </summary>
         [BurstCompile]
-        public static bool AndReduce(this bool3 val) => val.x && val.y && val.z;
+        public static bool AndReduce(this bool3 val) => val is { x: true, y: true, z: true };
 
         /// <summary>
-        /// Volumen eines int3 (x*y*z).
+        /// Volumen eines int3 (x·y·z).
         /// </summary>
         [BurstCompile]
         public static int Size(this int3 vec) => vec.x * vec.y * vec.z;
