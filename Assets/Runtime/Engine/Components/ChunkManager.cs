@@ -237,8 +237,6 @@ namespace Runtime.Engine.Components
                     _reMeshPartitions.Add(pCoords + new int3(0, 1, 0));
                     break;
             }
-
-            Debug.Log($"Block local {localPos} changed; Flagged partitions for remesh: {string.Join(", ", _reMeshPartitions)}");
         }
     }
 }
