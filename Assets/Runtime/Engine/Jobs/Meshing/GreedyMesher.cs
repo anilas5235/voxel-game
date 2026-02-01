@@ -31,51 +31,11 @@ namespace Runtime.Engine.Jobs.Meshing
         {
             if (jobData.HasNoCollision) return;
             // Sweep along each principal axis (X, Y, Z)
-            for (int mainAxis = 0; mainAxis < 3; mainAxis++)
-            {
-                // Define orthogonal axes for the 2D slice (U and V plane)
-                int uAxis = (mainAxis + 1) % 3;
-                int vAxis = (mainAxis + 2) % 3;
-
-                int mainAxisLimit = PartitionSize[mainAxis];
-
-                AxisInfo axisInfo = new()
-                {
-                    UAxis = uAxis,
-                    VAxis = vAxis,
-                    ULimit = PartitionSize[uAxis],
-                    VLimit = PartitionSize[vAxis]
-                };
-
-                int3 pos = int3.zero;
-
-                int3 directionMask = int3.zero;
-                directionMask[mainAxis] = 1;
-
-                // Temporary mask buffer for the current slice (U x V)
-                NativeArray<CMask> posColMask = default;
-                NativeArray<CMask> negColMask = default;
-
-                for (pos[mainAxis] = 0; pos[mainAxis] < mainAxisLimit;)
-                {
-                    bool info = BuildColliderMasks(ref jobData, pos, directionMask, axisInfo, out posColMask,
-                        out negColMask);
-
-                    // Move to the actual slice index we just built the mask for
-                    ++pos[mainAxis];
-
-                    if (!info) continue;
-
-                    BuildColliderQuads(ref jobData, axisInfo, pos, posColMask, directionMask);
-                    BuildColliderQuads(ref jobData, axisInfo, pos - directionMask, negColMask, -directionMask);
-                }
-
-                posColMask.Dispose();
-                negColMask.Dispose();
-            }
+            NativeHashMap<int3, ushort> map = default;
+            SliceMeshBuild(ref jobData, ref map, true);
         }
 
-        private void SliceMeshBuild(ref PartitionJobData jobData, ref NativeHashMap<int3, ushort> sortedVoxels)
+        private void SliceMeshBuild(ref PartitionJobData jobData, ref NativeHashMap<int3, ushort> sortedVoxels, bool collider = false)
         {
             // Sweep along each principal axis (X, Y, Z)
             for (int mainAxis = 0; mainAxis < 3; mainAxis++)
@@ -98,28 +58,66 @@ namespace Runtime.Engine.Jobs.Meshing
 
                 int3 directionMask = int3.zero;
                 directionMask[mainAxis] = 1;
-
-                // Temporary mask buffer for the current slice (U x V)
-                NativeArray<Mask> posNormalMask = default;
-                NativeArray<Mask> negNormalMask = default;
-
-                for (pos[mainAxis] = 0; pos[mainAxis] < mainAxisLimit;)
+                
+                if(collider)
                 {
-                    bool info = BuildMasks(ref jobData, ref sortedVoxels, pos, directionMask, axisInfo,
-                        out posNormalMask, out negNormalMask);
-
-                    // Move to the actual slice index we just built the mask for
-                    ++pos[mainAxis];
-
-                    if (!info) continue;
-
-                    BuildSurfaceQuads(ref jobData, axisInfo, pos, posNormalMask, directionMask);
-                    BuildSurfaceQuads(ref jobData, axisInfo, pos - directionMask, negNormalMask, -directionMask);
+                    BuildColliderSlice(ref jobData, pos, mainAxis, mainAxisLimit, directionMask, axisInfo);
                 }
-
-                posNormalMask.Dispose();
-                negNormalMask.Dispose();
+                else
+                {
+                    BuildRenderSlice(ref jobData, ref sortedVoxels, pos, mainAxis, mainAxisLimit, directionMask, axisInfo);
+                }
             }
+        }
+
+        private void BuildRenderSlice(ref PartitionJobData jobData, ref NativeHashMap<int3, ushort> sortedVoxels, int3 pos, int mainAxis,
+            int mainAxisLimit, int3 directionMask, AxisInfo axisInfo)
+        {
+            // Temporary mask buffer for the current slice (U x V)
+            NativeArray<Mask> posNormalMask = default;
+            NativeArray<Mask> negNormalMask = default;
+
+            for (pos[mainAxis] = 0; pos[mainAxis] < mainAxisLimit;)
+            {
+                bool info = BuildMasks(ref jobData, ref sortedVoxels, pos, directionMask, axisInfo,
+                    out posNormalMask, out negNormalMask);
+
+                // Move to the actual slice index we just built the mask for
+                ++pos[mainAxis];
+
+                if (!info) continue;
+
+                BuildSurfaceQuads(ref jobData, axisInfo, pos, posNormalMask, directionMask);
+                BuildSurfaceQuads(ref jobData, axisInfo, pos - directionMask, negNormalMask, -directionMask);
+            }
+
+            posNormalMask.Dispose();
+            negNormalMask.Dispose();
+        }
+
+        private void BuildColliderSlice(ref PartitionJobData jobData, int3 pos, int mainAxis, int mainAxisLimit,
+            int3 directionMask, AxisInfo axisInfo)
+        {
+            // Temporary mask buffer for the current slice (U x V)
+            NativeArray<CMask> posColMask = default;
+            NativeArray<CMask> negColMask = default;
+
+            for (pos[mainAxis] = 0; pos[mainAxis] < mainAxisLimit;)
+            {
+                bool info = BuildColliderMasks(ref jobData, pos, directionMask, axisInfo, out posColMask,
+                    out negColMask);
+
+                // Move to the actual slice index we just built the mask for
+                ++pos[mainAxis];
+
+                if (!info) continue;
+
+                BuildColliderQuads(ref jobData, axisInfo, pos, posColMask, directionMask);
+                BuildColliderQuads(ref jobData, axisInfo, pos - directionMask, negColMask, -directionMask);
+            }
+
+            posColMask.Dispose();
+            negColMask.Dispose();
         }
 
         /// <summary>
