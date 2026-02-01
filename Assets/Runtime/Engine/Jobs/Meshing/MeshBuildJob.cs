@@ -66,8 +66,9 @@ namespace Runtime.Engine.Jobs.Meshing
                 {
                     VertexBuffer = new NativeList<Vertex>(VoxelCount4, Allocator.Temp),
                     CVertexBuffer = new NativeList<CVertex>(VoxelCount4, Allocator.Temp),
-                    IndexBuffer0 = new NativeList<int>(VoxelCount6, Allocator.Temp),
-                    IndexBuffer1 = new NativeList<int>(VoxelCount6, Allocator.Temp),
+                    SolidIndexBuffer = new NativeList<int>(VoxelCount6, Allocator.Temp),
+                    TransparentIndexBuffer = new NativeList<int>(VoxelCount6, Allocator.Temp),
+                    FoliageIndexBuffer = new NativeList<int>(VoxelCount6, Allocator.Temp),
                     CIndexBuffer = new NativeList<int>(VoxelCount6, Allocator.Temp)
                 };
 
@@ -107,7 +108,7 @@ namespace Runtime.Engine.Jobs.Meshing
 
             ConstructTransparent(ref jobData);
 
-            //ConstructFoliage(ref jobData);
+            ConstructFoliage(ref jobData);
 
             //ConstructCollision(ref jobData);
 
@@ -176,19 +177,33 @@ namespace Runtime.Engine.Jobs.Meshing
             mesh.SetVertexBufferParams(vertexCount, VertexParams);
             mesh.GetVertexData<Vertex>().CopyFrom(meshBuffer.VertexBuffer.AsArray());
 
-            int index0Count = meshBuffer.IndexBuffer0.Length;
-            int index1Count = meshBuffer.IndexBuffer1.Length;
-            mesh.SetIndexBufferParams(index0Count + index1Count, IndexFormat.UInt32);
+            int solidIndexes = meshBuffer.SolidIndexBuffer.Length;
+            int transparentIndexes = meshBuffer.TransparentIndexBuffer.Length;
+            int foliageIndexes = meshBuffer.FoliageIndexBuffer.Length;
+            
+            mesh.SetIndexBufferParams(solidIndexes + transparentIndexes + foliageIndexes, IndexFormat.UInt32);
             NativeArray<int> indexBuffer = mesh.GetIndexData<int>();
-            NativeArray<int>.Copy(meshBuffer.IndexBuffer0.AsArray(), 0, indexBuffer, 0, index0Count);
-            if (index1Count > 1)
-                NativeArray<int>.Copy(meshBuffer.IndexBuffer1.AsArray(), 0, indexBuffer, index0Count, index1Count);
-            mesh.subMeshCount = 2;
-            SubMeshDescriptor descriptor0 = new(0, index0Count);
-            SubMeshDescriptor descriptor1 = new(index0Count, index1Count);
+            NativeArray<int>.Copy(meshBuffer.SolidIndexBuffer.AsArray(), 0, indexBuffer, 0, solidIndexes);
+            if (transparentIndexes > 1)
+            {
+                NativeArray<int>.Copy(meshBuffer.TransparentIndexBuffer.AsArray(), 0, indexBuffer, solidIndexes,
+                    transparentIndexes);
+            }
+            
+            if(foliageIndexes > 1)
+            {
+                NativeArray<int>.Copy(meshBuffer.FoliageIndexBuffer.AsArray(), 0, indexBuffer, solidIndexes + transparentIndexes,
+                    foliageIndexes);
+            }
+
+            mesh.subMeshCount = 3;
+            SubMeshDescriptor descriptor0 = new(0, solidIndexes);
+            SubMeshDescriptor descriptor1 = new(solidIndexes, transparentIndexes);
+            SubMeshDescriptor descriptor2 = new(solidIndexes + transparentIndexes, foliageIndexes);
 
             mesh.SetSubMesh(0, descriptor0, MeshFlags);
             mesh.SetSubMesh(1, descriptor1, MeshFlags);
+            mesh.SetSubMesh(2, descriptor2, MeshFlags);
         }
     }
 }

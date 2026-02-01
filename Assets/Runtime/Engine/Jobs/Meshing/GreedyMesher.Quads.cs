@@ -60,7 +60,7 @@ namespace Runtime.Engine.Jobs.Meshing
             float4 ao = mask.AO;
             AddVertices(jobData.MeshBuffer, in verts, n, in uv, uv1, ao);
 
-            AddQuadIndices(jobData.MeshBuffer.IndexBuffer0, jobData.RenderVertexCount, mask.Normal, mask.AO);
+            AddQuadIndices(jobData.MeshBuffer.SolidIndexBuffer, jobData.RenderVertexCount, mask.Normal, mask.AO);
             jobData.RenderVertexCount += 4;
         }
 
@@ -105,7 +105,7 @@ namespace Runtime.Engine.Jobs.Meshing
             float4 ao = mask.AO;
             AddVertices(jobData.MeshBuffer, in mutableVerts, n, in uv, uv1, ao);
 
-            AddQuadIndices(jobData.MeshBuffer.IndexBuffer1, jobData.RenderVertexCount, mask.Normal, mask.AO);
+            AddQuadIndices(jobData.MeshBuffer.TransparentIndexBuffer, jobData.RenderVertexCount, mask.Normal, mask.AO);
             jobData.RenderVertexCount += 4;
         }
 
@@ -119,7 +119,7 @@ namespace Runtime.Engine.Jobs.Meshing
             float4 uv1 = new(texIndex, -1, 0, 0);
             AddVertices(jobData.MeshBuffer, in verts, normal, in uv, uv1, ao);
 
-            NativeList<int> indexBuffer = jobData.MeshBuffer.IndexBuffer1;
+            NativeList<int> indexBuffer = jobData.MeshBuffer.FoliageIndexBuffer;
             EnsureCapacity(indexBuffer, 6);
 
             int vCount = jobData.RenderVertexCount;

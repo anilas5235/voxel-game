@@ -55,8 +55,9 @@ namespace Runtime.Engine.Jobs.Meshing
     internal struct MeshBuffer
     {
         public NativeList<Vertex> VertexBuffer;
-        public NativeList<int> IndexBuffer0;
-        public NativeList<int> IndexBuffer1;
+        public NativeList<int> SolidIndexBuffer;
+        public NativeList<int> TransparentIndexBuffer;
+        public NativeList<int> FoliageIndexBuffer;
         
         public NativeList<CVertex> CVertexBuffer;
         public NativeList<int> CIndexBuffer;
@@ -67,8 +68,9 @@ namespace Runtime.Engine.Jobs.Meshing
         internal void Dispose()
         {
             VertexBuffer.Dispose();
-            IndexBuffer0.Dispose();
-            IndexBuffer1.Dispose();
+            SolidIndexBuffer.Dispose();
+            TransparentIndexBuffer.Dispose();
+            FoliageIndexBuffer.Dispose();
             CVertexBuffer.Dispose();
             CIndexBuffer.Dispose();
         }
