@@ -15,9 +15,11 @@ namespace Runtime.Engine.Jobs.Meshing
         /// </summary>
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
         private bool BuildMasks(ref PartitionJobData jobData, int3 posItr, int3 directionMask, AxisInfo axInfo,
-            out NativeArray<Mask> normalMask, bool posNormal)
+            out NativeArray<Mask> posNormalMask, out NativeArray<Mask> negNormalMask)
         {
-            normalMask = new NativeArray<Mask>(axInfo.ULimit * axInfo.VLimit, Allocator.Temp);
+            int uvGridSize = axInfo.ULimit * axInfo.VLimit;
+            posNormalMask = new NativeArray<Mask>(uvGridSize, Allocator.Temp);
+            negNormalMask = new NativeArray<Mask>(uvGridSize, Allocator.Temp);
 
             int n = 0;
             bool hasSurface = false;
@@ -30,34 +32,46 @@ namespace Runtime.Engine.Jobs.Meshing
 
                     if (!jobData.SolidVoxels.ContainsKey(currentCoord))
                     {
-                        normalMask[n] = default;
+                        posNormalMask[n] = default;
+                        negNormalMask[n] = default;
                         n++;
                         continue;
                     }
 
-                    int3 neighborCoord = currentCoord + directionMask;
+                    hasSurface |= TryAddMask(jobData, directionMask, axInfo, currentCoord, n, posNormalMask, true);
+                    hasSurface |= TryAddMask(jobData, directionMask, axInfo, currentCoord, n, negNormalMask, false);
 
-                    ushort currentVoxel = jobData.SolidVoxels[currentCoord];
-                    ushort neighborVoxel = Accessor.GetVoxelInChunk(jobData.ChunkPos, neighborCoord);
-
-                    VoxelRenderDef neighborDef = RenderGenData.GetRenderDef(neighborVoxel);
-                    VoxelRenderDef currentDef = RenderGenData.GetRenderDef(currentVoxel);
-
-                    MeshLayer currentLayer = currentDef.MeshLayer;
-                    MeshLayer neighborLayer = neighborDef.MeshLayer;
-
-                    if (!currentDef.AlwaysRenderAllFaces && currentLayer == neighborLayer)
-                    {
-                        normalMask[n] = default;
-                    }
-                    else
-                    {
-                        int4 ao = ComputeAOMask(neighborCoord, jobData.ChunkPos, axInfo);
-                        normalMask[n] = new Mask(currentVoxel, currentLayer, posNormal ? (sbyte)1 : (sbyte)-1, ao);
-                        hasSurface = true;
-                    }
                     n++;
                 }
+            }
+
+            return hasSurface;
+        }
+
+        private bool TryAddMask(PartitionJobData jobData, int3 directionMask, AxisInfo axInfo, int3 currentCoord, int n,
+            NativeArray<Mask> normalMask,  bool posNormal)
+        {
+            int3 neighborCoord = currentCoord + directionMask * (posNormal ? 1 : -1);
+
+            ushort currentVoxel = jobData.SolidVoxels[currentCoord];
+            ushort neighborVoxel = Accessor.GetVoxelInChunk(jobData.ChunkPos, neighborCoord);
+
+            VoxelRenderDef neighborDef = RenderGenData.GetRenderDef(neighborVoxel);
+            VoxelRenderDef currentDef = RenderGenData.GetRenderDef(currentVoxel);
+
+            MeshLayer currentLayer = currentDef.MeshLayer;
+            MeshLayer neighborLayer = neighborDef.MeshLayer;
+
+            bool hasSurface = false;
+            if (!currentDef.AlwaysRenderAllFaces && currentLayer == neighborLayer)
+            {
+                normalMask[n] = default;
+            }
+            else
+            {
+                int4 ao = ComputeAOMask(neighborCoord, jobData.ChunkPos, axInfo);
+                normalMask[n] = new Mask(currentVoxel, currentLayer, posNormal ? (sbyte)1 : (sbyte)-1, ao);
+                hasSurface = true;
             }
 
             return hasSurface;

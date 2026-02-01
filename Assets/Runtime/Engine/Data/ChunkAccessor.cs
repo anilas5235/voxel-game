@@ -27,21 +27,31 @@ namespace Runtime.Engine.Data
         /// </summary>
         internal ushort GetVoxelInChunk(int2 chunkPos, int3 voxelPos)
         {
-            if (voxelPos.y >= ChunkHeight || voxelPos.y < 0) return 0;
+            if (voxelPos.y is >= ChunkHeight or < 0) return 0;
             int2 chunkOffset = int2.zero;
-
-            if (!(voxelPos.x >= 0 && voxelPos.x < ChunkWidth))
-            {
-                chunkOffset.x = voxelPos.x / ChunkWidth;
-                voxelPos.x %= ChunkWidth;
-                if (voxelPos.x < 0) voxelPos.x += ChunkWidth;
-            }
             
-            if (!(voxelPos.z >= 0 && voxelPos.z < ChunkDepth))
+            switch (voxelPos.x)
             {
-                chunkOffset.y = voxelPos.z / ChunkDepth;
-                voxelPos.z %= ChunkDepth;
-                if (voxelPos.z < 0) voxelPos.z += ChunkDepth;
+                case >= ChunkWidth:
+                    chunkOffset.x = voxelPos.x / ChunkWidth;
+                    voxelPos.x %= ChunkWidth;
+                    break;
+                case < 0:
+                    chunkOffset.x = (voxelPos.x - ChunkWidth + 1) / ChunkWidth;
+                    voxelPos.x = (voxelPos.x % ChunkWidth + ChunkWidth) % ChunkWidth;
+                    break;
+            }
+
+            switch (voxelPos.z)
+            {
+                case >= ChunkDepth:
+                    chunkOffset.y = voxelPos.z / ChunkDepth;
+                    voxelPos.z %= ChunkDepth;
+                    break;
+                case < 0:
+                    chunkOffset.y = (voxelPos.z - ChunkDepth + 1) / ChunkDepth;
+                    voxelPos.z = (voxelPos.z % ChunkDepth + ChunkDepth) % ChunkDepth;
+                    break;
             }
 
             return TryGetChunk(chunkPos + chunkOffset, out Chunk chunk) ? chunk.GetVoxel(voxelPos) : (ushort)0;

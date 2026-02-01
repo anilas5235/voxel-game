@@ -151,38 +151,33 @@ namespace Runtime.Engine.Jobs.Meshing
                     VLimit = PartitionSize[vAxis]
                 };
 
-                BuildMasksAndQuads(ref jobData, mainAxis, mainAxisLimit, axisInfo, true);
-                BuildMasksAndQuads(ref jobData, mainAxis, mainAxisLimit, axisInfo, false);
+                int3 pos = int3.zero;
+
+                int3 directionMask = int3.zero;
+                directionMask[mainAxis] = 1;
+
+                // Temporary mask buffer for the current slice (U x V)
+                NativeArray<Mask> posNormalMask = default;
+                NativeArray<Mask> negNormalMask = default;
+
+                for (pos[mainAxis] = 0; pos[mainAxis] < mainAxisLimit;)
+                {
+                    bool info = BuildMasks(ref jobData, pos, directionMask, axisInfo, out posNormalMask, out negNormalMask);
+
+                    // Move to the actual slice index we just built the mask for
+                    ++pos[mainAxis];
+
+                    if (!info) continue;
+
+                    BuildSurfaceQuads(ref jobData, axisInfo, pos, posNormalMask, directionMask);
+                    BuildSurfaceQuads(ref jobData, axisInfo, pos-directionMask, negNormalMask, -directionMask);
+                }
+
+                posNormalMask.Dispose();
+                negNormalMask.Dispose();
             }
         }
 
-        private void BuildMasksAndQuads(ref PartitionJobData jobData, int mainAxis, int mainAxisLimit,
-            AxisInfo axisInfo, bool positive)
-        {
-            int3 pos = int3.zero;
-
-            int3 directionMask = int3.zero;
-            directionMask[mainAxis] = positive ? 1 : -1;
-
-            // Temporary mask buffer for the current slice (U x V)
-            NativeArray<Mask> normalMask = default;
-
-            for (pos[mainAxis] = 0; pos[mainAxis] < mainAxisLimit;)
-            {
-                // Build both masks in a single pass to minimize voxel/def lookups
-                bool info = BuildMasks(ref jobData, pos, directionMask, axisInfo, out normalMask, positive);
-
-                // Move to the actual slice index we just built the mask for
-                ++pos[mainAxis];
-
-                if (!info) continue;
-                
-                var p = positive ? pos: pos + directionMask;
-                BuildSurfaceQuads(ref jobData, axisInfo, p, normalMask, directionMask);
-            }
-
-            normalMask.Dispose();
-        }
 
         private void SortVoxels(ref PartitionJobData jobData)
         {
