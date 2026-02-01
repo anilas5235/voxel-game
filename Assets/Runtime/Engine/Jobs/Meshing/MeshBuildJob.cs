@@ -105,7 +105,7 @@ namespace Runtime.Engine.Jobs.Meshing
 
             ConstructSolid(ref jobData);
 
-            //ConstructTransparent(ref jobData);
+            ConstructTransparent(ref jobData);
 
             //ConstructFoliage(ref jobData);
 
@@ -123,61 +123,6 @@ namespace Runtime.Engine.Jobs.Meshing
         private void ConstructCollision(ref PartitionJobData jobData)
         {
         }
-
-        private void ConstructTransparent(ref PartitionJobData jobData)
-        {
-        }
-
-        private void ConstructSolid(ref PartitionJobData jobData)
-        {
-            if (jobData.HasNoSolid) return;
-
-            // Sweep along each principal axis (X, Y, Z)
-            for (int mainAxis = 0; mainAxis < 3; mainAxis++)
-            {
-                // Define orthogonal axes for the 2D slice (U and V plane)
-                int uAxis = (mainAxis + 1) % 3;
-                int vAxis = (mainAxis + 2) % 3;
-
-                // We only generate faces for slices starting inside the chunk (0…size-1)
-                // so that negative-side faces are owned by the neighboring chunk.
-                int mainAxisLimit = PartitionSize[mainAxis];
-
-                AxisInfo axisInfo = new()
-                {
-                    UAxis = uAxis,
-                    VAxis = vAxis,
-                    ULimit = PartitionSize[uAxis],
-                    VLimit = PartitionSize[vAxis]
-                };
-
-                int3 pos = int3.zero;
-
-                int3 directionMask = int3.zero;
-                directionMask[mainAxis] = 1;
-
-                // Temporary mask buffer for the current slice (U x V)
-                NativeArray<Mask> posNormalMask = default;
-                NativeArray<Mask> negNormalMask = default;
-
-                for (pos[mainAxis] = 0; pos[mainAxis] < mainAxisLimit;)
-                {
-                    bool info = BuildMasks(ref jobData, pos, directionMask, axisInfo, out posNormalMask, out negNormalMask);
-
-                    // Move to the actual slice index we just built the mask for
-                    ++pos[mainAxis];
-
-                    if (!info) continue;
-
-                    BuildSurfaceQuads(ref jobData, axisInfo, pos, posNormalMask, directionMask);
-                    BuildSurfaceQuads(ref jobData, axisInfo, pos-directionMask, negNormalMask, -directionMask);
-                }
-
-                posNormalMask.Dispose();
-                negNormalMask.Dispose();
-            }
-        }
-
 
         private void SortVoxels(ref PartitionJobData jobData)
         {

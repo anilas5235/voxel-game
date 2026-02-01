@@ -14,8 +14,8 @@ namespace Runtime.Engine.Jobs.Meshing
         /// Builds surface & collider masks for the current slice.
         /// </summary>
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
-        private bool BuildMasks(ref PartitionJobData jobData, int3 posItr, int3 directionMask, AxisInfo axInfo,
-            out NativeArray<Mask> posNormalMask, out NativeArray<Mask> negNormalMask)
+        private bool BuildMasks(ref PartitionJobData jobData, ref NativeHashMap<int3, ushort> sortedVoxels, int3 posItr,
+            int3 dirMask, AxisInfo axInfo, out NativeArray<Mask> posNormalMask, out NativeArray<Mask> negNormalMask)
         {
             int uvGridSize = axInfo.ULimit * axInfo.VLimit;
             posNormalMask = new NativeArray<Mask>(uvGridSize, Allocator.Temp);
@@ -28,9 +28,9 @@ namespace Runtime.Engine.Jobs.Meshing
             {
                 for (posItr[axInfo.UAxis] = 0; posItr[axInfo.UAxis] < axInfo.ULimit; ++posItr[axInfo.UAxis])
                 {
-                    int3 currentCoord = posItr + jobData.YOffset;
+                    int3 pos = posItr + jobData.YOffset;
 
-                    if (!jobData.SolidVoxels.ContainsKey(currentCoord))
+                    if (!sortedVoxels.ContainsKey(pos))
                     {
                         posNormalMask[n] = default;
                         negNormalMask[n] = default;
@@ -38,9 +38,8 @@ namespace Runtime.Engine.Jobs.Meshing
                         continue;
                     }
 
-                    hasSurface |= TryAddMask(jobData, directionMask, axInfo, currentCoord, n, posNormalMask, true);
-                    hasSurface |= TryAddMask(jobData, directionMask, axInfo, currentCoord, n, negNormalMask, false);
-
+                    hasSurface |= TryAddMask(jobData, dirMask, axInfo, pos, n, posNormalMask, true, ref sortedVoxels);
+                    hasSurface |= TryAddMask(jobData, dirMask, axInfo, pos, n, negNormalMask, false, ref sortedVoxels);
                     n++;
                 }
             }
@@ -48,12 +47,12 @@ namespace Runtime.Engine.Jobs.Meshing
             return hasSurface;
         }
 
-        private bool TryAddMask(PartitionJobData jobData, int3 directionMask, AxisInfo axInfo, int3 currentCoord, int n,
-            NativeArray<Mask> normalMask,  bool posNormal)
+        private bool TryAddMask(PartitionJobData jobData, int3 dirMask, AxisInfo axInfo, int3 pos, int n,
+            NativeArray<Mask> nMask, bool posNormal, ref NativeHashMap<int3, ushort> sortedVoxels)
         {
-            int3 neighborCoord = currentCoord + directionMask * (posNormal ? 1 : -1);
+            int3 neighborCoord = pos + dirMask * (posNormal ? 1 : -1);
 
-            ushort currentVoxel = jobData.SolidVoxels[currentCoord];
+            ushort currentVoxel = sortedVoxels[pos];
             ushort neighborVoxel = Accessor.GetVoxelInChunk(jobData.ChunkPos, neighborCoord);
 
             VoxelRenderDef neighborDef = RenderGenData.GetRenderDef(neighborVoxel);
@@ -62,33 +61,23 @@ namespace Runtime.Engine.Jobs.Meshing
             MeshLayer currentLayer = currentDef.MeshLayer;
             MeshLayer neighborLayer = neighborDef.MeshLayer;
 
-            bool hasSurface = false;
-            if (!currentDef.AlwaysRenderAllFaces && currentLayer == neighborLayer)
+            if (ShouldSkipFace(currentDef, neighborDef))
             {
-                normalMask[n] = default;
-            }
-            else
-            {
-                int4 ao = ComputeAOMask(neighborCoord, jobData.ChunkPos, axInfo);
-                normalMask[n] = new Mask(currentVoxel, currentLayer, posNormal ? (sbyte)1 : (sbyte)-1, ao);
-                hasSurface = true;
+                nMask[n] = default;
+                return false;
             }
 
-            return hasSurface;
+            sbyte top = ComputeTopVoxelOfType(pos, currentVoxel, ref jobData);
+            int4 ao = ComputeAOMask(neighborCoord, jobData.ChunkPos, axInfo);
+            nMask[n] = new Mask(currentVoxel, currentLayer, posNormal ? (sbyte)1 : (sbyte)-1, ao, top);
+            return true;
         }
 
         [BurstCompile]
         private bool ShouldSkipFace(VoxelRenderDef currentDef, VoxelRenderDef neighborDef)
         {
-            return !currentDef.AlwaysRenderAllFaces &&
-                   currentDef.MeshLayer == neighborDef.MeshLayer &&
-                   neighborDef.VoxelType != VoxelType.Flora;
-        }
-
-        [BurstCompile]
-        private bool IsCurrentOwner(MeshLayer currentLayer, VoxelRenderDef neighborDef)
-        {
-            return currentLayer < neighborDef.MeshLayer || neighborDef.VoxelType == VoxelType.Flora;
+            return (!currentDef.AlwaysRenderAllFaces && currentDef.MeshLayer == neighborDef.MeshLayer)
+                   || currentDef.MeshLayer > neighborDef.MeshLayer;
         }
 
         [BurstCompile]
