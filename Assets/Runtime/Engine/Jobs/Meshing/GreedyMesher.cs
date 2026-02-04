@@ -198,27 +198,25 @@ namespace Runtime.Engine.Jobs.Meshing
             // Build cross (billboard) quads for flora collected during the surface pass
             foreach (KVPair<int3, ushort> foliageVoxel in jobData.FoliageVoxels)
             {
-                int3 p = foliageVoxel.Key;
+                int3 pos = foliageVoxel.Key;
                 VoxelRenderDef def = RenderGenData.GetRenderDef(foliageVoxel.Value);
-                if (!ChunkAccessor.InChunkBounds(p)) continue;
-                p -= jobData.YOffset;
 
                 // Diagonal 1
                 VQuad flora1 = new(
-                    p,
-                    p + new float3(0, 1, 0),
-                    p + new float3(1, 0, 1),
-                    p + new float3(1, 1, 1)
+                    pos,
+                    pos + new float3(0, 1, 0),
+                    pos + new float3(1, 0, 1),
+                    pos + new float3(1, 1, 1)
                 );
 
                 AddFloraQuad(ref jobData, def, in flora1, int4.zero);
 
                 // Diagonal 2
                 VQuad flora2 = new(
-                    p + new float3(1, 0, 0),
-                    p + new float3(1, 1, 0),
-                    p + new float3(0, 0, 1),
-                    p + new float3(0, 1, 1)
+                    pos + new float3(1, 0, 0),
+                    pos + new float3(1, 1, 0),
+                    pos + new float3(0, 0, 1),
+                    pos + new float3(0, 1, 1)
                 );
 
                 AddFloraQuad(ref jobData, def, in flora2, int4.zero);

@@ -25,8 +25,9 @@ namespace Runtime.Engine.Data
         /// <summary>
         /// Voxel lookup within a chunk; remaps out-of-range coordinates to neighbor chunks.
         /// </summary>
-        internal ushort GetVoxelInChunk(int2 chunkPos, int3 voxelPos)
+        internal ushort GetVoxelInPartition(in int3 partitionPos, int3 voxelPos)
         {
+            voxelPos[1] += partitionPos.y * PartitionHeight;
             if (voxelPos.y is >= ChunkHeight or < 0) return 0;
             int2 chunkOffset = int2.zero;
             
@@ -54,7 +55,7 @@ namespace Runtime.Engine.Data
                     break;
             }
 
-            return TryGetChunk(chunkPos + chunkOffset, out Chunk chunk) ? chunk.GetVoxel(voxelPos) : (ushort)0;
+            return TryGetChunk(partitionPos.xz + chunkOffset, out Chunk chunk) ? chunk.GetVoxel(voxelPos) : (ushort)0;
         }
 
         /// <summary>

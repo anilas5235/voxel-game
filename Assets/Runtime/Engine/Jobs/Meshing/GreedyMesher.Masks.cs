@@ -26,16 +26,15 @@ namespace Runtime.Engine.Jobs.Meshing
                     posNormalMask[n] = default;
                     negNormalMask[n] = default;
                     
-                    int3 pos = posItr + jobData.YOffset;
 
-                    if (!sortedVoxels.ContainsKey(pos))
+                    if (!sortedVoxels.ContainsKey(posItr))
                     {
                         n++;
                         continue;
                     }
 
-                    hasSurface |= TryAddMask(jobData, dirMask, axInfo, pos, n, posNormalMask, true, ref sortedVoxels);
-                    hasSurface |= TryAddMask(jobData, dirMask, axInfo, pos, n, negNormalMask, false, ref sortedVoxels);
+                    hasSurface |= TryAddMask(jobData, dirMask, axInfo, posItr, n, posNormalMask, true, ref sortedVoxels);
+                    hasSurface |= TryAddMask(jobData, dirMask, axInfo, posItr, n, negNormalMask, false, ref sortedVoxels);
                     n++;
                 }
             }
@@ -56,17 +55,15 @@ namespace Runtime.Engine.Jobs.Meshing
                 {
                     posNormalMask[n] = default;
                     negNormalMask[n] = default;
-                    
-                    int3 pos = posItr + jobData.YOffset;
 
-                    if (!jobData.CollisionVoxels.Contains(pos))
+                    if (!jobData.CollisionVoxels.Contains(posItr))
                     {
                         n++;
                         continue;
                     }
 
-                    hasCollision |= TryAddCollisionMask(jobData, dirMask, pos, n, posNormalMask, true);
-                    hasCollision |= TryAddCollisionMask(jobData, dirMask, pos, n, negNormalMask, false);
+                    hasCollision |= TryAddCollisionMask(jobData, dirMask, posItr, n, posNormalMask, true);
+                    hasCollision |= TryAddCollisionMask(jobData, dirMask, posItr, n, negNormalMask, false);
                     n++;
                 }
             }
@@ -79,7 +76,7 @@ namespace Runtime.Engine.Jobs.Meshing
         {
             int3 neighborCoord = pos + dirMask * (posNormal ? 1 : -1);
 
-            ushort neighborVoxel = Accessor.GetVoxelInChunk(jobData.ChunkPos, neighborCoord);
+            ushort neighborVoxel = Accessor.GetVoxelInPartition(jobData.PartitionPos, neighborCoord);
 
             VoxelRenderDef neighborDef = RenderGenData.GetRenderDef(neighborVoxel);
 
@@ -99,7 +96,7 @@ namespace Runtime.Engine.Jobs.Meshing
             int3 neighborCoord = pos + dirMask * (posNormal ? 1 : -1);
 
             ushort currentVoxel = sortedVoxels[pos];
-            ushort neighborVoxel = Accessor.GetVoxelInChunk(jobData.ChunkPos, neighborCoord);
+            ushort neighborVoxel = Accessor.GetVoxelInPartition(jobData.PartitionPos, neighborCoord);
 
             VoxelRenderDef neighborDef = RenderGenData.GetRenderDef(neighborVoxel);
             VoxelRenderDef currentDef = RenderGenData.GetRenderDef(currentVoxel);
@@ -113,7 +110,7 @@ namespace Runtime.Engine.Jobs.Meshing
             }
 
             sbyte top = ComputeTopVoxelOfType(pos, currentVoxel, ref jobData);
-            int4 ao = ComputeAOMask(neighborCoord, jobData.ChunkPos, axInfo);
+            int4 ao = ComputeAOMask(neighborCoord, jobData.PartitionPos, axInfo);
             nMask[n] = new Mask(currentVoxel, currentLayer, posNormal ? (sbyte)1 : (sbyte)-1, ao, top);
             return true;
         }
@@ -128,7 +125,7 @@ namespace Runtime.Engine.Jobs.Meshing
         [BurstCompile]
         private sbyte ComputeTopVoxelOfType(int3 coord, ushort currentVoxelId, ref PartitionJobData jobData)
         {
-            ushort aboveId = Accessor.GetVoxelInChunk(jobData.ChunkPos, coord + YOne);
+            ushort aboveId = Accessor.GetVoxelInPartition(jobData.PartitionPos, coord + YOne);
             return (sbyte)(aboveId != currentVoxelId ? 1 : 0);
         }
 

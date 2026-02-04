@@ -54,7 +54,6 @@ namespace Runtime.Engine.Jobs.Meshing
             public readonly Mesh.MeshData ColliderMesh;
             public readonly int2 ChunkPos;
             public readonly int3 PartitionPos;
-            public readonly int3 YOffset;
 
             public MeshBuffer MeshBuffer;
 
@@ -78,7 +77,6 @@ namespace Runtime.Engine.Jobs.Meshing
                 ColliderMesh = colliderMesh;
                 PartitionPos = partitionPos;
                 ChunkPos = partitionPos.xz;
-                YOffset = new int3(0, partitionPos.y * PartitionHeight, 0);
                 MeshBuffer = new MeshBuffer
                 {
                     VertexBuffer = new NativeList<Vertex>(VoxelCount4, Allocator.Temp),
@@ -177,14 +175,8 @@ namespace Runtime.Engine.Jobs.Meshing
                     foreach (int3 offset in voxelNeighborOffsets)
                     {
                         int3 neighborPos = currentVoxel + offset;
-                        int3 partitionLocalPos = neighborPos - jobData.YOffset;
-                        if (!ChunkAccessor.InPartitionBounds(partitionLocalPos))
+                        if (!ChunkAccessor.InPartitionBounds(neighborPos))
                         {
-                            if (offset.y != 0)
-                            {
-                                int y = 0;
-                            }
-
                             connectedDirections.Add((byte)PartitionOcclusionData.GetOccFromNormal(in offset));
                             continue;
                         }
@@ -227,8 +219,8 @@ namespace Runtime.Engine.Jobs.Meshing
             for (int z = 0; z < PartitionDepth; z++)
             for (int x = 0; x < PartitionWidth; x++)
             {
-                int3 localPos = new(x, y + jobData.YOffset.y, z);
-                ushort voxelId = Accessor.GetVoxelInChunk(jobData.ChunkPos, localPos);
+                int3 localPos = new(x, y, z);
+                ushort voxelId = Accessor.GetVoxelInPartition(jobData.PartitionPos, localPos);
                 VoxelRenderDef renderDef = RenderGenData.GetRenderDef(voxelId);
 
                 if (renderDef.Collision) jobData.CollisionVoxels.Add(localPos);
