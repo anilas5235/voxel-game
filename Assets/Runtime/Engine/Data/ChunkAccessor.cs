@@ -120,5 +120,12 @@ namespace Runtime.Engine.Data
                    chunkLocalPos.y >= 0 && chunkLocalPos.y < ChunkHeight &&
                    chunkLocalPos.z >= 0 && chunkLocalPos.z < ChunkDepth;
         }
+        
+        public static bool InPartitionBounds(int3 partitionLocalPos)
+        {
+            return partitionLocalPos.x >= 0 && partitionLocalPos.x < PartitionWidth &&
+                   partitionLocalPos.y >= 0 && partitionLocalPos.y < PartitionHeight &&
+                   partitionLocalPos.z >= 0 && partitionLocalPos.z < PartitionDepth;
+        }
     }
 }

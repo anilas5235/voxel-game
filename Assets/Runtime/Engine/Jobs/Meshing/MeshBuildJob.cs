@@ -149,7 +149,7 @@ namespace Runtime.Engine.Jobs.Meshing
                 partitionOcclusionData.SetAll(true);
                 return;
             }
-            
+
             NativeHashSet<int3>.ReadOnly seeThroughVoxels = jobData.SeeThroughVoxels.AsReadOnly();
             NativeHashSet<int3> checkedVoxels = new(seeThroughVoxels.Count, Allocator.Temp);
             NativeQueue<int3> voxelQueue = new(Allocator.Temp);
@@ -177,8 +177,14 @@ namespace Runtime.Engine.Jobs.Meshing
                     foreach (int3 offset in voxelNeighborOffsets)
                     {
                         int3 neighborPos = currentVoxel + offset;
-                        if (!ChunkAccessor.InChunkBounds(neighborPos))
+                        int3 partitionLocalPos = neighborPos - jobData.YOffset;
+                        if (!ChunkAccessor.InPartitionBounds(partitionLocalPos))
                         {
+                            if (offset.y != 0)
+                            {
+                                int y = 0;
+                            }
+
                             connectedDirections.Add((byte)PartitionOcclusionData.GetOccFromNormal(in offset));
                             continue;
                         }
@@ -205,6 +211,7 @@ namespace Runtime.Engine.Jobs.Meshing
 
             DisposeNativeCollections();
             return;
+
             void DisposeNativeCollections()
             {
                 voxelNeighborOffsets.Dispose();
