@@ -68,6 +68,11 @@ namespace Runtime.Engine.Behaviour
             bool isRendered = Mesh && Mesh.vertexCount > 2 && ShouldBeVisible;
             _renderer.enabled = isRendered;
         }
+        
+        public void ApplyColliderMesh()
+        {
+            Collider.sharedMesh = ColliderMesh;
+        }
 
         public void Clear()
         {

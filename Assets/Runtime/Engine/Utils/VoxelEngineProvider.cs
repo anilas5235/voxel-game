@@ -1,7 +1,6 @@
 ﻿using Runtime.Engine.Components;
 using Runtime.Engine.Jobs;
 using Runtime.Engine.Jobs.Chunk;
-using Runtime.Engine.Jobs.Collider;
 using Runtime.Engine.Jobs.Meshing;
 using Runtime.Engine.Noise;
 using Runtime.Engine.Settings;
@@ -53,10 +52,9 @@ namespace Runtime.Engine.Utils
         internal VoxelEngineScheduler VoxelEngineScheduler(
             MeshBuildScheduler meshBuildScheduler,
             ChunkScheduler chunkScheduler,
-            ColliderBuildScheduler colliderBuildScheduler,
             ChunkManager chunkManager,
             ChunkPool chunkPool
-        ) => new(Settings, meshBuildScheduler, chunkScheduler, colliderBuildScheduler, chunkManager, chunkPool);
+        ) => new(Settings, meshBuildScheduler, chunkScheduler, chunkManager, chunkPool);
 
         /// <summary>
         /// Creates a configured <see cref="ChunkScheduler"/> for data generation jobs. Fills missing config fields.
@@ -81,13 +79,5 @@ namespace Runtime.Engine.Utils
             ChunkPool chunkPool,
             VoxelRegistry voxelRegistry
         ) => new(Settings, chunkManager, chunkPool, voxelRegistry);
-
-        /// <summary>
-        /// Creates the <see cref="ColliderBuildScheduler"/> for collider baking.
-        /// </summary>
-        internal ColliderBuildScheduler ColliderBuildScheduler(
-            ChunkManager chunkManager,
-            ChunkPool chunkPool
-        ) => new(chunkManager, chunkPool);
     }
 }

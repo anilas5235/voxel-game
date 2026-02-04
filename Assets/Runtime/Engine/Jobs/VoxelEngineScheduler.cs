@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Runtime.Engine.Behaviour;
 using Runtime.Engine.Components;
 using Runtime.Engine.Jobs.Chunk;
-using Runtime.Engine.Jobs.Collider;
 using Runtime.Engine.Jobs.Meshing;
 using Runtime.Engine.Settings;
 using Runtime.Engine.ThirdParty.Priority_Queue;
@@ -35,7 +35,6 @@ namespace Runtime.Engine.Jobs
 
         private readonly ChunkScheduler _chunkScheduler;
         private readonly MeshBuildScheduler _meshBuildScheduler;
-        private readonly ColliderBuildScheduler _colliderBuildScheduler;
 
         private readonly ChunkManager _chunkManager;
         private readonly ChunkPool _chunkPool;
@@ -60,14 +59,12 @@ namespace Runtime.Engine.Jobs
             VoxelEngineSettings settings,
             MeshBuildScheduler meshBuildScheduler,
             ChunkScheduler chunkScheduler,
-            ColliderBuildScheduler colliderBuildScheduler,
             ChunkManager chunkManager,
             ChunkPool chunkPool
         )
         {
             _meshBuildScheduler = meshBuildScheduler;
             _chunkScheduler = chunkScheduler;
-            _colliderBuildScheduler = colliderBuildScheduler;
 
             _chunkManager = chunkManager;
             _chunkPool = chunkPool;
@@ -219,9 +216,6 @@ namespace Runtime.Engine.Jobs
                         for (int i = 0; i < count; i++)
                         {
                             int3 chunk = _meshQueue.Dequeue();
-
-                            // The chunk may be removed from memory by the time we schedule,
-                            // Should we check this only here ?
                             if (CanGenerateMeshForChunk(chunk)) _viewSet.Add(chunk);
                         }
 
@@ -230,18 +224,16 @@ namespace Runtime.Engine.Jobs
 
                     break;
                 case JobType.Collider:
-                    if (_colliderQueue.Count > 0 && _colliderBuildScheduler.IsReady)
+                    if (_colliderQueue.Count > 0)
                     {
                         int count = math.min(_settings.Scheduler.ColliderBatchSize, _colliderQueue.Count);
 
                         for (int i = 0; i < count; i++)
                         {
                             int3 position = _colliderQueue.Dequeue();
-
-                            if (CanBakeColliderForChunk(position)) _colliderSet.Add(position);
+                            ChunkPartition partition = _chunkPool.GetOrClaimPartition(position);
+                            partition.ApplyColliderMesh();
                         }
-
-                        _colliderBuildScheduler.Start(_colliderSet.ToList());
                     }
 
                     break;
@@ -272,13 +264,7 @@ namespace Runtime.Engine.Jobs
 
                     break;
                 case JobType.Collider:
-
-                    if (_colliderBuildScheduler.IsComplete && !_colliderBuildScheduler.IsReady)
-                    {
-                        _colliderBuildScheduler.Complete();
-                        _colliderSet.Clear();
-                    }
-
+                    _colliderSet.Clear();
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(jobType), jobType, null);
@@ -292,7 +278,6 @@ namespace Runtime.Engine.Jobs
         {
             _chunkScheduler.Dispose();
             _meshBuildScheduler.Dispose();
-            _colliderBuildScheduler.Dispose();
         }
 
         private bool ShouldScheduleForGenerating(int2 position) =>
@@ -338,11 +323,6 @@ namespace Runtime.Engine.Jobs
         /// Durchschnittliche Laufzeit von Meshjobs.
         /// </summary>
         public float MeshAvgTiming => _meshBuildScheduler.AvgTime;
-
-        /// <summary>
-        /// Durchschnittliche Laufzeit von Colliderjobs.
-        /// </summary>
-        public float BakeAvgTiming => _colliderBuildScheduler.AvgTime;
 
         /// <summary>
         /// Anzahl Chunks in Daten-Queue.
