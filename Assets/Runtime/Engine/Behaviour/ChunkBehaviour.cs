@@ -37,15 +37,6 @@ namespace Runtime.Engine.Behaviour
             }
         }
 
-        public IEnumerable<KeyValuePair<int3, ChunkPartition>> GetMap(int2 position)
-        {
-            foreach (ChunkPartition partition in chunkPartitions)
-            {
-                int3 chunkPos = new(position.x, partition.PartitionId, position.y);
-                yield return new KeyValuePair<int3, ChunkPartition>(chunkPos, partition);
-            }
-        }
-
         private void FixedUpdate()
         {
             UpdatePartitionsRenderStatus();
