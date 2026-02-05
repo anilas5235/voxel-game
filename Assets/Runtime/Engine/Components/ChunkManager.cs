@@ -31,7 +31,8 @@ namespace Runtime.Engine.Components
 
         private int3 _focus;
         private readonly int _chunkStoreSize;
-
+        
+        internal Action OnChunkRemeshRequested;
         /// <summary>
         /// Creates a new manager with capacities from <paramref name="settings"/>.
         /// </summary>
@@ -238,6 +239,8 @@ namespace Runtime.Engine.Components
                     _reMeshPartitions.Add(pCoords + Int3Up);
                     break;
             }
+            
+            OnChunkRemeshRequested?.Invoke();
         }
     }
 }
