@@ -19,7 +19,7 @@ namespace Runtime.Engine.Jobs.Meshing
     /// Schedules and executes mesh build jobs for chunks, generating both render and collider meshes
     /// using a greedy meshing algorithm and applying the results to chunk behaviors.
     /// </summary>
-    public class MeshBuildScheduler : JobScheduler
+    internal class MeshBuildScheduler : JobScheduler
     {
         private const MeshUpdateFlags MeshFlags = MeshUpdateFlags.DontRecalculateBounds |
                                                   MeshUpdateFlags.DontValidateIndices |
@@ -48,7 +48,7 @@ namespace Runtime.Engine.Jobs.Meshing
         /// <param name="chunkManager">Chunk manager used to access chunk data and state.</param>
         /// <param name="chunkPool">Pool providing reusable chunk behaviours and meshes.</param>
         /// <param name="voxelRegistry">Voxel registry providing render generation data for blocks.</param>
-        public MeshBuildScheduler(
+        internal MeshBuildScheduler(
             VoxelEngineSettings settings,
             ChunkManager chunkManager,
             ChunkPool chunkPool,

@@ -33,15 +33,14 @@ namespace Runtime.Engine.Utils
             return cCoords;
         }
 
-        public static int3 GetPartitionCoords(Vector3 position) =>
-            GetPartitionCoords(Vector3Int.FloorToInt(position).Int3());
+        public static int3 GetPartitionCoords(Vector3 position) => GetPartitionCoords(position.Int3());
 
         public static int3 GetPartitionCoords(int3 position)
         {
             int2 cCoords = GetChunkCoords(position);
             return new int3(
                 cCoords.x,
-                position.y / PartitionHeight,
+                (position.y / PartitionHeight),
                 cCoords.y
             );
         }

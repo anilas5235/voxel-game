@@ -16,7 +16,7 @@ namespace Runtime.Engine.Jobs.Chunk
     /// Schedules and manages jobs that generate chunk data, wraps <see cref="ChunkJob"/>, 
     /// tracks job lists and result maps, and forwards completed chunks to <see cref="ChunkManager"/>.
     /// </summary>
-    public class ChunkScheduler : JobScheduler
+    internal class ChunkScheduler : JobScheduler
     {
         private readonly ChunkManager _chunkManager;
         private readonly NoiseProfile _noiseProfile;
@@ -32,7 +32,7 @@ namespace Runtime.Engine.Jobs.Chunk
         /// <param name="chunkManager">Chunk manager that receives finished chunk data.</param>
         /// <param name="noiseProfile">Noise profile used for terrain height generation.</param>
         /// <param name="config">Generator configuration used by chunk jobs.</param>
-        public ChunkScheduler(
+        internal ChunkScheduler(
             VoxelEngineSettings settings,
             ChunkManager chunkManager,
             NoiseProfile noiseProfile,

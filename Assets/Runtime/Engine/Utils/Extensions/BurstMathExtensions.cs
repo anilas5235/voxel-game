@@ -183,6 +183,8 @@ namespace Runtime.Engine.Utils.Extensions
         /// Konvertiert Vector3 (floored) zu int3.
         /// </summary>
         public static int3 Int3(this Vector3 vec) => Vector3Int.FloorToInt(vec).Int3();
+        
+        public static float3 Float3(this Vector3 vec) => new(vec.x, vec.y, vec.z);
 
         /// <summary>
         /// Konvertiert Vector3 (floored) zu Vector3Int.

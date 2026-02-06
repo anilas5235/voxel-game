@@ -264,7 +264,11 @@ namespace Runtime.Engine.Jobs
 
             protected override bool CollectResultsStep()
             {
-                foreach (int3 pos in Set) ChunkPool.GetOrClaimPartition(pos).ApplyColliderMesh();
+                foreach (int3 pos in Set)
+                {
+                    ChunkPool.GetOrClaimPartition(pos).ApplyColliderMesh();
+                    ChunkPool.ColliderBaked(pos);
+                }
                 Set.Clear();
                 return true;
             }

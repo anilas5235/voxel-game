@@ -20,7 +20,7 @@ namespace Runtime.Engine.Components
     /// Manages chunk data in memory. Maintains a limited pool of loaded chunks prioritized by focus position.
     /// Tracks remesh / recollider flags and provides voxel access.
     /// </summary>
-    public class ChunkManager
+    internal class ChunkManager
     {
         private readonly Dictionary<int2, Chunk> _chunks;
         private readonly SimpleFastPriorityQueue<int2, int> _queue;

@@ -1,4 +1,5 @@
-﻿using Runtime.Engine.Components;
+﻿using System;
+using Runtime.Engine.Components;
 using Runtime.Engine.Jobs;
 using Runtime.Engine.Jobs.Chunk;
 using Runtime.Engine.Jobs.Meshing;
@@ -49,6 +50,7 @@ namespace Runtime.Engine.World
         private ChunkPool _chunkPool;
         private MeshBuildScheduler _meshBuildScheduler;
         private ChunkScheduler _chunkScheduler;
+        private OcclusionCuller _occlusionCuller;
 
         private bool _isFocused;
 
@@ -100,6 +102,13 @@ namespace Runtime.Engine.World
             Scheduler.ScheduleUpdate(FocusCoords);
         }
 
+        private void FixedUpdate()
+        {
+            if(!_isFocused) return;
+            
+            _occlusionCuller.OccUpdate(FocusCoords, focus.forward.Float3());
+        }
+
         /// <summary>
         /// Cleans up engine components and disposes schedulers on destruction.
         /// </summary>
@@ -149,6 +158,8 @@ namespace Runtime.Engine.World
             ChunkManager = VoxelEngineProvider.Current.ChunkManager();
 
             _chunkPool = VoxelEngineProvider.Current.ChunkPool(transform);
+
+            _occlusionCuller = VoxelEngineProvider.Current.OcclusionCuller(_chunkPool);
 
             _meshBuildScheduler = VoxelEngineProvider.Current.MeshBuildScheduler(
                 ChunkManager,

@@ -1,6 +1,8 @@
-﻿using Unity.Burst;
+﻿using System.Collections.Generic;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Mathematics;
+using static Runtime.Engine.Utils.Extensions.VectorConstants;
 
 namespace Runtime.Engine.Jobs.Meshing
 {
@@ -40,6 +42,53 @@ namespace Runtime.Engine.Jobs.Meshing
                     _ => normal.z > 0 ? OccDirection.PositiveZ : OccDirection.NegativeZ
                 }
             };
+        }
+        
+        public static int3 GetNormalFromOcc(OccDirection direction)
+        {
+            return direction switch
+            {
+                OccDirection.PositiveX => Int3Right,
+                OccDirection.NegativeX => Int3Left,
+                OccDirection.PositiveY => Int3Up,
+                OccDirection.NegativeY => Int3Down,
+                OccDirection.PositiveZ => Int3Forward,
+                OccDirection.NegativeZ => Int3Backward,
+                _ => throw new System.ArgumentOutOfRangeException(nameof(direction), direction, null)
+            };
+        }
+        
+        public static List<OccDirection> GetOccFromNormal(in float3 normal)
+        {
+            List<OccDirection> result = new(3);
+            switch (normal.x)
+            {
+                case > 0:
+                    result.Add(OccDirection.PositiveX);
+                    break;
+                case < 0:
+                    result.Add(OccDirection.NegativeX);
+                    break;
+            }
+            switch (normal.y)
+            {
+                case > 0:
+                    result.Add(OccDirection.PositiveY);
+                    break;
+                case < 0:
+                    result.Add(OccDirection.NegativeY);
+                    break;
+            }
+            switch (normal.z)
+            {
+                case > 0:
+                    result.Add(OccDirection.PositiveZ);
+                    break;
+                case < 0:
+                    result.Add(OccDirection.NegativeZ);
+                    break;
+            }
+            return result;
         }
 
         private ushort _occlusionFlags;

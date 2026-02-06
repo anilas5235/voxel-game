@@ -17,7 +17,7 @@ namespace Runtime.Engine.Components
     /// Pool for <see cref="ChunkBehaviour"/> instances (render + collider). Handles activation & reclamation.
     /// Uses a priority queue ordered by distance to focus for eviction.
     /// </summary>
-    public class ChunkPool
+    internal class ChunkPool
     {
         private readonly ObjectPool<ChunkBehaviour> _pool;
         private readonly Dictionary<int3, ChunkPartition> _meshMap;
@@ -135,8 +135,10 @@ namespace Runtime.Engine.Components
 
         internal ChunkPartition GetOrClaimPartition(int3 position) =>
             IsPartitionActive(position) ? _meshMap[position] : ClaimPartition(position);
+        
+        internal ChunkPartition GetPartition(int3 position) => _meshMap[position];
 
-        internal ChunkPartition ClaimPartition(int3 position)
+        private ChunkPartition ClaimPartition(int3 position)
         {
             if (_meshMap.ContainsKey(position))
                 throw new InvalidOperationException($"Partition ({position}) already active");
@@ -160,25 +162,18 @@ namespace Runtime.Engine.Components
             _colliderSet.Remove(reclaim);
             return partition;
         }
-
-        /// <summary>
-        /// Returns active mesh behaviours for supplied positions.
-        /// </summary>
-        internal Dictionary<int3, ChunkPartition> GetActiveMeshes(List<int3> positions)
-        {
-            Dictionary<int3, ChunkPartition> map = new();
-            for (int i = 0; i < positions.Count; i++)
-            {
-                int3 position = positions[i];
-                if (_meshMap.TryGetValue(position, out ChunkPartition partition)) map.Add(position, partition);
-            }
-
-            return map;
-        }
-
+      
         /// <summary>
         /// Callback after collider bake: mark chunk collidable.
         /// </summary>
         internal void ColliderBaked(int3 position) => _colliderSet.Add(position);
+
+        internal void UpdateAllVisibilities(HashSet<int3> visiblePartitions)
+        {
+            foreach ((int3 pos, ChunkPartition partition) in _meshMap)
+            {
+                partition.ShouldBeVisible = visiblePartitions.Contains(pos);
+            }
+        }
     }
 }

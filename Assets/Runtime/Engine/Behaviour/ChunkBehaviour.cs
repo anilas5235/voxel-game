@@ -10,9 +10,6 @@ namespace Runtime.Engine.Behaviour
     {
         [SerializeField] private ChunkPartition[] chunkPartitions;
 
-        [SerializeField] private Material solidMaterial;
-        [SerializeField] private Material transparentMaterial;
-
         /// <summary>
         /// Initializes renderer-specific options (e.g. shadow casting) from settings.
         /// </summary>
@@ -20,8 +17,7 @@ namespace Runtime.Engine.Behaviour
         {
             for (int pId = 0; pId < chunkPartitions.Length; pId++)
             {
-                ChunkPartition partition = chunkPartitions[pId];
-                partition.Init(settings, pId);
+                chunkPartitions[pId].Init(settings, pId);
             }
         }
 
