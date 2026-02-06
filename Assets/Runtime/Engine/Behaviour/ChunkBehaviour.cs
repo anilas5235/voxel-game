@@ -1,9 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using Runtime.Engine.Settings;
-using Unity.Mathematics;
+﻿using Runtime.Engine.Settings;
 using UnityEngine;
-using UnityEngine.Rendering;
 
 namespace Runtime.Engine.Behaviour
 {
