@@ -28,7 +28,9 @@ namespace Runtime.Engine.World
         /// <summary>
         /// The partition coordinates of the current focus position.
         /// </summary>
-        private int3 FocusCoords { get; set; }
+        private int3 FocusPartitionCoords { get; set; }
+        
+        private int3 FocusPosition { get; set; }
 
         /// <summary>
         /// Gets the central scheduler that coordinates chunk data, mesh and collider jobs.
@@ -74,7 +76,7 @@ namespace Runtime.Engine.World
 
             ConstructEngineComponents();
 
-            FocusCoords = new int3(1, 1, 1) * int.MinValue;
+            FocusPartitionCoords = new int3(1, 1, 1) * int.MinValue;
         }
 
         /// <summary>
@@ -93,20 +95,21 @@ namespace Runtime.Engine.World
         {
             int3 newFocusCoords = _isFocused ? VoxelUtils.GetPartitionCoords(focus.position) : int3.zero;
 
-            if (!(newFocusCoords == FocusCoords).AndReduce())
+            if (!(newFocusCoords == FocusPartitionCoords).AndReduce())
             {
-                FocusCoords = newFocusCoords;
-                Scheduler.FocusUpdate(FocusCoords);
+                FocusPartitionCoords = newFocusCoords;
+                Scheduler.FocusUpdate(FocusPartitionCoords);
             }
 
-            Scheduler.ScheduleUpdate(FocusCoords);
+            Scheduler.ScheduleUpdate(FocusPartitionCoords);
         }
 
         private void FixedUpdate()
         {
             if(!_isFocused) return;
             
-            _occlusionCuller.OccUpdate(FocusCoords, focus.forward.Float3());
+            FocusPosition = focus.position.Int3();
+            _occlusionCuller.OccUpdate(FocusPartitionCoords, FocusPosition,focus.forward.Float3());
         }
 
         /// <summary>
