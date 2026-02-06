@@ -15,6 +15,10 @@ namespace Runtime.Engine.Behaviour
 
         private bool _shouldBeVisible;
         private bool _initialized;
+        
+#if UNITY_EDITOR
+        public bool showOcclusionGizmos;
+#endif
 
         internal bool ShouldBeVisible
         {
@@ -68,7 +72,7 @@ namespace Runtime.Engine.Behaviour
             bool isRendered = Mesh && Mesh.vertexCount > 2 && ShouldBeVisible;
             _renderer.enabled = isRendered;
         }
-        
+
         public void ApplyColliderMesh()
         {
             Collider.sharedMesh = ColliderMesh;
@@ -110,6 +114,7 @@ namespace Runtime.Engine.Behaviour
                 }
             );
 
+            if(!showOcclusionGizmos) return;
             // Draw occlusion data as colored lines between faces of the partition cube same color as the face
             Vector3 center = transform.position + PartitionSize.GetVector3() * 0.5f;
             float faceSize = PartitionSize.y * 0.9f;
@@ -137,10 +142,11 @@ namespace Runtime.Engine.Behaviour
                     Vector3 start = center + normal * (PartitionSize.x * 0.5f);
                     Vector3 end = center + otherNormal * (PartitionSize.x * 0.5f);
                     Vector3 mid = (start + end) * 0.5f;
-                    
+
                     Gizmos.DrawLine(start, mid);
                 }
             }
+
             return;
 
             void DrawFace(Vector3 normal, Color color)
