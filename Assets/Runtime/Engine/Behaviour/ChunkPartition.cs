@@ -10,15 +10,15 @@ namespace Runtime.Engine.Behaviour
     [RequireComponent(typeof(MeshRenderer), typeof(MeshFilter))]
     public class ChunkPartition : MonoBehaviour
     {
+#if UNITY_EDITOR
+        public static bool ShowPartitionGizmos = false;
+        public static bool ShowOcclusionGizmos = false;
+#endif
         private MeshRenderer _renderer;
         [SerializeField] private MeshCollider _Collider;
 
         private bool _shouldBeVisible;
         private bool _initialized;
-        
-#if UNITY_EDITOR
-        public bool showOcclusionGizmos;
-#endif
 
         internal bool ShouldBeVisible
         {
@@ -72,7 +72,7 @@ namespace Runtime.Engine.Behaviour
             bool isRendered = Mesh && Mesh.vertexCount > 2 && ShouldBeVisible;
             _renderer.enabled = isRendered;
         }
-
+        
         public void ApplyColliderMesh()
         {
             Collider.sharedMesh = ColliderMesh;
@@ -84,6 +84,8 @@ namespace Runtime.Engine.Behaviour
             ColliderMesh.Clear();
             Collider.sharedMesh = null;
         }
+        
+        public bool HasValidMesh() => Mesh && Mesh.vertexCount > 2;
 
 #if UNITY_EDITOR
         private static readonly Color[] FaceColors =
@@ -94,9 +96,13 @@ namespace Runtime.Engine.Behaviour
 
         private void OnDrawGizmosSelected()
         {
+            if(!ShowPartitionGizmos) return;
+            
+            Gizmos.color = Color.green;
+            
             if (Mesh.vertexCount < 3) Gizmos.color = Color.grey;
             else if (!_Collider.sharedMesh) Gizmos.color = Color.magenta;
-            else Gizmos.color = Color.green;
+            
             Gizmos.DrawWireCube(
                 transform.position + PartitionSize.GetVector3() * 0.5f,
                 PartitionSize.GetVector3() * 0.95f
@@ -114,7 +120,7 @@ namespace Runtime.Engine.Behaviour
                 }
             );
 
-            if(!showOcclusionGizmos) return;
+            if(!ShowOcclusionGizmos) return;
             // Draw occlusion data as colored lines between faces of the partition cube same color as the face
             Vector3 center = transform.position + PartitionSize.GetVector3() * 0.5f;
             float faceSize = PartitionSize.y * 0.9f;
@@ -142,7 +148,7 @@ namespace Runtime.Engine.Behaviour
                     Vector3 start = center + normal * (PartitionSize.x * 0.5f);
                     Vector3 end = center + otherNormal * (PartitionSize.x * 0.5f);
                     Vector3 mid = (start + end) * 0.5f;
-
+                    
                     Gizmos.DrawLine(start, mid);
                 }
             }
