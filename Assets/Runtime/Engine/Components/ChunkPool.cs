@@ -40,10 +40,10 @@ namespace Runtime.Engine.Components
             _chunkPoolSize = (settings.Chunk.DrawDistance + 2).SquareSize();
             _chunkMap = new Dictionary<int2, ChunkBehaviour>(_chunkPoolSize);
 
-            _partitionPoolSize = settings.Chunk.DrawDistance.SquareSize() * 16;
+            _partitionPoolSize = settings.Chunk.DrawDistance.SquareSize() * PartitionsPerChunk;
             _meshMap = new Dictionary<int3, ChunkPartition>(_partitionPoolSize);
 
-            _colliderPoolSize = settings.Chunk.UpdateDistance.SquareSize() * 16;
+            _colliderPoolSize = settings.Chunk.UpdateDistance.SquareSize() * PartitionsPerChunk;
             _colliderSet = new HashSet<int3>(_colliderPoolSize);
 
             _chunkQueue = new SimpleFastPriorityQueue<int2, int>();
@@ -135,7 +135,7 @@ namespace Runtime.Engine.Components
 
         internal ChunkPartition GetOrClaimPartition(int3 position) =>
             IsPartitionActive(position) ? GetPartition(position) : ClaimPartition(position);
-        
+
         public ChunkPartition GetPartition(int3 pos) => _meshMap[pos];
 
         private ChunkPartition ClaimPartition(int3 position)
@@ -162,12 +162,15 @@ namespace Runtime.Engine.Components
             _colliderSet.Remove(reclaim);
             return partition;
         }
-      
+        
         /// <summary>
         /// Callback after collider bake: mark chunk collidable.
         /// </summary>
         internal void ColliderBaked(int3 position) => _colliderSet.Add(position);
 
+        public bool PartitionMeshNotEmpty(int3 position) =>
+            _meshMap.TryGetValue(position, out ChunkPartition partition) && partition.HasValidMesh();
+        
         internal void UpdateAllVisibilities(HashSet<int3> visiblePartitions)
         {
             foreach ((int3 pos, ChunkPartition partition) in _meshMap)

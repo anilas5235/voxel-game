@@ -84,6 +84,8 @@ namespace Runtime.Engine.Behaviour
             ColliderMesh.Clear();
             Collider.sharedMesh = null;
         }
+        
+        public bool HasValidMesh() => Mesh && Mesh.vertexCount > 2;
 
 #if UNITY_EDITOR
         private static readonly Color[] FaceColors =
