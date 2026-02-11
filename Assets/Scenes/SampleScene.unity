@@ -638,6 +638,9 @@ MonoBehaviour:
   destruct: 0
   place: 0
   voxelId: 1
+  voxelLayerMask:
+    serializedVersion: 2
+    m_Bits: 8
 --- !u!1 &746607514
 GameObject:
   m_ObjectHideFlags: 0

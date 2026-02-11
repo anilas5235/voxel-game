@@ -134,9 +134,9 @@ namespace Runtime.Engine.Components
             : PriorityCalc(_partitionQueue.First);
 
         internal ChunkPartition GetOrClaimPartition(int3 position) =>
-            IsPartitionActive(position) ? _meshMap[position] : ClaimPartition(position);
+            IsPartitionActive(position) ? GetPartition(position) : ClaimPartition(position);
         
-        internal ChunkPartition GetPartition(int3 position) => _meshMap[position];
+        public ChunkPartition GetPartition(int3 pos) => _meshMap[pos];
 
         private ChunkPartition ClaimPartition(int3 position)
         {

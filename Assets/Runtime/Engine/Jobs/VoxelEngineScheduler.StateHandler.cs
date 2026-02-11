@@ -266,7 +266,7 @@ namespace Runtime.Engine.Jobs
             {
                 foreach (int3 pos in Set)
                 {
-                    ChunkPool.GetOrClaimPartition(pos).ApplyColliderMesh();
+                    ChunkPool.GetPartition(pos).ApplyColliderMesh();
                     ChunkPool.ColliderBaked(pos);
                 }
                 Set.Clear();

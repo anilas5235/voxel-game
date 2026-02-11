@@ -212,30 +212,30 @@ namespace Runtime.Engine.Components
             int3 localPos = GetPartitionLocalVoxelCoords(pCoords, blockPosition);
             switch (localPos.x % PartitionWidth)
             {
-                case 0:
+                case MinPartitionPosXYZ:
                     _reMeshPartitions.Add(pCoords + Int3Left);
                     break;
-                case 15:
+                case MaxXPartitionPos:
                     _reMeshPartitions.Add(pCoords + Int3Right);
                     break;
             }
 
             switch (localPos.z % PartitionDepth)
             {
-                case 0:
+                case MinPartitionPosXYZ:
                     _reMeshPartitions.Add(pCoords + Int3Backward);
                     break;
-                case 15:
+                case MaxZPartitionPos:
                     _reMeshPartitions.Add(pCoords + Int3Forward);
                     break;
             }
 
             switch (localPos.y % PartitionHeight)
             {
-                case 0:
+                case MinPartitionPosXYZ:
                     _reMeshPartitions.Add(pCoords + Int3Down);
                     break;
-                case 15:
+                case MaxYPartitionPos:
                     _reMeshPartitions.Add(pCoords + Int3Up);
                     break;
             }
