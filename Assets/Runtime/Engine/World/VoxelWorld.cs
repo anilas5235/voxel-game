@@ -109,7 +109,7 @@ namespace Runtime.Engine.World
             if(!_isFocused) return;
             
             FocusPosition = focus.position.Int3();
-            _occlusionCuller.OccUpdate(FocusPartitionCoords, FocusPosition,focus.forward.Float3());
+            //_occlusionCuller.OccUpdate(FocusPartitionCoords, FocusPosition,focus.forward.Float3());
         }
 
         /// <summary>
