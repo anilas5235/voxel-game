@@ -135,7 +135,7 @@ namespace Runtime.Engine.Components
 
         internal ChunkPartition GetOrClaimPartition(int3 position) =>
             IsPartitionActive(position) ? GetPartition(position) : ClaimPartition(position);
-
+        
         public ChunkPartition GetPartition(int3 pos) => _meshMap[pos];
 
         private ChunkPartition ClaimPartition(int3 position)
@@ -167,16 +167,5 @@ namespace Runtime.Engine.Components
         /// Callback after collider bake: mark chunk collidable.
         /// </summary>
         internal void ColliderBaked(int3 position) => _colliderSet.Add(position);
-
-        public bool PartitionMeshNotEmpty(int3 position) =>
-            _meshMap.TryGetValue(position, out ChunkPartition partition) && partition.HasValidMesh();
-        
-        internal void UpdateAllVisibilities(HashSet<int3> visiblePartitions)
-        {
-            foreach ((int3 pos, ChunkPartition partition) in _meshMap)
-            {
-                partition.ShouldBeVisible = visiblePartitions.Contains(pos);
-            }
-        }
     }
 }

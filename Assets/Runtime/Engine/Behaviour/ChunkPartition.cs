@@ -96,9 +96,13 @@ namespace Runtime.Engine.Behaviour
 
         private void OnDrawGizmosSelected()
         {
+            if(!ShowPartitionGizmos) return;
+            
+            Gizmos.color = Color.green;
+            
             if (Mesh.vertexCount < 3) Gizmos.color = Color.grey;
             else if (!_Collider.sharedMesh) Gizmos.color = Color.magenta;
-            else Gizmos.color = Color.green;
+            
             Gizmos.DrawWireCube(
                 transform.position + PartitionSize.GetVector3() * 0.5f,
                 PartitionSize.GetVector3() * 0.95f
