@@ -40,10 +40,10 @@ namespace Runtime.Engine.Components
             _chunkPoolSize = (settings.Chunk.DrawDistance + 2).SquareSize();
             _chunkMap = new Dictionary<int2, ChunkBehaviour>(_chunkPoolSize);
 
-            _partitionPoolSize = settings.Chunk.DrawDistance.SquareSize() * 16;
+            _partitionPoolSize = settings.Chunk.DrawDistance.SquareSize() * PartitionsPerChunk;
             _meshMap = new Dictionary<int3, ChunkPartition>(_partitionPoolSize);
 
-            _colliderPoolSize = settings.Chunk.UpdateDistance.SquareSize() * 16;
+            _colliderPoolSize = settings.Chunk.UpdateDistance.SquareSize() * PartitionsPerChunk;
             _colliderSet = new HashSet<int3>(_colliderPoolSize);
 
             _chunkQueue = new SimpleFastPriorityQueue<int2, int>();
@@ -134,7 +134,9 @@ namespace Runtime.Engine.Components
             : PriorityCalc(_partitionQueue.First);
 
         internal ChunkPartition GetOrClaimPartition(int3 position) =>
-            IsPartitionActive(position) ? _meshMap[position] : ClaimPartition(position);
+            IsPartitionActive(position) ? GetPartition(position) : ClaimPartition(position);
+        
+        public ChunkPartition GetPartition(int3 pos) => _meshMap[pos];
 
         internal ChunkPartition ClaimPartition(int3 position)
         {

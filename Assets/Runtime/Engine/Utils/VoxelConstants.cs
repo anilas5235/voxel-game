@@ -5,18 +5,30 @@ namespace Runtime.Engine.Utils
 {
     public static class VoxelConstants
     {
-        internal const int ChunkWidth = 16;
+        internal const int ChunkWidth = 32;
         internal const int ChunkHeight = 256;
-        internal const int ChunkDepth = 16;
+        internal const int ChunkDepth = 32;
+        
+        internal const int MinChunkPosXYZ = 0;
+        internal const int MaxXChunkPos = ChunkWidth - 1;
+        internal const int MaxYChunkPos = ChunkHeight - 1;
+        internal const int MaxZChunkPos = ChunkDepth - 1;
+        
         internal static readonly int3 ChunkSize = new(ChunkWidth, ChunkHeight, ChunkDepth);
-        internal static readonly int2 ChunkSizeXY = new(ChunkWidth, ChunkDepth);
+        internal static readonly int2 ChunkSizeXZ = new(ChunkWidth, ChunkDepth);
 
         internal const int VoxelsPerChunk = ChunkWidth * ChunkHeight * ChunkDepth;
 
 
-        internal const int PartitionWidth = 16;
-        internal const int PartitionHeight = 16;
-        internal const int PartitionDepth = 16;
+        internal const int PartitionWidth = ChunkWidth;
+        internal const int PartitionHeight = 32;
+        internal const int PartitionDepth = ChunkDepth;
+        
+        internal const int MinPartitionPosXYZ = 0;
+        internal const int MaxXPartitionPos = PartitionWidth - 1;
+        internal const int MaxYPartitionPos = PartitionHeight - 1;
+        internal const int MaxZPartitionPos = PartitionDepth - 1;
+
         internal static readonly int3 PartitionSize = new(PartitionWidth, PartitionHeight, PartitionDepth);
 
         internal const int VoxelsPerPartition = PartitionWidth * PartitionHeight * PartitionDepth;

@@ -16,16 +16,12 @@ MonoBehaviour:
   Noise: {fileID: 11400000, guid: 0d29f4d418efd7d42a007b66f6e5a547, type: 2}
   Chunk:
     ChunkPrefab: {fileID: 972016758114520785, guid: c64e56d0bf3b95d4786aca3e51faf0ed, type: 3}
-    DrawDistance: 10
-    ChunkSize:
-      x: 16
-      y: 256
-      z: 16
+    DrawDistance: 6
     LoadDistance: 12
     UpdateDistance: 8
   Renderer:
     CastShadows: 0
   Scheduler:
-    MeshingBatchSize: 10
+    MeshingBatchSize: 6
     StreamingBatchSize: 8
     ColliderBatchSize: 6
