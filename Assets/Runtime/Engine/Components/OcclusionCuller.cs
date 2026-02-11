@@ -67,6 +67,14 @@ namespace Runtime.Engine.Components
                 }
             }
 
+            for (int x = -1; x <= 1; x++)
+            for (int y = -1; y <= 1; y++)
+            for (int z = -1; z <= 1; z++)
+            {
+                int3 neighbor = focusPartitionPos + new int3(x, y, z);
+                visiblePartitions.Add(neighbor);
+            }
+
             _chunkPool.UpdateAllVisibilities(visiblePartitions);
             _lastDirections = directions.ToArray();
         }

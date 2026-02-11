@@ -17,7 +17,7 @@ namespace Runtime.Engine.Behaviour
         private MeshRenderer _renderer;
         [SerializeField] private MeshCollider _Collider;
 
-        private bool _shouldBeVisible;
+        private bool _shouldBeVisible = true;
         private bool _initialized;
 
         internal bool ShouldBeVisible
