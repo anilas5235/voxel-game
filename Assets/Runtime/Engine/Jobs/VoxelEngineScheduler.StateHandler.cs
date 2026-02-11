@@ -269,11 +269,13 @@ namespace Runtime.Engine.Jobs
                     ChunkPool.GetPartition(pos).ApplyColliderMesh();
                     ChunkPool.ColliderBaked(pos);
                 }
+
                 Set.Clear();
                 return true;
             }
 
             private bool ShouldScheduleForBaking(int3 position) =>
+                ChunkPool.PartitionMeshNotEmpty(position) &&
                 (!ChunkPool.IsCollidable(position) || ChunkManager.ShouldReCollide(position)) &&
                 !Set.Contains(position);
 
