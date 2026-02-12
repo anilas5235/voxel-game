@@ -4,13 +4,16 @@ using Runtime.Engine.VoxelConfig.Data;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Mathematics;
+using static Runtime.Engine.Utils.Extensions.MathExtension;
 using static Runtime.Engine.Utils.Extensions.VectorConstants;
 
 namespace Runtime.Engine.Jobs.Meshing
 {
     internal partial struct MeshBuildJob
     {
-        private const float UVEdgeInset = 0.005f;
+        private static readonly half UVEdgeInset = (half)0.005f;
+        private static readonly half Half0 = (half)0f;
+        private static readonly half Half1 = (half)1f;
         private const float LiquidSurfaceLowering = 0.2f;
 
         #region Quad Creation
@@ -168,22 +171,22 @@ namespace Runtime.Engine.Jobs.Meshing
         private UVQuad ComputeFaceUVs(int3 normal, int2 size)
         {
             UVQuad uv;
-            float uMaxW = math.max(UVEdgeInset, size.x - UVEdgeInset);
-            float vMaxH = math.max(UVEdgeInset, size.y - UVEdgeInset);
+            half uMaxW = Max(UVEdgeInset, (half)(size.x - UVEdgeInset));
+            half vMaxH = Max(UVEdgeInset, (half)(size.y - UVEdgeInset));
 
             if (normal.x is 1 or -1)
             {
-                uv.Uv1 = new float4(UVEdgeInset, UVEdgeInset, 0, 0); // (0,0)
-                uv.Uv2 = new float4(UVEdgeInset, uMaxW, 0, 1); // (0,width)
-                uv.Uv3 = new float4(vMaxH, UVEdgeInset, 1, 0); // (height,0)
-                uv.Uv4 = new float4(vMaxH, uMaxW, 1, 1); // (height,width)
+                uv.Uv1 = new half4(UVEdgeInset, UVEdgeInset, Half0, Half0); // (0,0)
+                uv.Uv2 = new half4(UVEdgeInset, uMaxW, Half0, Half1); // (0,width)
+                uv.Uv3 = new half4(vMaxH, UVEdgeInset, Half1, Half0); // (height,0)
+                uv.Uv4 = new half4(vMaxH, uMaxW, Half1, Half1); // (height,width)
             }
             else
             {
-                uv.Uv1 = new float4(UVEdgeInset, UVEdgeInset, 0, 0); // (0,0)
-                uv.Uv2 = new float4(uMaxW, UVEdgeInset, 0, 1); // (width,0)
-                uv.Uv3 = new float4(UVEdgeInset, vMaxH, 1, 0); // (0,height)
-                uv.Uv4 = new float4(uMaxW, vMaxH, 1, 1); // (width,height)
+                uv.Uv1 = new half4(UVEdgeInset, UVEdgeInset, Half0, Half0); // (0,0)
+                uv.Uv2 = new half4(uMaxW, UVEdgeInset, Half0, Half1); // (width,0)
+                uv.Uv3 = new half4(UVEdgeInset, vMaxH, Half1, Half0); // (0,height)
+                uv.Uv4 = new half4(uMaxW, vMaxH, Half1, Half1); // (width,height)
             }
 
             return uv;

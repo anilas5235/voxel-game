@@ -12,20 +12,20 @@ namespace Runtime.Engine.Jobs.Meshing
     {
         public float3 Position;
         public float3 Normal;
-        public float4 UV0;
+        public half4 UV0;
         public float4 UV1;
-        public float4 UV2;
+        public float4 AO;
 
         /// <summary>
         /// Creates a vertex with all attributes.
         /// </summary>
-        public Vertex(float3 position, float3 normal, float4 uv0, float4 uv1, float4 uv2)
+        public Vertex(float3 position, float3 normal, half4 uv0, float4 uv1, float4 ao)
         {
             Position = position;
             Normal = normal;
             UV0 = uv0;
             UV1 = uv1;
-            UV2 = uv2;
+            AO = ao;
         }
     }
 
