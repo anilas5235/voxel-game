@@ -12,7 +12,7 @@ namespace Runtime.Engine.Jobs.Meshing
     public struct Vertex
     {
         public half4 Position;
-        public float3 Normal;
+        public half4 Normal;
         public half4 UV0;
         public float4 UV1;
         public float4 AO;
@@ -22,8 +22,8 @@ namespace Runtime.Engine.Jobs.Meshing
         /// </summary>
         public Vertex(float3 position, float3 normal, float4 uv0, float4 uv1, float4 ao)
         {
-            Position = new half4((half3)position, (half)1f);
-            Normal = normal;
+            Position = new half4((half3)position, half.zero);
+            Normal = new half4((half3)normal, half.zero);
             UV0 = (half4)uv0;
             UV1 = uv1;
             AO = ao;
@@ -33,21 +33,21 @@ namespace Runtime.Engine.Jobs.Meshing
     }
 
     /// <summary>
-    /// Compact vertex structure for collider mesh (position + normal only).
+    /// Compact vertex structure for collider mesh (position + normal).
     /// </summary>
     [BurstCompile]
     public struct CVertex
     {
         public half4 Position;
-        public float3 Normal;
+        public half4 Normal;
 
         /// <summary>
         /// Creates a collider vertex.
         /// </summary>
         public CVertex(float3 position, float3 normal)
         {
-            Position = new half4((half3)position, (half)0f);
-            Normal = normal;
+            Position = new half4((half3)position, half.zero);
+            Normal = new half4((half3)normal, half.zero);
         }
 
         internal float3 GetPosition() => new(Position.x, Position.y, Position.z);

@@ -63,7 +63,7 @@ namespace Runtime.Engine.Jobs.Meshing
             {
                 // Int interpolation cause issues
                 [0] = new VertexAttributeDescriptor(VertexAttribute.Position, VertexAttributeFormat.Float16,4),
-                [1] = new VertexAttributeDescriptor(VertexAttribute.Normal),
+                [1] = new VertexAttributeDescriptor(VertexAttribute.Normal, VertexAttributeFormat.Float16, 4),
                 [2] = new VertexAttributeDescriptor(VertexAttribute.TexCoord0, VertexAttributeFormat.Float16, 4),
                 [3] = new VertexAttributeDescriptor(VertexAttribute.TexCoord1, VertexAttributeFormat.Float32, 4),
                 [4] = new VertexAttributeDescriptor(VertexAttribute.TexCoord2, VertexAttributeFormat.Float32, 4)
@@ -73,7 +73,7 @@ namespace Runtime.Engine.Jobs.Meshing
             _colliderVertexParams = new NativeArray<VertexAttributeDescriptor>(2, Allocator.Persistent)
             {
                 [0] = new VertexAttributeDescriptor(VertexAttribute.Position, VertexAttributeFormat.Float16,4),
-                [1] = new VertexAttributeDescriptor(VertexAttribute.Normal)
+                [1] = new VertexAttributeDescriptor(VertexAttribute.Normal, VertexAttributeFormat.Float16, 4)
             };
 
             _results = new NativeParallelHashMap<int3, MeshBuildJob.PartitionJobResult>(
