@@ -18,7 +18,7 @@ namespace Runtime.Engine.Jobs.Meshing
         [BurstCompile]
         private struct UVQuad
         {
-            public half4 Uv1, Uv2, Uv3, Uv4;
+            public float4 Uv1, Uv2, Uv3, Uv4;
         }
 
         [BurstCompile]

@@ -10,7 +10,7 @@ namespace Runtime.Engine.Jobs.Meshing
     [BurstCompile]
     public struct Vertex
     {
-        public float3 Position;
+        public half4 Position;
         public float3 Normal;
         public half4 UV0;
         public float4 UV1;
@@ -19,11 +19,11 @@ namespace Runtime.Engine.Jobs.Meshing
         /// <summary>
         /// Creates a vertex with all attributes.
         /// </summary>
-        public Vertex(float3 position, float3 normal, half4 uv0, float4 uv1, float4 ao)
+        public Vertex(float3 position, float3 normal, float4 uv0, float4 uv1, float4 ao)
         {
-            Position = position;
+            Position = new half4((half3)position,(half) 1f);
             Normal = normal;
-            UV0 = uv0;
+            UV0 = (half4)uv0;
             UV1 = uv1;
             AO = ao;
         }

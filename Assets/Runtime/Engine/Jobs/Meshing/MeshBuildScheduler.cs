@@ -62,7 +62,7 @@ namespace Runtime.Engine.Jobs.Meshing
             _vertexParams = new NativeArray<VertexAttributeDescriptor>(5, Allocator.Persistent)
             {
                 // Int interpolation cause issues
-                [0] = new VertexAttributeDescriptor(VertexAttribute.Position),
+                [0] = new VertexAttributeDescriptor(VertexAttribute.Position, VertexAttributeFormat.Float16,4),
                 [1] = new VertexAttributeDescriptor(VertexAttribute.Normal),
                 [2] = new VertexAttributeDescriptor(VertexAttribute.TexCoord0, VertexAttributeFormat.Float16, 4),
                 [3] = new VertexAttributeDescriptor(VertexAttribute.TexCoord1, VertexAttributeFormat.Float32, 4),
