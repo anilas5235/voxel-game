@@ -36,7 +36,7 @@ namespace Runtime.Engine.Jobs.Meshing
         {
             float3 normal = directionMask * mask.Normal;
 
-            AddColliderVertices(ref jobData, in verts, normal);
+            AddColliderVertices(ref jobData.MeshBuffer, in verts, normal);
 
             // Use AO zeros for a deterministic diagonal, reuse existing helper for correct winding
             int4 ao = int4.zero;
@@ -148,19 +148,18 @@ namespace Runtime.Engine.Jobs.Meshing
         }
 
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
-        private void AddColliderVertices(ref PartitionJobData jobData, in VQuad verts, float3 normal)
+        private void AddColliderVertices(ref MeshBuffer mesh , in VQuad verts, float3 normal)
         {
-            MeshBuffer mesh = jobData.MeshBuffer;
             CVertex vertex1 = new(verts.V1, normal);
             CVertex vertex2 = new(verts.V2, normal);
             CVertex vertex3 = new(verts.V3, normal);
             CVertex vertex4 = new(verts.V4, normal);
 
             EnsureCapacity(mesh.CVertexBuffer, 4);
-            mesh.CVertexBuffer.AddNoResize(vertex1);
-            mesh.CVertexBuffer.AddNoResize(vertex2);
-            mesh.CVertexBuffer.AddNoResize(vertex3);
-            mesh.CVertexBuffer.AddNoResize(vertex4);
+            mesh.AddCVertex(vertex1);
+            mesh.AddCVertex(vertex2);
+            mesh.AddCVertex(vertex3);
+            mesh.AddCVertex(vertex4);
         }
 
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]

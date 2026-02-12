@@ -13,7 +13,9 @@ namespace Runtime.Engine.Jobs.Meshing
 
             FillColliderMeshData(in jobData);
 
-            jobData.MeshBuffer.GetMeshBounds(out Bounds bounds);
+            jobData.MeshBuffer.GetMeshBounds(out Bounds mBounds);
+            
+            jobData.MeshBuffer.GetColliderBounds(out Bounds cBounds);
 
             Results.TryAdd(
                 jobData.PartitionPos,
@@ -21,7 +23,8 @@ namespace Runtime.Engine.Jobs.Meshing
                 {
                     Index = index,
                     PartitionPos = jobData.PartitionPos,
-                    MeshBounds = bounds
+                    MeshBounds = mBounds,
+                    ColliderBounds = cBounds
                 }
             );
         }

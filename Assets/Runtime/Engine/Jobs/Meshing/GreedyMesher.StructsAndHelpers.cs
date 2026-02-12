@@ -25,6 +25,7 @@ namespace Runtime.Engine.Jobs.Meshing
             public int Index;
             public int3 PartitionPos;
             public Bounds MeshBounds;
+            public Bounds ColliderBounds;
         }
 
         [BurstCompile]
@@ -128,7 +129,7 @@ namespace Runtime.Engine.Jobs.Meshing
         }
 
         [BurstCompile]
-        private struct CMask : IMaskComparable<CMask>
+        private readonly struct CMask : IMaskComparable<CMask>
         {
             internal readonly sbyte Normal;
 

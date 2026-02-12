@@ -22,13 +22,13 @@ namespace Runtime.Engine.Jobs.Meshing
         /// </summary>
         public Vertex(float3 position, float3 normal, float4 uv0, float4 uv1, float4 ao)
         {
-            Position = new half4((half3)position,(half) 1f);
+            Position = new half4((half3)position, (half)1f);
             Normal = normal;
             UV0 = (half4)uv0;
             UV1 = uv1;
             AO = ao;
         }
-        
+
         internal float3 GetPosition() => new(Position.x, Position.y, Position.z);
     }
 
@@ -38,7 +38,7 @@ namespace Runtime.Engine.Jobs.Meshing
     [BurstCompile]
     public struct CVertex
     {
-        public float3 Position;
+        public half4 Position;
         public float3 Normal;
 
         /// <summary>
@@ -46,9 +46,11 @@ namespace Runtime.Engine.Jobs.Meshing
         /// </summary>
         public CVertex(float3 position, float3 normal)
         {
-            Position = position;
+            Position = new half4((half3)position, (half)0f);
             Normal = normal;
         }
+
+        internal float3 GetPosition() => new(Position.x, Position.y, Position.z);
     }
 
     /// <summary>
@@ -61,11 +63,13 @@ namespace Runtime.Engine.Jobs.Meshing
         public NativeList<int> SolidIndexBuffer;
         public NativeList<int> TransparentIndexBuffer;
         public NativeList<int> FoliageIndexBuffer;
-        public float3 MinBounds;
-        public float3 MaxBounds;
-        
+        private float3 _minMBounds;
+        private float3 _maxMBounds;
+
         public NativeList<CVertex> CVertexBuffer;
         public NativeList<int> CIndexBuffer;
+        private float3 _minCBounds;
+        private float3 _maxCBounds;
 
         /// <summary>
         /// Disposes all native lists.
@@ -79,19 +83,33 @@ namespace Runtime.Engine.Jobs.Meshing
             CVertexBuffer.Dispose();
             CIndexBuffer.Dispose();
         }
-        
+
         public void AddVertex(ref Vertex vertex)
         {
             VertexBuffer.AddNoResize(vertex);
             float3 pos = vertex.GetPosition();
-            MinBounds = math.min(MinBounds, pos);
-            MaxBounds = math.max(MaxBounds, pos);
+            _minMBounds = math.min(_minMBounds, pos);
+            _maxMBounds = math.max(_maxMBounds, pos);
         }
 
         public void GetMeshBounds(out Bounds bounds)
         {
             bounds = new Bounds();
-            bounds.SetMinMax(MinBounds, MaxBounds);
+            bounds.SetMinMax(_minMBounds, _maxMBounds);
+        }
+
+        public void AddCVertex(CVertex vertex)
+        {
+            CVertexBuffer.AddNoResize(vertex);
+            float3 pos = vertex.GetPosition();
+            _minCBounds = math.min(_minCBounds, pos);
+            _maxCBounds = math.max(_maxCBounds, pos);
+        }
+
+        public void GetColliderBounds(out Bounds bounds)
+        {
+            bounds = new Bounds();
+            bounds.SetMinMax(_minCBounds, _maxCBounds);
         }
     }
 }

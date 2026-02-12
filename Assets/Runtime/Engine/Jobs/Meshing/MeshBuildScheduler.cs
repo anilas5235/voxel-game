@@ -72,7 +72,7 @@ namespace Runtime.Engine.Jobs.Meshing
             // Collider uses only Position and Normal from CVertex
             _colliderVertexParams = new NativeArray<VertexAttributeDescriptor>(2, Allocator.Persistent)
             {
-                [0] = new VertexAttributeDescriptor(VertexAttribute.Position),
+                [0] = new VertexAttributeDescriptor(VertexAttribute.Position, VertexAttributeFormat.Float16,4),
                 [1] = new VertexAttributeDescriptor(VertexAttribute.Normal)
             };
 
@@ -153,6 +153,7 @@ namespace Runtime.Engine.Jobs.Meshing
                 meshes[result.Index] = partition.Mesh;
                 colliderMeshes[result.Index] = partition.ColliderMesh;
                 partition.Mesh.bounds = result.MeshBounds;
+                partition.ColliderMesh.bounds = result.ColliderBounds;
             }
 
             Mesh.ApplyAndDisposeWritableMeshData(
@@ -166,11 +167,6 @@ namespace Runtime.Engine.Jobs.Meshing
                 colliderMeshes,
                 MeshFlags
             );
-
-            foreach (Mesh cm in colliderMeshes)
-            {
-                cm.RecalculateBounds();
-            }
 
             foreach (ChunkPartition partition in changedPartitions)
             {
