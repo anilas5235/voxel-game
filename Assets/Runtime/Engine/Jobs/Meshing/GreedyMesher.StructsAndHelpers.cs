@@ -62,10 +62,10 @@ namespace Runtime.Engine.Jobs.Meshing
                 {
                     VertexBuffer = new NativeList<Vertex>(VoxelCount4, Allocator.Temp),
                     CVertexBuffer = new NativeList<CVertex>(VoxelCount4, Allocator.Temp),
-                    SolidIndexBuffer = new NativeList<int>(VoxelCount6, Allocator.Temp),
-                    TransparentIndexBuffer = new NativeList<int>(VoxelCount6, Allocator.Temp),
-                    FoliageIndexBuffer = new NativeList<int>(VoxelCount6, Allocator.Temp),
-                    CIndexBuffer = new NativeList<int>(VoxelCount6, Allocator.Temp)
+                    SolidIndexBuffer = new NativeList<ushort>(VoxelCount6, Allocator.Temp),
+                    TransparentIndexBuffer = new NativeList<ushort>(VoxelCount6, Allocator.Temp),
+                    FoliageIndexBuffer = new NativeList<ushort>(VoxelCount6, Allocator.Temp),
+                    CIndexBuffer = new NativeList<ushort>(VoxelCount6, Allocator.Temp)
                 };
 
                 SeeThroughVoxels = new NativeHashSet<int3>(VoxelsPerPartition, Allocator.Temp);

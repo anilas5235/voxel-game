@@ -39,10 +39,10 @@ namespace Runtime.Engine.Jobs.Meshing
             colliderMesh.GetVertexData<CVertex>().CopyFrom(meshBuffer.CVertexBuffer.AsArray());
 
             int cIndexCount = meshBuffer.CIndexBuffer.Length;
-            colliderMesh.SetIndexBufferParams(cIndexCount, IndexFormat.UInt32);
-            NativeArray<int> cIndexBuffer = colliderMesh.GetIndexData<int>();
+            colliderMesh.SetIndexBufferParams(cIndexCount, IndexFormat.UInt16);
+            NativeArray<ushort> cIndexBuffer = colliderMesh.GetIndexData<ushort>();
             if (cIndexCount > 0)
-                NativeArray<int>.Copy(meshBuffer.CIndexBuffer.AsArray(), 0, cIndexBuffer, 0, cIndexCount);
+                NativeArray<ushort>.Copy(meshBuffer.CIndexBuffer.AsArray(), 0, cIndexBuffer, 0, cIndexCount);
 
             colliderMesh.subMeshCount = 1;
             SubMeshDescriptor cDesc = new(0, cIndexCount);
@@ -62,18 +62,18 @@ namespace Runtime.Engine.Jobs.Meshing
             int transparentIndexes = meshBuffer.TransparentIndexBuffer.Length;
             int foliageIndexes = meshBuffer.FoliageIndexBuffer.Length;
 
-            mesh.SetIndexBufferParams(solidIndexes + transparentIndexes + foliageIndexes, IndexFormat.UInt32);
-            NativeArray<int> indexBuffer = mesh.GetIndexData<int>();
-            NativeArray<int>.Copy(meshBuffer.SolidIndexBuffer.AsArray(), 0, indexBuffer, 0, solidIndexes);
+            mesh.SetIndexBufferParams(solidIndexes + transparentIndexes + foliageIndexes, IndexFormat.UInt16);
+            NativeArray<ushort> indexBuffer = mesh.GetIndexData<ushort>();
+            NativeArray<ushort>.Copy(meshBuffer.SolidIndexBuffer.AsArray(), 0, indexBuffer, 0, solidIndexes);
             if (transparentIndexes > 1)
             {
-                NativeArray<int>.Copy(meshBuffer.TransparentIndexBuffer.AsArray(), 0, indexBuffer, solidIndexes,
+                NativeArray<ushort>.Copy(meshBuffer.TransparentIndexBuffer.AsArray(), 0, indexBuffer, solidIndexes,
                     transparentIndexes);
             }
 
             if (foliageIndexes > 1)
             {
-                NativeArray<int>.Copy(meshBuffer.FoliageIndexBuffer.AsArray(), 0, indexBuffer,
+                NativeArray<ushort>.Copy(meshBuffer.FoliageIndexBuffer.AsArray(), 0, indexBuffer,
                     solidIndexes + transparentIndexes,
                     foliageIndexes);
             }

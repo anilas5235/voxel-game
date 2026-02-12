@@ -1,5 +1,4 @@
-﻿using Runtime.Engine.Data;
-using Runtime.Engine.VoxelConfig.Data;
+﻿using Runtime.Engine.VoxelConfig.Data;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Mathematics;

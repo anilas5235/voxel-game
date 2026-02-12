@@ -14,8 +14,8 @@ namespace Runtime.Engine.Jobs.Meshing
         public half4 Position;
         public half4 Normal;
         public half4 UV0;
-        public float4 UV1;
-        public float4 AO;
+        public half4 UV1;
+        public half4 AO;
 
         /// <summary>
         /// Creates a vertex with all attributes.
@@ -25,8 +25,8 @@ namespace Runtime.Engine.Jobs.Meshing
             Position = new half4((half3)position, half.zero);
             Normal = new half4((half3)normal, half.zero);
             UV0 = (half4)uv0;
-            UV1 = uv1;
-            AO = ao;
+            UV1 = (half4)uv1;
+            AO = (half4)ao;
         }
 
         internal float3 GetPosition() => new(Position.x, Position.y, Position.z);
@@ -60,14 +60,14 @@ namespace Runtime.Engine.Jobs.Meshing
     internal struct MeshBuffer
     {
         public NativeList<Vertex> VertexBuffer;
-        public NativeList<int> SolidIndexBuffer;
-        public NativeList<int> TransparentIndexBuffer;
-        public NativeList<int> FoliageIndexBuffer;
+        public NativeList<ushort> SolidIndexBuffer;
+        public NativeList<ushort> TransparentIndexBuffer;
+        public NativeList<ushort> FoliageIndexBuffer;
         private float3 _minMBounds;
         private float3 _maxMBounds;
 
         public NativeList<CVertex> CVertexBuffer;
-        public NativeList<int> CIndexBuffer;
+        public NativeList<ushort> CIndexBuffer;
         private float3 _minCBounds;
         private float3 _maxCBounds;
 
