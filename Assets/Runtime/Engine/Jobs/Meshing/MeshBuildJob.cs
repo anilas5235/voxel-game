@@ -38,13 +38,13 @@ namespace Runtime.Engine.Jobs.Meshing
             public readonly int Index;
             public readonly int3 PartitionPos;
 
-            public PartitionOcclusionData Occlusion;
+            public Bounds MeshBounds;
 
-            public PartitionJobResult(int index, int3 partitionPos, PartitionOcclusionData occlusion)
+            public PartitionJobResult(int index, int3 partitionPos, Bounds meshBounds)
             {
                 Index = index;
                 PartitionPos = partitionPos;
-                Occlusion = occlusion;
+                MeshBounds = meshBounds;
             }
         }
 
@@ -131,86 +131,14 @@ namespace Runtime.Engine.Jobs.Meshing
 
             FillColliderMeshData(in jobData);
 
-            DetermineOcclusion(ref jobData, out PartitionOcclusionData occlusion);
+            jobData.MeshBuffer.GetMeshBounds(out Bounds bounds);
 
-            Results.TryAdd(jobData.PartitionPos, new PartitionJobResult(index, jobData.PartitionPos, occlusion));
+            Results.TryAdd(
+                jobData.PartitionPos,
+                new PartitionJobResult(index, jobData.PartitionPos, bounds)
+            );
 
             jobData.Dispose();
-        }
-
-        private void DetermineOcclusion(ref PartitionJobData jobData, out PartitionOcclusionData partitionOcclusionData)
-        {
-            partitionOcclusionData = new PartitionOcclusionData();
-
-            if (jobData.SolidVoxels.Count < PartitionWidth * PartitionHeight)
-            {
-                partitionOcclusionData.SetAll(true);
-                return;
-            }
-
-            NativeHashSet<int3>.ReadOnly seeThroughVoxels = jobData.SeeThroughVoxels.AsReadOnly();
-            NativeHashSet<int3> checkedVoxels = new(seeThroughVoxels.Count, Allocator.Temp);
-            NativeQueue<int3> voxelQueue = new(Allocator.Temp);
-
-            NativeArray<int3> voxelNeighborOffsets = new(6, Allocator.Temp)
-            {
-                [0] = VectorConstants.Int3Forward,
-                [1] = VectorConstants.Int3Backward,
-                [2] = VectorConstants.Int3Right,
-                [3] = VectorConstants.Int3Left,
-                [4] = VectorConstants.Int3Up,
-                [5] = VectorConstants.Int3Down
-            };
-
-            NativeHashSet<byte> connectedDirections = new(6, Allocator.Temp);
-            foreach (int3 voxel in seeThroughVoxels)
-            {
-                // Try to mark seed voxel as visited; if it was already visited skip it
-                connectedDirections.Clear();
-
-                voxelQueue.Enqueue(voxel);
-
-                while (voxelQueue.TryDequeue(out int3 currentVoxel))
-                {
-                    foreach (int3 offset in voxelNeighborOffsets)
-                    {
-                        int3 neighborPos = currentVoxel + offset;
-                        if (!ChunkAccessor.InPartitionBounds(neighborPos))
-                        {
-                            connectedDirections.Add((byte)PartitionOcclusionData.GetOccFromNormal(in offset));
-                            continue;
-                        }
-
-                        // If neighbor is not see-through skip
-                        if (!seeThroughVoxels.Contains(neighborPos)) continue;
-
-                        // Mark as visited and enqueue only if this thread successfully added it
-                        if (checkedVoxels.Add(neighborPos))
-                        {
-                            voxelQueue.Enqueue(neighborPos);
-                        }
-                    }
-
-                    if (connectedDirections.Count < 6) continue;
-                    // All directions are already connected, no need to continue
-                    partitionOcclusionData.SetAll(true);
-                    DisposeNativeCollections();
-                    return;
-                }
-
-                partitionOcclusionData.SetFaceConnected(connectedDirections);
-            }
-
-            DisposeNativeCollections();
-            return;
-
-            void DisposeNativeCollections()
-            {
-                voxelNeighborOffsets.Dispose();
-                checkedVoxels.Dispose();
-                voxelQueue.Dispose();
-                connectedDirections.Dispose();
-            }
         }
 
         private void SortVoxels(ref PartitionJobData jobData)

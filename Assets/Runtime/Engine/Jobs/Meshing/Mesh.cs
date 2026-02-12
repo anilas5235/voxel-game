@@ -1,6 +1,7 @@
 ﻿using Unity.Burst;
 using Unity.Collections;
 using Unity.Mathematics;
+using UnityEngine;
 
 namespace Runtime.Engine.Jobs.Meshing
 {
@@ -27,6 +28,8 @@ namespace Runtime.Engine.Jobs.Meshing
             UV1 = uv1;
             AO = ao;
         }
+        
+        internal float3 GetPosition() => new(Position.x, Position.y, Position.z);
     }
 
     /// <summary>
@@ -58,6 +61,8 @@ namespace Runtime.Engine.Jobs.Meshing
         public NativeList<int> SolidIndexBuffer;
         public NativeList<int> TransparentIndexBuffer;
         public NativeList<int> FoliageIndexBuffer;
+        public float3 MinBounds;
+        public float3 MaxBounds;
         
         public NativeList<CVertex> CVertexBuffer;
         public NativeList<int> CIndexBuffer;
@@ -73,6 +78,20 @@ namespace Runtime.Engine.Jobs.Meshing
             FoliageIndexBuffer.Dispose();
             CVertexBuffer.Dispose();
             CIndexBuffer.Dispose();
+        }
+        
+        public void AddVertex(ref Vertex vertex)
+        {
+            VertexBuffer.AddNoResize(vertex);
+            float3 pos = vertex.GetPosition();
+            MinBounds = math.min(MinBounds, pos);
+            MaxBounds = math.max(MaxBounds, pos);
+        }
+
+        public void GetMeshBounds(out Bounds bounds)
+        {
+            bounds = new Bounds();
+            bounds.SetMinMax(MinBounds, MaxBounds);
         }
     }
 }

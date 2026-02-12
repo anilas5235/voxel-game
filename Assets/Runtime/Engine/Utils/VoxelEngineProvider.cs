@@ -79,7 +79,5 @@ namespace Runtime.Engine.Utils
             ChunkPool chunkPool,
             VoxelRegistry voxelRegistry
         ) => new(Settings, chunkManager, chunkPool, voxelRegistry);
-        
-        internal OcclusionCuller OcclusionCuller(ChunkPool chunkPool) => new(chunkPool, Settings);
     }
 }

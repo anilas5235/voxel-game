@@ -147,10 +147,12 @@ namespace Runtime.Engine.Jobs.Meshing
                 ChunkPartition partition = _chunkPool.GetOrClaimPartition(pos);
                 _chunkManager.ReMeshedPartition(pos);
                 changedPartitions.Add(partition);
+                
+                MeshBuildJob.PartitionJobResult result = _results[pos];
 
-                meshes[_results[pos].Index] = partition.Mesh;
-                colliderMeshes[_results[pos].Index] = partition.ColliderMesh;
-                partition.OcclusionData = _results[pos].Occlusion;
+                meshes[result.Index] = partition.Mesh;
+                colliderMeshes[result.Index] = partition.ColliderMesh;
+                partition.Mesh.bounds = result.MeshBounds;
             }
 
             Mesh.ApplyAndDisposeWritableMeshData(
@@ -164,11 +166,6 @@ namespace Runtime.Engine.Jobs.Meshing
                 colliderMeshes,
                 MeshFlags
             );
-
-            foreach (Mesh m in meshes)
-            {
-                m.RecalculateBounds();
-            }
 
             foreach (Mesh cm in colliderMeshes)
             {

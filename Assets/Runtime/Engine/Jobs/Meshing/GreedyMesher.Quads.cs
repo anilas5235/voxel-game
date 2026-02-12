@@ -57,7 +57,7 @@ namespace Runtime.Engine.Jobs.Meshing
             float4 uv1 = new(texIndex, 0, 0, 0);
             float3 n = normal;
             float4 ao = mask.AO;
-            AddVertices(jobData.MeshBuffer, in verts, n, in uv, uv1, ao);
+            AddVertices(ref jobData.MeshBuffer, in verts, n, in uv, uv1, ao);
 
             AddQuadIndices(jobData.MeshBuffer.SolidIndexBuffer, jobData.RenderVertexCount, mask.Normal, mask.AO);
             jobData.RenderVertexCount += 4;
@@ -103,7 +103,7 @@ namespace Runtime.Engine.Jobs.Meshing
             float4 uv1 = new(texIndex, info.DepthFadeDistance, 0, 0);
             float3 n = normal;
             float4 ao = mask.AO;
-            AddVertices(jobData.MeshBuffer, in mutableVerts, n, in uv, uv1, ao);
+            AddVertices(ref jobData.MeshBuffer, in mutableVerts, n, in uv, uv1, ao);
 
             AddQuadIndices(jobData.MeshBuffer.TransparentIndexBuffer, jobData.RenderVertexCount, mask.Normal, mask.AO);
             jobData.RenderVertexCount += 4;
@@ -115,7 +115,7 @@ namespace Runtime.Engine.Jobs.Meshing
             int texIndex = info.TexUp;
             UVQuad uv = ComputeFaceUVs(new int3(1, 1, 0), new int2(1, 1));
             float4 uv1 = new(texIndex, -1, 0, 0);
-            AddVertices(jobData.MeshBuffer, in verts, Float3Up, in uv, uv1, ao);
+            AddVertices(ref jobData.MeshBuffer, in verts, Float3Up, in uv, uv1, ao);
 
             NativeList<int> indexBuffer = jobData.MeshBuffer.FoliageIndexBuffer;
             EnsureCapacity(indexBuffer, 6);
@@ -132,7 +132,7 @@ namespace Runtime.Engine.Jobs.Meshing
         }
 
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
-        private void AddVertices(MeshBuffer mesh, in VQuad verts, float3 normal, in UVQuad uv0,
+        private void AddVertices(ref MeshBuffer mesh, in VQuad verts, float3 normal, in UVQuad uv0,
             float4 uv1, float4 uv2)
         {
             Vertex vertex1 = new(verts.V1, normal, uv0.Uv1, uv1, uv2);
@@ -141,10 +141,10 @@ namespace Runtime.Engine.Jobs.Meshing
             Vertex vertex4 = new(verts.V4, normal, uv0.Uv4, uv1, uv2);
 
             EnsureCapacity(mesh.VertexBuffer, 4);
-            mesh.VertexBuffer.AddNoResize(vertex1);
-            mesh.VertexBuffer.AddNoResize(vertex2);
-            mesh.VertexBuffer.AddNoResize(vertex3);
-            mesh.VertexBuffer.AddNoResize(vertex4);
+            mesh.AddVertex(ref vertex1);
+            mesh.AddVertex(ref vertex2);
+            mesh.AddVertex(ref vertex3);
+            mesh.AddVertex(ref vertex4);
         }
 
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
