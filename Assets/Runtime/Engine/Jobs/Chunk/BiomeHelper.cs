@@ -123,37 +123,5 @@ namespace Runtime.Engine.Jobs.Chunk
             float s = math.sin(t) * 43758.5453f;
             return math.frac(s);
         }
-
-#if UNITY_EDITOR
-        /// <summary>
-        /// Samples a grid of parameter combinations to count biome coverage (editor-only diagnostic helper).
-        /// </summary>
-        internal static Dictionary<Biome, int> SampleCoverage()
-        {
-            var counts = new Dictionary<Biome, int>();
-            foreach (Biome b in Enum.GetValues(typeof(Biome))) counts[b] = 0;
-
-            int water = 64;
-            for (int gy = 56; gy <= 72; gy += 4)
-            {
-                for (int ei = 33; ei <= 85; ei += 4)
-                {
-                    float elev = ei / 100f;
-                    for (int ti = 0; ti <= 100; ti += 10)
-                    {
-                        float temp = ti / 100f;
-                        for (int hi = 0; hi <= 100; hi += 10)
-                        {
-                            float hum = hi / 100f;
-                            var b = SelectBiome(temp, hum, elev, gy, water, 1f, 0f);
-                            counts[b]++;
-                        }
-                    }
-                }
-            }
-
-            return counts;
-        }
-#endif
     }
 }

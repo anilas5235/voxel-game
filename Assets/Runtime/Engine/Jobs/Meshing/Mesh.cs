@@ -1,4 +1,5 @@
-﻿using Unity.Burst;
+﻿using System;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
@@ -92,6 +93,27 @@ namespace Runtime.Engine.Jobs.Meshing
             _maxMBounds = math.max(_maxMBounds, pos);
         }
 
+        public void AddIndex(int index, SubMeshType subMeshType)
+        {
+            switch (subMeshType)
+            {
+                case SubMeshType.Solid:
+                    SolidIndexBuffer.AddNoResize((ushort)index);
+                    break;
+                case SubMeshType.Transparent:
+                    TransparentIndexBuffer.AddNoResize((ushort)index);
+                    break;
+                case SubMeshType.Foliage:
+                    FoliageIndexBuffer.AddNoResize((ushort)index);
+                    break;
+                case SubMeshType.Collider:
+                    CIndexBuffer.AddNoResize((ushort)index);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(subMeshType), subMeshType, null);
+            }
+        }
+
         public void GetMeshBounds(out Bounds bounds)
         {
             bounds = new Bounds();
@@ -111,5 +133,13 @@ namespace Runtime.Engine.Jobs.Meshing
             bounds = new Bounds();
             bounds.SetMinMax(_minCBounds, _maxCBounds);
         }
+    }
+    
+    internal enum SubMeshType : byte
+    {
+        Solid = 0,
+        Transparent = 1,
+        Foliage = 2,
+        Collider = 3
     }
 }
