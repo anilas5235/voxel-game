@@ -162,15 +162,17 @@ namespace Runtime.Engine.Jobs.Meshing
             internal readonly MeshLayer MeshLayer;
             internal readonly sbyte Normal;
             internal readonly sbyte TopOpen;
+            internal readonly byte SunLight;
 
             internal int4 AO;
 
-            public Mask(ushort voxelId, MeshLayer meshLayer, sbyte normal, int4 ao, sbyte topOpen = 0)
+            public Mask(ushort voxelId, MeshLayer meshLayer, sbyte normal, int4 ao, byte sunLight, sbyte topOpen = 0)
             {
                 MeshLayer = meshLayer;
                 VoxelId = voxelId;
                 Normal = normal;
                 AO = ao;
+                SunLight = sunLight;
                 TopOpen = topOpen;
             }
 
@@ -180,6 +182,7 @@ namespace Runtime.Engine.Jobs.Meshing
                     MeshLayer == other.MeshLayer &&
                     VoxelId == other.VoxelId &&
                     Normal == other.Normal &&
+                    SunLight == other.SunLight &&
                     AO[0] == other.AO[0] &&
                     AO[1] == other.AO[1] &&
                     AO[2] == other.AO[2] &&

@@ -111,8 +111,14 @@ namespace Runtime.Engine.Jobs.Meshing
 
             sbyte top = ComputeTopVoxelOfType(pos, currentVoxel, ref jobData);
             int4 ao = ComputeAOMask(neighborCoord, jobData.PartitionPos, axInfo);
-            nMask[n] = new Mask(currentVoxel, currentLayer, posNormal ? (sbyte)1 : (sbyte)-1, ao, top);
+            byte sunLight = ComputeSunlight(ref jobData, neighborCoord);
+            nMask[n] = new Mask(currentVoxel, currentLayer, posNormal ? (sbyte)1 : (sbyte)-1, ao, sunLight,top);
             return true;
+        }
+
+        private static byte ComputeSunlight(ref PartitionJobData jobData, in int3 neighborCoord)
+        {
+            return jobData.LightDataMap.TryGetValue(neighborCoord, out LightData lightData) ? lightData.Sunlight : (byte)0;
         }
 
         [BurstCompile]

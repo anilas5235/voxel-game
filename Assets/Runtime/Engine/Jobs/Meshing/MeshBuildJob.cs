@@ -22,6 +22,8 @@ namespace Runtime.Engine.Jobs.Meshing
         [ReadOnly] public ChunkAccessor Accessor;
         [ReadOnly] public NativeList<int3> Jobs;
         [ReadOnly] public VoxelEngineRenderGenData RenderGenData;
+        [ReadOnly] public NativeArray<int3> NeighborOffsets;
+        
 
         [WriteOnly] public NativeParallelHashMap<int3, PartitionJobResult>.ParallelWriter Results;
         public Mesh.MeshDataArray MeshDataArray;

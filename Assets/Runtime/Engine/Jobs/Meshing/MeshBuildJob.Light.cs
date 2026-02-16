@@ -9,9 +9,7 @@ namespace Runtime.Engine.Jobs.Meshing
 {
     internal partial struct MeshBuildJob
     {
-        private static readonly NativeArray<int3> NeighborOffsets = new(Int3Directions, Allocator.Persistent);
         private const byte MaxLightLevel = 15;
-
 
         private void CreateLightMap(ref PartitionJobData jobData)
         {
@@ -74,7 +72,7 @@ namespace Runtime.Engine.Jobs.Meshing
                         int3 neighbor = current + offset;
                         if (!ChunkAccessor.InPartitionBounds(neighbor)) continue;
                         if (!seeThroughVoxels.Contains(neighbor)) continue;
-                        
+
                         if (lightDataMap.TryGetValue(neighbor, out LightData neighborLightData))
                         {
                             if (neighborLightData.Sunlight >= nextLightLevel) continue;
