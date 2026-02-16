@@ -37,11 +37,11 @@ namespace Runtime.Engine.Jobs.Meshing
         {
             float3 normal = directionMask * mask.Normal;
 
-            AddColliderVertices(ref jobData, in verts, normal);
+            AddColliderVertices(ref jobData.MeshBuffer, in verts, normal);
 
             // Use AO zeros for a deterministic diagonal, reuse existing helper for correct winding
             int4 ao = int4.zero;
-            AddQuadIndices(jobData.MeshBuffer.CIndexBuffer, jobData.CollisionVertexCount, mask.Normal, ao);
+            AddQuadIndices(ref jobData.MeshBuffer, SubMeshType.Collider, jobData.CollisionVertexCount, mask.Normal, ao);
             jobData.CollisionVertexCount += 4;
         }
 
@@ -58,9 +58,9 @@ namespace Runtime.Engine.Jobs.Meshing
             float4 uv1 = new(texIndex, 0, 0, 0);
             float3 n = normal;
             float4 ao = mask.AO;
-            AddVertices(jobData.MeshBuffer, in verts, n, in uv, uv1, ao);
+            AddVertices(ref jobData.MeshBuffer, in verts, n, in uv, uv1, ao);
 
-            AddQuadIndices(jobData.MeshBuffer.SolidIndexBuffer, jobData.RenderVertexCount, mask.Normal, mask.AO);
+            AddQuadIndices(ref jobData.MeshBuffer, SubMeshType.Solid ,jobData.RenderVertexCount, mask.Normal, mask.AO);
             jobData.RenderVertexCount += 4;
         }
 
@@ -104,9 +104,10 @@ namespace Runtime.Engine.Jobs.Meshing
             float4 uv1 = new(texIndex, info.DepthFadeDistance, 0, 0);
             float3 n = normal;
             float4 ao = mask.AO;
-            AddVertices(jobData.MeshBuffer, in mutableVerts, n, in uv, uv1, ao);
+            AddVertices(ref jobData.MeshBuffer, in mutableVerts, n, in uv, uv1, ao);
 
-            AddQuadIndices(jobData.MeshBuffer.TransparentIndexBuffer, jobData.RenderVertexCount, mask.Normal, mask.AO);
+            AddQuadIndices(ref jobData.MeshBuffer, SubMeshType.Transparent, jobData.RenderVertexCount, mask.Normal,
+                mask.AO);
             jobData.RenderVertexCount += 4;
         }
 
@@ -116,24 +117,25 @@ namespace Runtime.Engine.Jobs.Meshing
             int texIndex = info.TexUp;
             UVQuad uv = ComputeFaceUVs(new int3(1, 1, 0), new int2(1, 1));
             float4 uv1 = new(texIndex, -1, 0, 0);
-            AddVertices(jobData.MeshBuffer, in verts, Float3Up, in uv, uv1, ao);
+            AddVertices(ref jobData.MeshBuffer, in verts, Float3Up, in uv, uv1, ao);
 
-            NativeList<int> indexBuffer = jobData.MeshBuffer.FoliageIndexBuffer;
-            EnsureCapacity(indexBuffer, 6);
+            ref MeshBuffer meshBuffer = ref jobData.MeshBuffer;
+            EnsureCapacity(meshBuffer.FoliageIndexBuffer, 6);
 
             int vCount = jobData.RenderVertexCount;
-            indexBuffer.AddNoResize(vCount);
-            indexBuffer.AddNoResize(vCount + 1);
-            indexBuffer.AddNoResize(vCount + 2);
-            indexBuffer.AddNoResize(vCount + 2);
-            indexBuffer.AddNoResize(vCount + 1);
-            indexBuffer.AddNoResize(vCount + 3);
+            
+            meshBuffer.AddIndex(vCount, SubMeshType.Foliage);
+            meshBuffer.AddIndex(vCount + 1, SubMeshType.Foliage);
+            meshBuffer.AddIndex(vCount + 2, SubMeshType.Foliage);
+            meshBuffer.AddIndex(vCount + 2, SubMeshType.Foliage);
+            meshBuffer.AddIndex(vCount + 1, SubMeshType.Foliage);
+            meshBuffer.AddIndex(vCount + 3, SubMeshType.Foliage);
 
             jobData.RenderVertexCount += 4;
         }
 
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
-        private void AddVertices(MeshBuffer mesh, in VQuad verts, float3 normal, in UVQuad uv0,
+        private void AddVertices(ref MeshBuffer mesh, in VQuad verts, float3 normal, in UVQuad uv0,
             float4 uv1, float4 uv2)
         {
             Vertex vertex1 = new(verts.V1, normal, uv0.Uv1, uv1, uv2);
@@ -142,26 +144,25 @@ namespace Runtime.Engine.Jobs.Meshing
             Vertex vertex4 = new(verts.V4, normal, uv0.Uv4, uv1, uv2);
 
             EnsureCapacity(mesh.VertexBuffer, 4);
-            mesh.VertexBuffer.AddNoResize(vertex1);
-            mesh.VertexBuffer.AddNoResize(vertex2);
-            mesh.VertexBuffer.AddNoResize(vertex3);
-            mesh.VertexBuffer.AddNoResize(vertex4);
+            mesh.AddVertex(ref vertex1);
+            mesh.AddVertex(ref vertex2);
+            mesh.AddVertex(ref vertex3);
+            mesh.AddVertex(ref vertex4);
         }
 
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
-        private void AddColliderVertices(ref PartitionJobData jobData, in VQuad verts, float3 normal)
+        private void AddColliderVertices(ref MeshBuffer mesh, in VQuad verts, float3 normal)
         {
-            MeshBuffer mesh = jobData.MeshBuffer;
             CVertex vertex1 = new(verts.V1, normal);
             CVertex vertex2 = new(verts.V2, normal);
             CVertex vertex3 = new(verts.V3, normal);
             CVertex vertex4 = new(verts.V4, normal);
 
             EnsureCapacity(mesh.CVertexBuffer, 4);
-            mesh.CVertexBuffer.AddNoResize(vertex1);
-            mesh.CVertexBuffer.AddNoResize(vertex2);
-            mesh.CVertexBuffer.AddNoResize(vertex3);
-            mesh.CVertexBuffer.AddNoResize(vertex4);
+            mesh.AddCVertex(vertex1);
+            mesh.AddCVertex(vertex2);
+            mesh.AddCVertex(vertex3);
+            mesh.AddCVertex(vertex4);
         }
 
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
@@ -190,29 +191,40 @@ namespace Runtime.Engine.Jobs.Meshing
         }
 
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
-        private void AddQuadIndices(NativeList<int> indexBuffer, int baseVertexIndex, sbyte normalSign, int4 ao)
+        private void AddQuadIndices(ref MeshBuffer meshBuffer, SubMeshType subMeshType, int baseVertexIndex,
+            sbyte normalSign, int4 ao)
         {
             // Choose diagonal based on AO to minimize artifacts
+            NativeList<ushort> indexBuffer = subMeshType switch
+            {
+                SubMeshType.Solid => meshBuffer.SolidIndexBuffer,
+                SubMeshType.Transparent => meshBuffer.TransparentIndexBuffer,
+                SubMeshType.Foliage => meshBuffer.FoliageIndexBuffer,
+                SubMeshType.Collider => meshBuffer.CIndexBuffer,
+                _ => throw new ArgumentOutOfRangeException(nameof(subMeshType), subMeshType, null)
+            };
+            
             EnsureCapacity(indexBuffer, 6);
+            
             if (ao[0] + ao[3] > ao[1] + ao[2])
             {
-                indexBuffer.AddNoResize(baseVertexIndex);
-                indexBuffer.AddNoResize(baseVertexIndex + 2 - normalSign);
-                indexBuffer.AddNoResize(baseVertexIndex + 2 + normalSign);
+                meshBuffer.AddIndex(baseVertexIndex, subMeshType);
+                meshBuffer.AddIndex(baseVertexIndex + 2 - normalSign, subMeshType);
+                meshBuffer.AddIndex(baseVertexIndex + 2 + normalSign, subMeshType);
 
-                indexBuffer.AddNoResize(baseVertexIndex + 3);
-                indexBuffer.AddNoResize(baseVertexIndex + 1 + normalSign);
-                indexBuffer.AddNoResize(baseVertexIndex + 1 - normalSign);
+                meshBuffer.AddIndex(baseVertexIndex + 3, subMeshType);
+                meshBuffer.AddIndex(baseVertexIndex + 1 + normalSign, subMeshType);
+                meshBuffer.AddIndex(baseVertexIndex + 1 - normalSign, subMeshType);
             }
             else
             {
-                indexBuffer.AddNoResize(baseVertexIndex + 1);
-                indexBuffer.AddNoResize(baseVertexIndex + 1 + normalSign);
-                indexBuffer.AddNoResize(baseVertexIndex + 1 - normalSign);
+                meshBuffer.AddIndex(baseVertexIndex + 1, subMeshType);
+                meshBuffer.AddIndex(baseVertexIndex + 1 + normalSign, subMeshType);
+                meshBuffer.AddIndex(baseVertexIndex + 1 - normalSign, subMeshType);
 
-                indexBuffer.AddNoResize(baseVertexIndex + 2);
-                indexBuffer.AddNoResize(baseVertexIndex + 2 - normalSign);
-                indexBuffer.AddNoResize(baseVertexIndex + 2 + normalSign);
+                meshBuffer.AddIndex(baseVertexIndex + 2, subMeshType);
+                meshBuffer.AddIndex(baseVertexIndex + 2 - normalSign, subMeshType);
+                meshBuffer.AddIndex(baseVertexIndex + 2 + normalSign, subMeshType);
             }
         }
 

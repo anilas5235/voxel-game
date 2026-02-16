@@ -62,18 +62,18 @@ namespace Runtime.Engine.Jobs.Meshing
             _vertexParams = new NativeArray<VertexAttributeDescriptor>(5, Allocator.Persistent)
             {
                 // Int interpolation cause issues
-                [0] = new VertexAttributeDescriptor(VertexAttribute.Position),
-                [1] = new VertexAttributeDescriptor(VertexAttribute.Normal),
-                [2] = new VertexAttributeDescriptor(VertexAttribute.TexCoord0, VertexAttributeFormat.Float32, 4),
-                [3] = new VertexAttributeDescriptor(VertexAttribute.TexCoord1, VertexAttributeFormat.Float32, 4),
-                [4] = new VertexAttributeDescriptor(VertexAttribute.TexCoord2, VertexAttributeFormat.Float32, 4)
+                [0] = new VertexAttributeDescriptor(VertexAttribute.Position, VertexAttributeFormat.Float16,4),
+                [1] = new VertexAttributeDescriptor(VertexAttribute.Normal, VertexAttributeFormat.Float16, 4),
+                [2] = new VertexAttributeDescriptor(VertexAttribute.TexCoord0, VertexAttributeFormat.Float16, 4),
+                [3] = new VertexAttributeDescriptor(VertexAttribute.TexCoord1, VertexAttributeFormat.Float16, 4),
+                [4] = new VertexAttributeDescriptor(VertexAttribute.TexCoord2, VertexAttributeFormat.Float16, 4)
             };
 
             // Collider uses only Position and Normal from CVertex
             _colliderVertexParams = new NativeArray<VertexAttributeDescriptor>(2, Allocator.Persistent)
             {
-                [0] = new VertexAttributeDescriptor(VertexAttribute.Position),
-                [1] = new VertexAttributeDescriptor(VertexAttribute.Normal)
+                [0] = new VertexAttributeDescriptor(VertexAttribute.Position, VertexAttributeFormat.Float16,4),
+                [1] = new VertexAttributeDescriptor(VertexAttribute.Normal, VertexAttributeFormat.Float16, 4)
             };
 
             _results = new NativeParallelHashMap<int3, MeshBuildJob.PartitionJobResult>(
@@ -147,10 +147,13 @@ namespace Runtime.Engine.Jobs.Meshing
                 ChunkPartition partition = _chunkPool.GetOrClaimPartition(pos);
                 _chunkManager.ReMeshedPartition(pos);
                 changedPartitions.Add(partition);
+                
+                MeshBuildJob.PartitionJobResult result = _results[pos];
 
-                meshes[_results[pos].Index] = partition.Mesh;
-                colliderMeshes[_results[pos].Index] = partition.ColliderMesh;
-                partition.OcclusionData = _results[pos].Occlusion;
+                meshes[result.Index] = partition.Mesh;
+                colliderMeshes[result.Index] = partition.ColliderMesh;
+                partition.Mesh.bounds = result.MeshBounds;
+                partition.ColliderMesh.bounds = result.ColliderBounds;
             }
 
             Mesh.ApplyAndDisposeWritableMeshData(
@@ -164,16 +167,6 @@ namespace Runtime.Engine.Jobs.Meshing
                 colliderMeshes,
                 MeshFlags
             );
-
-            foreach (Mesh m in meshes)
-            {
-                m.RecalculateBounds();
-            }
-
-            foreach (Mesh cm in colliderMeshes)
-            {
-                cm.RecalculateBounds();
-            }
 
             foreach (ChunkPartition partition in changedPartitions)
             {

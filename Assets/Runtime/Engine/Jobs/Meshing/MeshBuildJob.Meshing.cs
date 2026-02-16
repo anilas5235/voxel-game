@@ -1,5 +1,4 @@
-﻿using Runtime.Engine.Data;
-using Runtime.Engine.VoxelConfig.Data;
+﻿using Runtime.Engine.VoxelConfig.Data;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Mathematics;
@@ -13,21 +12,21 @@ namespace Runtime.Engine.Jobs.Meshing
     /// </summary>
     internal partial struct MeshBuildJob
     {
-        private void ConstructSolid(ref PartitionJobData jobData)
+        private void MeshSolids(ref PartitionJobData jobData)
         {
             if (jobData.HasNoSolid) return;
 
             SliceMeshBuild(ref jobData, ref jobData.SolidVoxels);
         }
 
-        private void ConstructTransparent(ref PartitionJobData jobData)
+        private void MeshTransparent(ref PartitionJobData jobData)
         {
             if (jobData.HasNoTransparent) return;
 
             SliceMeshBuild(ref jobData, ref jobData.TransparentVoxels);
         }
 
-        private void ConstructCollision(ref PartitionJobData jobData)
+        private void MeshCollision(ref PartitionJobData jobData)
         {
             if (jobData.HasNoCollision) return;
             // Sweep along each principal axis (X, Y, Z)
@@ -191,7 +190,7 @@ namespace Runtime.Engine.Jobs.Meshing
         /// Builds foliage billboard quads from collected flora voxels.
         /// </summary>
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
-        private void ConstructFoliage(ref PartitionJobData jobData)
+        private void MeshFoliage(ref PartitionJobData jobData)
         {
             if (jobData.HasNoFoliage) return;
 

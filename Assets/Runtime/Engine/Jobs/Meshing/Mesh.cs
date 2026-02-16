@@ -1,6 +1,8 @@
-﻿using Unity.Burst;
+﻿using System;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Mathematics;
+using UnityEngine;
 
 namespace Runtime.Engine.Jobs.Meshing
 {
@@ -10,42 +12,46 @@ namespace Runtime.Engine.Jobs.Meshing
     [BurstCompile]
     public struct Vertex
     {
-        public float3 Position;
-        public float3 Normal;
-        public float4 UV0;
-        public float4 UV1;
-        public float4 UV2;
+        public half4 Position;
+        public half4 Normal;
+        public half4 UV0;
+        public half4 UV1;
+        public half4 AO;
 
         /// <summary>
         /// Creates a vertex with all attributes.
         /// </summary>
-        public Vertex(float3 position, float3 normal, float4 uv0, float4 uv1, float4 uv2)
+        public Vertex(float3 position, float3 normal, float4 uv0, float4 uv1, float4 ao)
         {
-            Position = position;
-            Normal = normal;
-            UV0 = uv0;
-            UV1 = uv1;
-            UV2 = uv2;
+            Position = new half4((half3)position, half.zero);
+            Normal = new half4((half3)normal, half.zero);
+            UV0 = (half4)uv0;
+            UV1 = (half4)uv1;
+            AO = (half4)ao;
         }
+
+        internal float3 GetPosition() => new(Position.x, Position.y, Position.z);
     }
 
     /// <summary>
-    /// Compact vertex structure for collider mesh (position + normal only).
+    /// Compact vertex structure for collider mesh (position + normal).
     /// </summary>
     [BurstCompile]
     public struct CVertex
     {
-        public float3 Position;
-        public float3 Normal;
+        public half4 Position;
+        public half4 Normal;
 
         /// <summary>
         /// Creates a collider vertex.
         /// </summary>
         public CVertex(float3 position, float3 normal)
         {
-            Position = position;
-            Normal = normal;
+            Position = new half4((half3)position, half.zero);
+            Normal = new half4((half3)normal, half.zero);
         }
+
+        internal float3 GetPosition() => new(Position.x, Position.y, Position.z);
     }
 
     /// <summary>
@@ -55,12 +61,16 @@ namespace Runtime.Engine.Jobs.Meshing
     internal struct MeshBuffer
     {
         public NativeList<Vertex> VertexBuffer;
-        public NativeList<int> SolidIndexBuffer;
-        public NativeList<int> TransparentIndexBuffer;
-        public NativeList<int> FoliageIndexBuffer;
-        
+        public NativeList<ushort> SolidIndexBuffer;
+        public NativeList<ushort> TransparentIndexBuffer;
+        public NativeList<ushort> FoliageIndexBuffer;
+        private float3 _minMBounds;
+        private float3 _maxMBounds;
+
         public NativeList<CVertex> CVertexBuffer;
-        public NativeList<int> CIndexBuffer;
+        public NativeList<ushort> CIndexBuffer;
+        private float3 _minCBounds;
+        private float3 _maxCBounds;
 
         /// <summary>
         /// Disposes all native lists.
@@ -74,5 +84,62 @@ namespace Runtime.Engine.Jobs.Meshing
             CVertexBuffer.Dispose();
             CIndexBuffer.Dispose();
         }
+
+        public void AddVertex(ref Vertex vertex)
+        {
+            VertexBuffer.AddNoResize(vertex);
+            float3 pos = vertex.GetPosition();
+            _minMBounds = math.min(_minMBounds, pos);
+            _maxMBounds = math.max(_maxMBounds, pos);
+        }
+
+        public void AddIndex(int index, SubMeshType subMeshType)
+        {
+            switch (subMeshType)
+            {
+                case SubMeshType.Solid:
+                    SolidIndexBuffer.AddNoResize((ushort)index);
+                    break;
+                case SubMeshType.Transparent:
+                    TransparentIndexBuffer.AddNoResize((ushort)index);
+                    break;
+                case SubMeshType.Foliage:
+                    FoliageIndexBuffer.AddNoResize((ushort)index);
+                    break;
+                case SubMeshType.Collider:
+                    CIndexBuffer.AddNoResize((ushort)index);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(subMeshType), subMeshType, null);
+            }
+        }
+
+        public void GetMeshBounds(out Bounds bounds)
+        {
+            bounds = new Bounds();
+            bounds.SetMinMax(_minMBounds, _maxMBounds);
+        }
+
+        public void AddCVertex(CVertex vertex)
+        {
+            CVertexBuffer.AddNoResize(vertex);
+            float3 pos = vertex.GetPosition();
+            _minCBounds = math.min(_minCBounds, pos);
+            _maxCBounds = math.max(_maxCBounds, pos);
+        }
+
+        public void GetColliderBounds(out Bounds bounds)
+        {
+            bounds = new Bounds();
+            bounds.SetMinMax(_minCBounds, _maxCBounds);
+        }
+    }
+    
+    internal enum SubMeshType : byte
+    {
+        Solid = 0,
+        Transparent = 1,
+        Foliage = 2,
+        Collider = 3
     }
 }

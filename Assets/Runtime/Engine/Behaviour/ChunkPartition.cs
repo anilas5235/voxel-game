@@ -12,7 +12,6 @@ namespace Runtime.Engine.Behaviour
     {
 #if UNITY_EDITOR
         public static bool ShowPartitionGizmos = false;
-        public static bool ShowOcclusionGizmos = false;
 #endif
         private MeshRenderer _renderer;
         [SerializeField] private MeshCollider _Collider;
@@ -47,7 +46,6 @@ namespace Runtime.Engine.Behaviour
         public MeshCollider Collider => _Collider;
 
         public short PartitionId { get; private set; }
-        internal PartitionOcclusionData OcclusionData { get; set; }
 
         private void Awake()
         {
@@ -119,56 +117,6 @@ namespace Runtime.Engine.Behaviour
                     normal = new GUIStyleState() { textColor = Color.white }
                 }
             );
-
-            if(!ShowOcclusionGizmos) return;
-            // Draw occlusion data as colored lines between faces of the partition cube same color as the face
-            Vector3 center = transform.position + PartitionSize.GetVector3() * 0.5f;
-            float faceSize = PartitionSize.y * 0.9f;
-
-
-            for (int i = 0; i < PartitionOcclusionData.AllDirections.Length; i++)
-            {
-                PartitionOcclusionData.OccDirection occDirection =
-                    PartitionOcclusionData.AllDirections[i];
-                Color color = FaceColors[i % FaceColors.Length];
-                Vector3 normal = FaceNormals[i % FaceNormals.Length];
-
-                DrawFace(normal, color);
-
-                for (int j = 0; j < PartitionOcclusionData.AllDirections.Length; j++)
-                {
-                    PartitionOcclusionData.OccDirection otherDirection = PartitionOcclusionData.AllDirections[j];
-
-                    if (occDirection == otherDirection) continue;
-                    if (!OcclusionData.ArePartitionFacesConnected(occDirection, otherDirection)) continue;
-
-                    Vector3 otherNormal = FaceNormals[j % FaceNormals.Length];
-
-                    Gizmos.color = color;
-                    Vector3 start = center + normal * (PartitionSize.x * 0.5f);
-                    Vector3 end = center + otherNormal * (PartitionSize.x * 0.5f);
-                    Vector3 mid = (start + end) * 0.5f;
-                    
-                    Gizmos.DrawLine(start, mid);
-                }
-            }
-
-            return;
-
-            void DrawFace(Vector3 normal, Color color)
-            {
-                Gizmos.color = color;
-                Vector3 faceCenter = center + normal * (PartitionSize.x * 0.5f);
-                // Determine size based on normal
-                var size = normal switch
-                {
-                    _ when normal == Vector3.right || normal == Vector3.left => new Vector3(0.1f, faceSize, faceSize),
-                    _ when normal == Vector3.up || normal == Vector3.down => new Vector3(faceSize, 0.1f, faceSize),
-                    _ when normal == Vector3.forward || normal == Vector3.back => new Vector3(faceSize, faceSize, 0.1f),
-                    _ => Vector3.zero
-                };
-                Gizmos.DrawWireCube(faceCenter, size);
-            }
         }
 #endif
     }

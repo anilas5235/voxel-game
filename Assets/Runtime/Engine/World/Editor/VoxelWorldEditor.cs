@@ -11,12 +11,9 @@ namespace Runtime.Engine.World.Editor
         {
             base.OnInspectorGUI();
             GUILayout.Space(10);
-            
+
             ShowPartitionGizmos =
                 GUILayout.Toggle(ShowPartitionGizmos, "Show Partition Gizmos");
-
-            ShowOcclusionGizmos =
-                GUILayout.Toggle(ShowOcclusionGizmos, "Show Occlusion Gizmos");
         }
     }
 }

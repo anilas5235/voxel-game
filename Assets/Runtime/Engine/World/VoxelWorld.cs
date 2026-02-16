@@ -52,7 +52,6 @@ namespace Runtime.Engine.World
         private ChunkPool _chunkPool;
         private MeshBuildScheduler _meshBuildScheduler;
         private ChunkScheduler _chunkScheduler;
-        private OcclusionCuller _occlusionCuller;
 
         private bool _isFocused;
 
@@ -161,8 +160,6 @@ namespace Runtime.Engine.World
             ChunkManager = VoxelEngineProvider.Current.ChunkManager();
 
             _chunkPool = VoxelEngineProvider.Current.ChunkPool(transform);
-
-            _occlusionCuller = VoxelEngineProvider.Current.OcclusionCuller(_chunkPool);
 
             _meshBuildScheduler = VoxelEngineProvider.Current.MeshBuildScheduler(
                 ChunkManager,
