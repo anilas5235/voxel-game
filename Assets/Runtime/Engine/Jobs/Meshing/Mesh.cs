@@ -12,11 +12,11 @@ namespace Runtime.Engine.Jobs.Meshing
     [BurstCompile]
     public struct Vertex
     {
-        public half4 Position;
-        public half4 Normal;
-        public half4 UV0;
-        public half4 UV1;
-        public half4 AO;
+        public half4 Position; // xyz = position, w = 0 (unused could hold extra data)
+        public half4 Normal; // xyz = normal, w = 0 (unused could hold extra data)
+        public half4 UV0; // xy = Sized UV for texture atlas, zw = normalized UV for shader sampling
+        public half4 UV1; // x = texture ID, y = depth fade factor, z = unused, w = sunlight level
+        public half4 AO; // xyzw = AO values 
 
         /// <summary>
         /// Creates a vertex with all attributes.

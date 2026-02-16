@@ -111,8 +111,8 @@ namespace Runtime.Engine.Jobs.Meshing
 
             sbyte top = ComputeTopVoxelOfType(pos, currentVoxel, ref jobData);
             int4 ao = ComputeAOMask(neighborCoord, jobData.PartitionPos, axInfo);
-            byte sunLight = ComputeSunlight(ref jobData, neighborCoord);
-            nMask[n] = new Mask(currentVoxel, currentLayer, posNormal ? (sbyte)1 : (sbyte)-1, ao, sunLight,top);
+            byte sunlight = ComputeSunlight(ref jobData, neighborCoord);
+            nMask[n] = new Mask(currentVoxel, currentLayer, posNormal ? (sbyte)1 : (sbyte)-1, ao, sunlight,top);
             return true;
         }
 

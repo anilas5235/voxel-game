@@ -17,8 +17,7 @@ namespace Runtime.Engine.Jobs.Meshing
 
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
         private void CreateQuad(ref PartitionJobData jobData, VoxelRenderDef info, Mask mask, int3 directionMask,
-            int2 size,
-            in VQuad verts
+            int2 size, in VQuad verts
         )
         {
             switch (mask.MeshLayer)
@@ -53,14 +52,19 @@ namespace Runtime.Engine.Jobs.Meshing
             int3 normal = directionMask * mask.Normal;
 
             int texIndex = info.GetTextureId(normal.ToDirection());
-            UVQuad uv = ComputeFaceUVs(normal, size);
 
-            float4 uv1 = new(texIndex, 0, 0, 0);
-            float3 n = normal;
-            float4 ao = mask.AO;
-            AddVertices(ref jobData.MeshBuffer, in verts, n, in uv, uv1, ao);
+            Quad quad = new()
+            {
+                Positions = verts, 
+                Normal = normal, 
+                UV0 =  ComputeFaceUVs(normal, size), 
+                UV1 = new float4(texIndex, 0, 0, mask.Sunlight), 
+                AO = mask.AO, 
+            };
+            
+            AddVertices(ref jobData.MeshBuffer, ref quad);
 
-            AddQuadIndices(ref jobData.MeshBuffer, SubMeshType.Solid ,jobData.RenderVertexCount, mask.Normal, mask.AO);
+            AddQuadIndices(ref jobData.MeshBuffer, SubMeshType.Solid, jobData.RenderVertexCount, mask.Normal, mask.AO);
             jobData.RenderVertexCount += 4;
         }
 
@@ -99,12 +103,17 @@ namespace Runtime.Engine.Jobs.Meshing
             }
 
             int texIndex = info.GetTextureId(normal.ToDirection());
-            UVQuad uv = ComputeFaceUVs(normal, size);
 
-            float4 uv1 = new(texIndex, info.DepthFadeDistance, 0, 0);
-            float3 n = normal;
-            float4 ao = mask.AO;
-            AddVertices(ref jobData.MeshBuffer, in mutableVerts, n, in uv, uv1, ao);
+            Quad quad = new()
+            {
+                Positions = mutableVerts, 
+                Normal = normal, 
+                UV0 =  ComputeFaceUVs(normal, size), 
+                UV1 = new float4(texIndex, info.DepthFadeDistance, 0, mask.Sunlight), 
+                AO = mask.AO, 
+            };
+            
+            AddVertices(ref jobData.MeshBuffer, ref quad);
 
             AddQuadIndices(ref jobData.MeshBuffer, SubMeshType.Transparent, jobData.RenderVertexCount, mask.Normal,
                 mask.AO);
@@ -112,18 +121,25 @@ namespace Runtime.Engine.Jobs.Meshing
         }
 
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
-        private void AddFloraQuad(ref PartitionJobData jobData, VoxelRenderDef info, in VQuad verts, float4 ao)
+        private void AddFloraQuad(ref PartitionJobData jobData, VoxelRenderDef info, in VQuad verts, float4 ao,
+            byte sunLight)
         {
             int texIndex = info.TexUp;
-            UVQuad uv = ComputeFaceUVs(new int3(1, 1, 0), new int2(1, 1));
-            float4 uv1 = new(texIndex, -1, 0, 0);
-            AddVertices(ref jobData.MeshBuffer, in verts, Float3Up, in uv, uv1, ao);
+            Quad quad = new()
+            {
+                Positions = verts, 
+                Normal = Float3Up,
+                UV0 = ComputeFaceUVs(new int3(1, 1, 0), new int2(1, 1)), 
+                UV1 = new float4(texIndex, -1, 0, sunLight), 
+                AO = ao,
+            };
+            AddVertices(ref jobData.MeshBuffer, ref quad);
 
             ref MeshBuffer meshBuffer = ref jobData.MeshBuffer;
             EnsureCapacity(meshBuffer.FoliageIndexBuffer, 6);
 
             int vCount = jobData.RenderVertexCount;
-            
+
             meshBuffer.AddIndex(vCount, SubMeshType.Foliage);
             meshBuffer.AddIndex(vCount + 1, SubMeshType.Foliage);
             meshBuffer.AddIndex(vCount + 2, SubMeshType.Foliage);
@@ -135,19 +151,18 @@ namespace Runtime.Engine.Jobs.Meshing
         }
 
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
-        private void AddVertices(ref MeshBuffer mesh, in VQuad verts, float3 normal, in UVQuad uv0,
-            float4 uv1, float4 uv2)
+        private void AddVertices(ref MeshBuffer mesh, ref Quad quad)
         {
-            Vertex vertex1 = new(verts.V1, normal, uv0.Uv1, uv1, uv2);
-            Vertex vertex2 = new(verts.V2, normal, uv0.Uv2, uv1, uv2);
-            Vertex vertex3 = new(verts.V3, normal, uv0.Uv3, uv1, uv2);
-            Vertex vertex4 = new(verts.V4, normal, uv0.Uv4, uv1, uv2);
+            Vertex vertex0 = quad.GetVertex(0);
+            Vertex vertex1 = quad.GetVertex(1);
+            Vertex vertex2 = quad.GetVertex(2);
+            Vertex vertex3 = quad.GetVertex(3);
 
             EnsureCapacity(mesh.VertexBuffer, 4);
+            mesh.AddVertex(ref vertex0);
             mesh.AddVertex(ref vertex1);
             mesh.AddVertex(ref vertex2);
             mesh.AddVertex(ref vertex3);
-            mesh.AddVertex(ref vertex4);
         }
 
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
@@ -203,9 +218,9 @@ namespace Runtime.Engine.Jobs.Meshing
                 SubMeshType.Collider => meshBuffer.CIndexBuffer,
                 _ => throw new ArgumentOutOfRangeException(nameof(subMeshType), subMeshType, null)
             };
-            
+
             EnsureCapacity(indexBuffer, 6);
-            
+
             if (ao[0] + ao[3] > ao[1] + ao[2])
             {
                 meshBuffer.AddIndex(baseVertexIndex, subMeshType);
