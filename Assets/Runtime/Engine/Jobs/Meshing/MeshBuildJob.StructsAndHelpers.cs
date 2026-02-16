@@ -27,6 +27,11 @@ namespace Runtime.Engine.Jobs.Meshing
             public Bounds MeshBounds;
             public Bounds ColliderBounds;
         }
+        
+        internal struct LightData
+        {
+            public byte Sunlight;
+        }
 
         [BurstCompile]
         private struct PartitionJobData : IDisposable
@@ -43,6 +48,8 @@ namespace Runtime.Engine.Jobs.Meshing
             public NativeHashMap<int3, ushort> FoliageVoxels;
             public NativeHashMap<int3, ushort> TransparentVoxels;
             public NativeHashMap<int3, ushort> SolidVoxels;
+            
+            public NativeHashMap<int3, LightData> LightDataMap;
 
             public int RenderVertexCount;
             public int CollisionVertexCount;
@@ -73,6 +80,8 @@ namespace Runtime.Engine.Jobs.Meshing
                 FoliageVoxels = new NativeHashMap<int3, ushort>(VoxelsPerPartition, Allocator.Temp);
                 TransparentVoxels = new NativeHashMap<int3, ushort>(VoxelsPerPartition, Allocator.Temp);
                 SolidVoxels = new NativeHashMap<int3, ushort>(VoxelsPerPartition, Allocator.Temp);
+                
+                LightDataMap = new NativeHashMap<int3, LightData>(VoxelsPerPartition, Allocator.Temp);
 
                 RenderVertexCount = 0;
                 CollisionVertexCount = 0;
@@ -86,6 +95,7 @@ namespace Runtime.Engine.Jobs.Meshing
                 TransparentVoxels.Dispose();
                 FoliageVoxels.Dispose();
                 SolidVoxels.Dispose();
+                LightDataMap.Dispose();
             }
         }
 

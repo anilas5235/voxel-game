@@ -39,6 +39,8 @@ namespace Runtime.Engine.Jobs.Meshing
             PartitionJobData jobData = new(MeshDataArray[index], ColliderMeshDataArray[index], Jobs[index]);
 
             SortVoxels(ref jobData);
+            
+            CreateLightMap(ref jobData);
 
             MeshSolids(ref jobData);
 

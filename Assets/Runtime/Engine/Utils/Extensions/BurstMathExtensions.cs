@@ -146,6 +146,16 @@ namespace Runtime.Engine.Utils.Extensions
 
         /// <summary> (0,0,-1) Vektor. </summary>
         public static readonly int3 Int3Backward = new(0, 0, -1);
+        
+        public static readonly int3[] Int3Directions = new[]
+        {
+            Int3Forward,
+            Int3Backward,
+            Int3Right,
+            Int3Left,
+            Int3Up,
+            Int3Down,
+        };
 
         /// <summary> (0,0,0) Vektor. </summary>
         public static readonly float3 Float3Zero = new(0, 0, 0);

@@ -27,7 +27,7 @@ namespace Runtime.Engine.Data
         /// </summary>
         internal ushort GetVoxelInPartition(in int3 partitionPos, int3 voxelPos)
         {
-            voxelPos[1] += partitionPos.y * PartitionHeight;
+            voxelPos.y += partitionPos.y * PartitionHeight;
             if (voxelPos.y is >= ChunkHeight or < 0) return 0;
             int2 chunkOffset = int2.zero;
             
