@@ -58,6 +58,7 @@ namespace Runtime.Engine.Jobs.Meshing
             public bool HasNoFoliage => FoliageVoxels.IsEmpty;
             public bool HasNoTransparent => TransparentVoxels.IsEmpty;
             public bool HasNoSolid => SolidVoxels.IsEmpty;
+            public bool HasNoVoxels => HasNoFoliage && HasNoTransparent && HasNoSolid;
 
             internal PartitionJobData(Mesh.MeshData mesh, Mesh.MeshData colliderMesh, int3 partitionPos)
             {

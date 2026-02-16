@@ -2,7 +2,6 @@
 using Runtime.Engine.VoxelConfig.Data;
 using Unity.Collections;
 using Unity.Mathematics;
-using static Runtime.Engine.Utils.Extensions.VectorConstants;
 using static Runtime.Engine.Utils.VoxelConstants;
 
 namespace Runtime.Engine.Jobs.Meshing
@@ -13,13 +12,17 @@ namespace Runtime.Engine.Jobs.Meshing
 
         private void CreateLightMap(ref PartitionJobData jobData)
         {
+            if (jobData.HasNoVoxels) return;
+
             NativeHashMap<int3, LightData> lightDataMap = jobData.LightDataMap;
             NativeHashSet<int3>.ReadOnly seeThroughVoxels = jobData.SeeThroughVoxels.AsReadOnly();
 
+            int yOffset = jobData.PartitionPos.y * PartitionHeight;
+
             for (int x = 0; x < ChunkWidth; x++)
-            for (int y = 0; y < ChunkDepth; y++)
+            for (int z = 0; z < ChunkDepth; z++)
             {
-                int3 pos = new(x, y, MaxYPartitionPos);
+                int3 pos = new(x, MaxYPartitionPos, z);
                 if (!seeThroughVoxels.Contains(pos)) continue;
 
                 int3 intPos = pos;
@@ -30,7 +33,7 @@ namespace Runtime.Engine.Jobs.Meshing
                 do
                 {
                     intPos.y += 1;
-                    if (intPos.y >= MaxYChunkPos)
+                    if (intPos.y + yOffset >= MaxYChunkPos)
                     {
                         openToSky = true;
                         break;
@@ -42,7 +45,9 @@ namespace Runtime.Engine.Jobs.Meshing
 
                 if (!openToSky) continue;
 
-                lightDataMap.TryAdd(pos, new LightData { Sunlight = MaxLightLevel });
+                LightData maxLightData = new() { Sunlight = MaxLightLevel };
+
+                lightDataMap.TryAdd(pos, maxLightData);
 
                 intPos = pos;
 
@@ -51,7 +56,7 @@ namespace Runtime.Engine.Jobs.Meshing
                     intPos.y -= 1;
                     if (!seeThroughVoxels.Contains(intPos)) break;
 
-                    lightDataMap.TryAdd(intPos, new LightData { Sunlight = MaxLightLevel });
+                    lightDataMap.TryAdd(intPos, maxLightData);
                 } while (intPos.y >= 0);
             }
 
@@ -64,8 +69,8 @@ namespace Runtime.Engine.Jobs.Meshing
                 while (!lightPropagationQueue.IsEmpty())
                 {
                     int3 current = lightPropagationQueue.Dequeue();
-                    byte nextLightLevel = lightDataMap[current].Sunlight;
-                    nextLightLevel--;
+                    byte nextLightLevel = (byte)(lightDataMap[current].Sunlight - 1);
+                    LightData nextLightData = new() { Sunlight = nextLightLevel };
 
                     foreach (int3 offset in NeighborOffsets)
                     {
@@ -84,7 +89,7 @@ namespace Runtime.Engine.Jobs.Meshing
                         }
                         else
                         {
-                            lightDataMap[neighbor] = new LightData { Sunlight = nextLightLevel };
+                            lightDataMap[neighbor] = nextLightData;
                             if (nextLightLevel > 1) lightPropagationQueue.Enqueue(neighbor);
                         }
                     }

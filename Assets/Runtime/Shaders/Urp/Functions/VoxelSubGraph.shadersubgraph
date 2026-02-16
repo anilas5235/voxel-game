@@ -899,7 +899,7 @@
     "m_Hidden": false,
     "m_ShaderOutputName": "_MinLight",
     "m_StageCapability": 3,
-    "m_Value": 0.009999999776482582,
+    "m_Value": 0.05000000074505806,
     "m_DefaultValue": 0.0,
     "m_Labels": [],
     "m_LiteralMode": false
