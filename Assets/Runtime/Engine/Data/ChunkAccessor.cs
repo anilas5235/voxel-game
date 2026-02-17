@@ -12,12 +12,12 @@ namespace Runtime.Engine.Data
     [BurstCompile]
     internal readonly struct ChunkAccessor
     {
-        private readonly NativeParallelHashMap<int2, Chunk>.ReadOnly _chunks;
+        private readonly NativeParallelHashMap<int2, ChunkVoxelData>.ReadOnly _chunks;
 
         /// <summary>
         /// Constructs a new accessor.
         /// </summary>
-        internal ChunkAccessor(NativeParallelHashMap<int2, Chunk>.ReadOnly chunks)
+        internal ChunkAccessor(NativeParallelHashMap<int2, ChunkVoxelData>.ReadOnly chunks)
         {
             _chunks = chunks;
         }
@@ -55,63 +55,19 @@ namespace Runtime.Engine.Data
                     break;
             }
 
-            return TryGetChunk(partitionPos.xz + chunkOffset, out Chunk chunk) ? chunk.GetVoxel(voxelPos) : (ushort)0;
+            return TryGetChunk(partitionPos.xz + chunkOffset, out var chunk) ? chunk.GetVoxel(voxelPos) : (ushort)0;
         }
 
         /// <summary>
         /// Attempts to get a chunk at a position.
         /// </summary>
-        internal bool TryGetChunk(int2 pos, out Chunk chunk) => _chunks.TryGetValue(pos, out chunk);
+        internal bool TryGetChunk(int2 pos, out ChunkVoxelData chunk) => _chunks.TryGetValue(pos, out chunk);
 
         /// <summary>
         /// Checks whether a chunk exists.
         /// </summary>
         internal bool ContainsChunk(int2 coord) => _chunks.ContainsKey(coord);
-
-        #region Try Neighbours
-
-        /// <summary>
-        /// Right (+X) neighbor.
-        /// </summary>
-        internal bool TryGetNeighborPx(int2 pos, out Chunk chunk)
-        {
-            int2 px = pos + new int2(1 * ChunkWidth, 0);
-
-            return _chunks.TryGetValue(px, out chunk);
-        }
-
-        /// <summary>
-        /// Forward (+Z) neighbor.
-        /// </summary>
-        internal bool TryGetNeighborPz(int2 pos, out Chunk chunk)
-        {
-            int2 pz = pos + new int2(0, 1 * ChunkDepth);
-
-            return _chunks.TryGetValue(pz, out chunk);
-        }
-
-        /// <summary>
-        /// Left (-X) neighbor.
-        /// </summary>
-        internal bool TryGetNeighborNx(int2 pos, out Chunk chunk)
-        {
-            int2 nx = pos + new int2(-1* ChunkWidth, 0) ;
-
-            return _chunks.TryGetValue(nx, out chunk);
-        }
-
-        /// <summary>
-        /// Back (-Z) neighbor.
-        /// </summary>
-        internal bool TryGetNeighborNz(int2 pos, out Chunk chunk)
-        {
-            int2 nz = pos + new int2(0, -1* ChunkDepth);
-
-            return _chunks.TryGetValue(nz, out chunk);
-        }
-
-        #endregion
-
+    
         /// <summary>
         /// Checks whether a voxel coordinate lies inside chunk bounds.
         /// </summary>

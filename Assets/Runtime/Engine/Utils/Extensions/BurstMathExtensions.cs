@@ -53,7 +53,7 @@ namespace Runtime.Engine.Utils.Extensions
         /// Flacht 3D Position ab unter Verwendung eines int3 Position-Structs.
         /// </summary>
         [BurstCompile]
-        public static int Flatten(this int3 vec, int3 pos) => Flatten(vec, pos.x, pos.y, pos.z);
+        public static int Flatten(this int3 vec, in int3 pos) => Flatten(vec, pos.x, pos.y, pos.z);
 
         /// <summary>
         /// Reduziert bool3 mit OR Verknüpfung.
