@@ -32,7 +32,7 @@ namespace Runtime.Engine.Data
         {
             Position = position;
             VoxelData = default;
-            LightData = default;
+            LightData = new ChunkLightData(128);
         }
 
         public void Dispose()

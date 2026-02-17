@@ -13,13 +13,16 @@ namespace Runtime.Engine.Data
     internal readonly struct ChunkAccessor
     {
         private readonly NativeParallelHashMap<int2, ChunkVoxelData>.ReadOnly _chunks;
+        private readonly NativeParallelHashMap<int2, ChunkLightData> _lightData;
 
         /// <summary>
         /// Constructs a new accessor.
         /// </summary>
-        internal ChunkAccessor(NativeParallelHashMap<int2, ChunkVoxelData>.ReadOnly chunks)
+        internal ChunkAccessor(NativeParallelHashMap<int2, ChunkVoxelData>.ReadOnly chunks, 
+            NativeParallelHashMap<int2, ChunkLightData> lightData)
         {
             _chunks = chunks;
+            _lightData = lightData;
         }
 
         /// <summary>

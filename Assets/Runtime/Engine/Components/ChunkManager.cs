@@ -25,6 +25,7 @@ namespace Runtime.Engine.Components
         private readonly Dictionary<int2, Chunk> _chunks;
         private readonly SimpleFastPriorityQueue<int2, int> _queue;
         private NativeParallelHashMap<int2, ChunkVoxelData> _accessorMap;
+        private NativeParallelHashMap<int2, ChunkLightData> _lightAccessorMap;
 
         private readonly HashSet<int3> _reMeshPartitions;
         private readonly HashSet<int3> _reCollidePartitions;
@@ -48,6 +49,10 @@ namespace Runtime.Engine.Components
             _queue = new SimpleFastPriorityQueue<int2, int>();
 
             _accessorMap = new NativeParallelHashMap<int2, ChunkVoxelData>(
+                settings.Scheduler.MeshingBatchSize * 6,
+                Allocator.Persistent
+            );
+            _lightAccessorMap = new NativeParallelHashMap<int2, ChunkLightData>(
                 settings.Scheduler.MeshingBatchSize * 6,
                 Allocator.Persistent
             );
@@ -145,12 +150,12 @@ namespace Runtime.Engine.Components
             foreach (KeyValue<int2, ChunkVoxelData> pair in chunks)
             {
                 int2 position = pair.Key;
-                
+
                 if (_chunks.ContainsKey(position))
                     throw new InvalidOperationException($"Chunk {position} already exists");
-                
+
                 if (_queue.Count >= _chunkStoreSize) RemoveChunkData(_queue.Dequeue());
-                
+
                 Chunk chunk = new(position) { VoxelData = pair.Value };
                 _chunks.Add(position, chunk);
                 _queue.Enqueue(position, -(position - _focus.xz).SqrMagnitude());
@@ -171,6 +176,7 @@ namespace Runtime.Engine.Components
         internal ChunkAccessor GetAccessor(List<int3> positions)
         {
             _accessorMap.Clear();
+            _lightAccessorMap.Clear();
             foreach (int3 position in positions)
             {
                 for (int x = -1; x <= 1; x++)
@@ -180,10 +186,11 @@ namespace Runtime.Engine.Components
                     if (!_chunks.TryGetValue(pos, out Chunk chunk))
                         throw new InvalidOperationException($"Chunk {pos} has not been generated");
                     if (!_accessorMap.ContainsKey(pos)) _accessorMap.Add(pos, chunk.VoxelData);
+                    if (!_lightAccessorMap.ContainsKey(pos)) _lightAccessorMap.Add(pos, chunk.LightData);
                 }
             }
 
-            return new ChunkAccessor(_accessorMap.AsReadOnly());
+            return new ChunkAccessor(_accessorMap.AsReadOnly(), _lightAccessorMap);
         }
 
         /// <summary>
