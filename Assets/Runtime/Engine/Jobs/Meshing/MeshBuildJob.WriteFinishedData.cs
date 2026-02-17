@@ -1,21 +1,20 @@
-﻿using Runtime.Engine.Utils;
+﻿using Runtime.Engine.Utils.Extensions;
 using Unity.Collections;
+using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Rendering;
+using static Runtime.Engine.Utils.VoxelConstants;
 
 namespace Runtime.Engine.Jobs.Meshing
 {
     internal partial struct MeshBuildJob
     {
+        private static readonly  Bounds Bounds = new((PartitionSize / (int3)2).GetVector3(), PartitionSize.GetVector3());
         private void WriteResults(int index, ref PartitionJobData jobData)
         {
             FillRenderMeshData(in jobData);
 
             FillColliderMeshData(in jobData);
-
-            jobData.MeshBuffer.GetMeshBounds(out Bounds mBounds);
-            
-            jobData.MeshBuffer.GetColliderBounds(out Bounds cBounds);
 
             Results.TryAdd(
                 jobData.PartitionPos,
@@ -23,8 +22,8 @@ namespace Runtime.Engine.Jobs.Meshing
                 {
                     Index = index,
                     PartitionPos = jobData.PartitionPos,
-                    MeshBounds = mBounds,
-                    ColliderBounds = cBounds
+                    MeshBounds = Bounds,
+                    ColliderBounds = Bounds
                 }
             );
         }
@@ -46,7 +45,7 @@ namespace Runtime.Engine.Jobs.Meshing
 
             colliderMesh.subMeshCount = 1;
             SubMeshDescriptor cDesc = new(0, cIndexCount);
-            colliderMesh.SetSubMesh(0, cDesc, VoxelConstants.MeshFlags);
+            colliderMesh.SetSubMesh(0, cDesc, MeshFlags);
         }
 
         private void FillRenderMeshData(in PartitionJobData jobData)
@@ -83,9 +82,9 @@ namespace Runtime.Engine.Jobs.Meshing
             SubMeshDescriptor descriptor1 = new(solidIndexes, transparentIndexes);
             SubMeshDescriptor descriptor2 = new(solidIndexes + transparentIndexes, foliageIndexes);
 
-            mesh.SetSubMesh(0, descriptor0, VoxelConstants.MeshFlags);
-            mesh.SetSubMesh(1, descriptor1, VoxelConstants.MeshFlags);
-            mesh.SetSubMesh(2, descriptor2, VoxelConstants.MeshFlags);
+            mesh.SetSubMesh(0, descriptor0, MeshFlags);
+            mesh.SetSubMesh(1, descriptor1, MeshFlags);
+            mesh.SetSubMesh(2, descriptor2, MeshFlags);
         }
     }
 }
