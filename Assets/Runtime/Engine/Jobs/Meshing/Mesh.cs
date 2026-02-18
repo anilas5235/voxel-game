@@ -2,7 +2,6 @@
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Mathematics;
-using UnityEngine;
 
 namespace Runtime.Engine.Jobs.Meshing
 {
@@ -106,7 +105,7 @@ namespace Runtime.Engine.Jobs.Meshing
 
         public void AddCVertex(CVertex vertex) => CVertexBuffer.AddNoResize(vertex);
     }
-    
+
     internal enum SubMeshType : byte
     {
         Solid = 0,

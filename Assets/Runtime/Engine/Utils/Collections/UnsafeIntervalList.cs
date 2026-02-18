@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Text;
+using System.Collections.Generic;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -177,7 +178,7 @@ namespace Runtime.Engine.Utils.Collections
                     node.Count = _internal[leftNodeIndex].Count + 1;
                     _internal[nodeIndex] = node;
                 }
-                else if (eqCurrentLeft && !eqCurrentRight)
+                else if (eqCurrentLeft)
                 {
                     // [X,X,Y] -> [X,A,Y]
                     _internal.InsertRange(nodeIndex, 1);
@@ -288,6 +289,12 @@ namespace Runtime.Engine.Utils.Collections
             }
 
             return sb.ToString();
+        }
+
+        public void Clear()
+        {
+            _internal.Clear();
+            Length = 0;
         }
     }
 }

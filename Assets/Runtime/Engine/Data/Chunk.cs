@@ -42,43 +42,75 @@ namespace Runtime.Engine.Data
         }
     }
 
-    [BurstCompile]
-    public struct ChunkLightData : IDisposable
+    public struct PartitionLightData : IDisposable
     {
-        private UnsafeList<UnsafeIntervalList<byte>> _data;
+        private UnsafeIntervalList<byte> _data;
+        public bool IsAllZero => _data.CompressedLength == 1 && _data.Get(0) == 0;
+        public bool IsAllMax => _data.CompressedLength == 1 && _data.Get(0) == MaxLightLevel;
 
-        public ChunkLightData(int initCapacity)
+        public PartitionLightData(int initCapacity)
         {
-            _data = new UnsafeList<UnsafeIntervalList<byte>>(PartitionsPerChunk, Allocator.Persistent);
-            for (int i = 0; i < PartitionsPerChunk; i++)
-            {
-                UnsafeIntervalList<byte> partitionData = new(initCapacity, Allocator.Persistent);
-                partitionData.AddInterval(0, VoxelsPerPartition);
-                _data.Add(partitionData);
-            }
+            _data = new UnsafeIntervalList<byte>(initCapacity, Allocator.Persistent);
+            _data.AddInterval(0, VoxelsPerPartition);
         }
 
         /// <summary>
         /// Adds a run of identical light values (during initialization / generation).
         /// </summary>
-        public void AddLight(int partitionIndex,byte lightValue, int count)
+        public void AddLight(byte lightValue, int count)
         {
-            _data[partitionIndex].AddInterval(lightValue, count);
+            _data.AddInterval(lightValue, count);
         }
 
         /// <summary>
         /// Sets light value by int3 position. Marks dirty on change.
         /// </summary>
-        public bool SetLight(int partitionIndex,int3 pos, byte lightValue)
+        public bool SetLight(int3 pos, byte lightValue)
         {
-            bool result = _data[partitionIndex].Set(GetIndex(pos), lightValue);
+            bool result = _data.Set(GetIndex(pos), lightValue);
             return result;
+        }
+
+        internal void SetAllLights(byte lightValue)
+        {
+            _data.Clear();
+            _data.AddInterval(lightValue, VoxelsPerPartition);
         }
 
         /// <summary>
         /// Reads light value at int3 position.
         /// </summary>
-        public byte GetLight(int partitionIndex,int3 pos) => _data[partitionIndex].Get(GetIndex(pos));
+        public byte GetLight(int3 pos) => _data.Get(GetIndex(pos));
+
+        /// <summary>
+        /// Disposes native resources.
+        /// </summary>
+        public void Dispose()
+        {
+            _data.Dispose();
+        }
+
+        private static int GetIndex(in int3 pos) => PartitionSize.Flatten(pos);
+    }
+
+    [BurstCompile]
+    public struct ChunkLightData : IDisposable
+    {
+        private UnsafeList<PartitionLightData> _data;
+
+        public ChunkLightData(int initCapacity)
+        {
+            _data = new UnsafeList<PartitionLightData>(PartitionsPerChunk, Allocator.Persistent);
+            for (int i = 0; i < PartitionsPerChunk; i++)
+            {
+                _data.Add(new PartitionLightData(initCapacity));
+            }
+        }
+
+        /// <summary>
+        /// Reads light value at int3 position.
+        /// </summary>
+        public byte GetLight(int partitionIndex, int3 pos) => _data[partitionIndex].GetLight(pos);
 
         /// <summary>
         /// Disposes native resources.
@@ -89,7 +121,17 @@ namespace Runtime.Engine.Data
             _data.Dispose();
         }
 
-        private static int GetIndex(in int3 pos) => ChunkSize.Flatten(pos);
+        public bool TryGetPartitionLight(int index, out PartitionLightData lightData)
+        {
+            if (index < 0 || index >= _data.Length)
+            {
+                lightData = default;
+                return false;
+            }
+
+            lightData = _data[index];
+            return true;
+        }
     }
 
     [BurstCompile]

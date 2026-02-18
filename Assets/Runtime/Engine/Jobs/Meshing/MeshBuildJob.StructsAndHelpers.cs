@@ -1,4 +1,5 @@
 ﻿using System;
+using Runtime.Engine.Data;
 using Runtime.Engine.VoxelConfig.Data;
 using Unity.Burst;
 using Unity.Collections;
@@ -27,11 +28,6 @@ namespace Runtime.Engine.Jobs.Meshing
             public Bounds MeshBounds;
             public Bounds ColliderBounds;
         }
-        
-        internal struct LightData
-        {
-            public byte Sunlight;
-        }
 
         [BurstCompile]
         private struct PartitionJobData : IDisposable
@@ -48,8 +44,11 @@ namespace Runtime.Engine.Jobs.Meshing
             public NativeHashMap<int3, ushort> FoliageVoxels;
             public NativeHashMap<int3, ushort> TransparentVoxels;
             public NativeHashMap<int3, ushort> SolidVoxels;
-            
-            public NativeHashMap<int3, LightData> LightDataMap;
+
+            public PartitionLightData PartitionLightData;
+
+            public ChunkVoxelData
+                ChunkVoxelData; //TODO: Use this when possible to avoid accessing the main data in the meshing job
 
             public int RenderVertexCount;
             public int CollisionVertexCount;
@@ -60,11 +59,14 @@ namespace Runtime.Engine.Jobs.Meshing
             public bool HasNoSolid => SolidVoxels.IsEmpty;
             public bool HasNoVoxels => HasNoFoliage && HasNoTransparent && HasNoSolid;
 
-            internal PartitionJobData(Mesh.MeshData mesh, Mesh.MeshData colliderMesh, int3 partitionPos)
+            internal PartitionJobData(Mesh.MeshData mesh, Mesh.MeshData colliderMesh, int3 partitionPos,
+                PartitionLightData partitionLightData, ChunkVoxelData chunkVoxelData)
             {
                 Mesh = mesh;
                 ColliderMesh = colliderMesh;
                 PartitionPos = partitionPos;
+                PartitionLightData = partitionLightData;
+                ChunkVoxelData = chunkVoxelData;
                 ChunkPos = partitionPos.xz;
                 MeshBuffer = new MeshBuffer
                 {
@@ -81,8 +83,6 @@ namespace Runtime.Engine.Jobs.Meshing
                 FoliageVoxels = new NativeHashMap<int3, ushort>(VoxelsPerPartition, Allocator.Temp);
                 TransparentVoxels = new NativeHashMap<int3, ushort>(VoxelsPerPartition, Allocator.Temp);
                 SolidVoxels = new NativeHashMap<int3, ushort>(VoxelsPerPartition, Allocator.Temp);
-                
-                LightDataMap = new NativeHashMap<int3, LightData>(VoxelsPerPartition, Allocator.Temp);
 
                 RenderVertexCount = 0;
                 CollisionVertexCount = 0;
@@ -96,7 +96,6 @@ namespace Runtime.Engine.Jobs.Meshing
                 TransparentVoxels.Dispose();
                 FoliageVoxels.Dispose();
                 SolidVoxels.Dispose();
-                LightDataMap.Dispose();
             }
         }
 
@@ -111,12 +110,12 @@ namespace Runtime.Engine.Jobs.Meshing
         {
             public float4 Uv1, Uv2, Uv3, Uv4;
         }
-        
+
         [BurstCompile]
         private struct VQuad
         {
             public float3 V1, V2, V3, V4;
-            
+
             public void OffsetAll(float3 offset)
             {
                 V1 += offset;
@@ -139,7 +138,7 @@ namespace Runtime.Engine.Jobs.Meshing
             {
                 Positions.OffsetAll(offset);
             }
-            
+
             public Vertex GetVertex(int index)
             {
                 return index switch
@@ -213,6 +212,15 @@ namespace Runtime.Engine.Jobs.Meshing
         #endregion
 
         #region Helpers
+
+        [BurstCompile]
+        private ushort GetVoxel(ref PartitionJobData jobData, int3 voxelPos)
+        {
+            voxelPos.y += jobData.PartitionPos.y * PartitionHeight;
+            return ChunkAccessor.InChunkBounds(voxelPos)
+                ? jobData.ChunkVoxelData.GetVoxel(voxelPos)
+                : Accessor.GetVoxelInPartition(jobData.PartitionPos, voxelPos);
+        }
 
         [BurstCompile]
         private MeshLayer GetMeshLayer(ushort voxelId, VoxelEngineRenderGenData renderGenData)

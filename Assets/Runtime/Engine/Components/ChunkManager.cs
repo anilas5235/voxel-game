@@ -190,7 +190,7 @@ namespace Runtime.Engine.Components
                 }
             }
 
-            return new ChunkAccessor(_accessorMap.AsReadOnly(), _lightAccessorMap);
+            return new ChunkAccessor(_accessorMap.AsReadOnly(), _lightAccessorMap.AsReadOnly());
         }
 
         /// <summary>

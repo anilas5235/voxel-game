@@ -1,13 +1,13 @@
 ﻿using Runtime.Engine.Data;
+using Runtime.Engine.Utils;
 using Runtime.Engine.VoxelConfig.Data;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
-using UnityEngine;
-using UnityEngine.Rendering;
+using static Runtime.Engine.Utils.VoxelConstants;
 
-namespace Runtime.Engine.Jobs.Meshing
+namespace Runtime.Engine.Jobs.Light
 {
     /// <summary>
     /// Burst-compiled parallel job that generates render and collider mesh data for a list of chunk positions
@@ -15,18 +15,15 @@ namespace Runtime.Engine.Jobs.Meshing
     /// instances while recording the position-to-index mapping.
     /// </summary>
     [BurstCompile]
-    internal partial struct MeshBuildJob : IJobParallelFor
+    internal partial struct LightBuildJob : IJobParallelFor
     {
-        [ReadOnly] public NativeArray<VertexAttributeDescriptor> VertexParams;
-        [ReadOnly] public NativeArray<VertexAttributeDescriptor> ColliderVertexParams;
         [ReadOnly] public ChunkAccessor Accessor;
         [ReadOnly] public NativeList<int3> Jobs;
         [ReadOnly] public VoxelEngineRenderGenData RenderGenData;
-        
+        [ReadOnly] public NativeArray<int3> NeighborOffsets;
 
-        [WriteOnly] public NativeParallelHashMap<int3, PartitionJobResult>.ParallelWriter Results;
-        public Mesh.MeshDataArray MeshDataArray;
-        public Mesh.MeshDataArray ColliderMeshDataArray;
+
+        [WriteOnly] public NativeParallelHashMap<int3, PartitionLightData>.ParallelWriter Results;
 
         /// <summary>
         /// Executes mesh generation for the given job index by processing the corresponding chunk position,
@@ -37,21 +34,16 @@ namespace Runtime.Engine.Jobs.Meshing
         /// <param name="index">Index of the chunk position to process within the <see cref="Jobs"/> list.</param>
         public void Execute(int index)
         {
-            int3 position = Jobs[index];
-            Accessor.TryGetLightData(position, out PartitionLightData lightData);
-            Accessor.TryGetChunk(position.xz, out ChunkVoxelData chunk);
-            PartitionJobData jobData = new(MeshDataArray[index], ColliderMeshDataArray[index],position,
-                lightData,chunk);
+            LightJobData jobData = new(Jobs[index]);
 
             SortVoxels(ref jobData);
 
-            MeshSolids(ref jobData);
+            if (!jobData.HasNoSolid)
+            {
+                AddSunlightSeeds(ref jobData);
 
-            MeshTransparent(ref jobData);
-
-            MeshFoliage(ref jobData);
-
-            MeshCollision(ref jobData);
+                SunLightPropagation(ref jobData);
+            }
 
             WriteResults(index, ref jobData);
 

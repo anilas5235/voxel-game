@@ -200,7 +200,7 @@ namespace Runtime.Engine.Jobs.Meshing
             {
                 int3 pos = foliageVoxel.Key;
                 VoxelRenderDef def = RenderGenData.GetRenderDef(foliageVoxel.Value);
-                byte sunLight = jobData.LightDataMap.ContainsKey(pos) ? jobData.LightDataMap[pos].Sunlight : (byte)0;
+                byte sunLight = ComputeSunlight(ref jobData, pos);
 
                 // Diagonal 1
                 VQuad flora1 = new()

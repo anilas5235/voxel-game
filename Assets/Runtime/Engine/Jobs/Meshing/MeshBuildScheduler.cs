@@ -40,8 +40,6 @@ namespace Runtime.Engine.Jobs.Meshing
 
         private NativeArray<VertexAttributeDescriptor> _vertexParams;
         private NativeArray<VertexAttributeDescriptor> _colliderVertexParams;
-        
-        private NativeArray<int3> _neighborOffsets;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="MeshBuildScheduler"/> class.
@@ -77,8 +75,6 @@ namespace Runtime.Engine.Jobs.Meshing
                 [0] = new VertexAttributeDescriptor(VertexAttribute.Position, VertexAttributeFormat.Float16,4),
                 [1] = new VertexAttributeDescriptor(VertexAttribute.Normal, VertexAttributeFormat.Float16, 4)
             };
-
-            _neighborOffsets = new NativeArray<int3>(VectorConstants.Int3Directions, Allocator.Persistent);
 
             _results = new NativeParallelHashMap<int3, MeshBuildJob.PartitionJobResult>(
                 settings.Chunk.DrawDistance.SquareSize(), Allocator.Persistent);
@@ -122,7 +118,6 @@ namespace Runtime.Engine.Jobs.Meshing
                 Jobs = _jobs,
                 VertexParams = _vertexParams,
                 ColliderVertexParams = _colliderVertexParams,
-                NeighborOffsets = _neighborOffsets,
                 MeshDataArray = _meshDataArray,
                 ColliderMeshDataArray = _colliderMeshDataArray,
                 RenderGenData = _voxelRegistry.GetVoxelGenData(),

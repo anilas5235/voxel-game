@@ -13,7 +13,7 @@ namespace Runtime.Engine.Jobs.Meshing
             for (int x = 0; x < VoxelConstants.PartitionWidth; x++)
             {
                 int3 localPos = new(x, y, z);
-                ushort voxelId = Accessor.GetVoxelInPartition(jobData.PartitionPos, localPos);
+                ushort voxelId = GetVoxel(ref jobData, localPos);
                 VoxelRenderDef renderDef = RenderGenData.GetRenderDef(voxelId);
 
                 if (renderDef.Collision) jobData.CollisionVoxels.Add(localPos);
