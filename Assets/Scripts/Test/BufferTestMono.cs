@@ -38,23 +38,23 @@ namespace Test
 
             List<Vertex> vertexData = new()
             {
-                /*new Vertex
+                new Vertex
                 {
-                    Position = new float3(0f, 0.0f, 0.0f),
+                    Position = new float3(1f, 0.0f, 1.0f),
                     Normal = new float3(1.0f, 0.0f, 0.0f),
                     UV0 = (half4)float4.zero,
                     UV1 = (half4)new float4(0.0f, 0f, 0.0f, 15f),
                     AO = (half4)new float4(1.0f, 1.0f, 1.0f, 1f)
-                },*/
+                },
                 new Vertex
                 {
                     Position = new float3(0.0f, 0.0f, 0.0f),
                     Normal = new float3(-1.0f, 0.0f, 0.0f),
                     UV0 = (half4)float4.zero,
                     UV1 = (half4)new float4(0.0f, 0f, 0.0f, 15f),
-                    AO = (half4)new float4(1.0f, 1.0f, 1.0f, 1f)
+                    AO = (half4)new float4(0.0f, 1.0f, 1.0f, 1f)
                 },
-                /*new Vertex
+                new Vertex
                 {
                     Position = new float3(0.0f, 1.0f, 0.0f),
                     Normal = new float3(0.0f, 1.0f, 0.0f),
@@ -64,7 +64,7 @@ namespace Test
                 },
                 new Vertex
                 {
-                    Position = new float3(0.0f, 0.0f, 0.0f),
+                    Position = new float3(0.0f, 0.0f, 1.0f),
                     Normal = new float3(0.0f, -1.0f, 0.0f),
                     UV0 = (half4)float4.zero,
                     UV1 = (half4)new float4(2.0f, 0f, 0.0f, 15f),
@@ -80,12 +80,12 @@ namespace Test
                 },
                 new Vertex
                 {
-                    Position = new float3(0.0f, 0.0f, 0.0f),
+                    Position = new float3(1.0f, 0.0f, 0.0f),
                     Normal = new float3(0.0f, 0.0f, -1.0f),
                     UV0 = (half4)float4.zero,
                     UV1 = (half4)new float4(4.0f, 0f, 0.0f, 15f),
                     AO = (half4)new float4(1.0f, 1.0f, 1.0f, 1f)
-                }*/
+                }
             };
 
             /*for (int x = -100; x < 100; x++)

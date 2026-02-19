@@ -32,69 +32,32 @@ Shader "Custom/BufferTest"
         void geom(point GeomData IN[1], inout TriangleStream<GeomData> outStream)
         {
             float3 n = IN[0].normalWS;
-            bool flip = n.x + n.y + n.z > 0;
             float3 worldUp = float3(0, 1, 0);
 
-            // If the normal is nearly vertical, use a different axis to avoid a zero cross product
-            if (abs(n.y) > 0.99)
-            {
-                worldUp = float3(1, 0, 0);
-            }
+            if (abs(n.y) > 0.99) worldUp = float3(1, 0, 0);
 
-            float3 Up_WS = normalize(cross(worldUp, n));
-            float3 Right_WS = cross(n, Up_WS);
-            
-            /*float3 Right_WS = float3(0, 0, 1);
-            float3 Up_WS = float3(0, 1, 0);
+            float3 left_ws = normalize(cross(worldUp, n));
+            float3 up_ws = cross(n, left_ws);
 
-            if (abs(n.y) > .707)
-            {
-                Right_WS = float3(1, 0, 0);
-                Up_WS = float3(0, 0, 1);
-            }
-            else if (abs(n.z) > .707)
-            {
-                Right_WS = float3(0, 1, 0);
-                Up_WS = float3(1, 0, 0);
-            }
-            */
-
-            //Bottom left or Bottom right ???
+            //Bottom right
             GeomData OUT = IN[0];
             OUT.texCoord0 = float4(0, 0, 0, 0);
             outStream.Append(OUT);
-
-            if (flip)
-            {             
-                //Bottom right
-                OUT.positionWS = IN[0].positionWS + Right_WS;
-                OUT.positionCS = TransformWorldToHClip(OUT.positionWS);
-                OUT.texCoord0 = float4(1, 0, 1, 0);
-                outStream.Append(OUT);
-
-                //Top left
-                OUT.positionWS = IN[0].positionWS + Up_WS;
-                OUT.positionCS = TransformWorldToHClip(OUT.positionWS);
-                OUT.texCoord0 = float4(0, 1, 0, 1);
-                outStream.Append(OUT);
-            }
-            else
-            {
-                //Top left
-                OUT.positionWS = IN[0].positionWS + Up_WS;
-                OUT.positionCS = TransformWorldToHClip(OUT.positionWS);
-                OUT.texCoord0 = float4(0, 1, 0, 1);
-                outStream.Append(OUT);
-
-                //Bottom right
-                OUT.positionWS = IN[0].positionWS + Right_WS;
-                OUT.positionCS = TransformWorldToHClip(OUT.positionWS);
-                OUT.texCoord0 = float4(1, 0, 1, 0);
-                outStream.Append(OUT);
-            }
+            
+            //Bottom left
+            OUT.positionWS = IN[0].positionWS + left_ws;
+            OUT.positionCS = TransformWorldToHClip(OUT.positionWS);
+            OUT.texCoord0 = float4(1, 0, 1, 0);
+            outStream.Append(OUT);
 
             //Top right
-            OUT.positionWS = IN[0].positionWS + Right_WS + Up_WS;
+            OUT.positionWS = IN[0].positionWS + up_ws;
+            OUT.positionCS = TransformWorldToHClip(OUT.positionWS);
+            OUT.texCoord0 = float4(0, 1, 0, 1);
+            outStream.Append(OUT);            
+
+            //Top left
+            OUT.positionWS = IN[0].positionWS + left_ws + up_ws;
             OUT.positionCS = TransformWorldToHClip(OUT.positionWS);
             OUT.texCoord0 = float4(1, 1, 1, 1);
             outStream.Append(OUT);
@@ -560,11 +523,11 @@ Shader "Custom/BufferTest"
                     _AOInterpolation_34061a478fc64a3e9f655b08c489a181_intensity_1_Float);
                 float4 _Lerp_3f3d0883f9ed43a1baf88b46cb1f581c_Out_3_Vector4;
                 Unity_Lerp_float4(_Property_9a517af9bc0b4ed8b0a7fde17d5c66a5_Out_0_Vector4,
-                                           _SampleFromTexArray_c382d753cc904f0a9ecfb2b41627f622_RGBA_1_Vector4,
-                                           (_AOInterpolation_34061a478fc64a3e9f655b08c489a181_intensity_1_Float
-                                               .
-                                               xxxx),
-                                           _Lerp_3f3d0883f9ed43a1baf88b46cb1f581c_Out_3_Vector4);
+                                  _SampleFromTexArray_c382d753cc904f0a9ecfb2b41627f622_RGBA_1_Vector4,
+                                  (_AOInterpolation_34061a478fc64a3e9f655b08c489a181_intensity_1_Float
+                                      .
+                                      xxxx),
+                                  _Lerp_3f3d0883f9ed43a1baf88b46cb1f581c_Out_3_Vector4);
                 Bindings_GetSunLightLevel_65b1e65376b59264c8832500ef266b2e_half
                     _GetSunLightLevel_8853c6724f584280a8f42dc711ebda05;
                 _GetSunLightLevel_8853c6724f584280a8f42dc711ebda05.uv1 = IN.uv1;
@@ -578,8 +541,8 @@ Shader "Custom/BufferTest"
                     _GetSunLightLevel_8853c6724f584280a8f42dc711ebda05_Out_2_Float, float(1));
                 float4 _Multiply_a3b2207d295b4fbf8f3a01a60b382765_Out_2_Vector4;
                 Unity_Multiply_float4_float4(_Lerp_3f3d0883f9ed43a1baf88b46cb1f581c_Out_3_Vector4,
-                                                               _Vector4_d6e512ef784b42608ba0eedc573eb38d_Out_0_Vector4,
-                                                               _Multiply_a3b2207d295b4fbf8f3a01a60b382765_Out_2_Vector4);
+                                             _Vector4_d6e512ef784b42608ba0eedc573eb38d_Out_0_Vector4,
+                                             _Multiply_a3b2207d295b4fbf8f3a01a60b382765_Out_2_Vector4);
                 RGBA_1 = _Multiply_a3b2207d295b4fbf8f3a01a60b382765_Out_2_Vector4;
             }
 
@@ -667,7 +630,7 @@ Shader "Custom/BufferTest"
             VertexDescriptionInputs BuildVertexDescriptionInputs(Attributes input)
             {
                 VertexDescriptionInputs output;
-                ZERO_INITIALIZE(VertexDescriptionInputs, output);
+                    ZERO_INITIALIZE(VertexDescriptionInputs, output);
 
                 output.ObjectSpaceNormal = input.normalOS;
                 output.ObjectSpaceTangent = input.tangentOS.xyz;
@@ -686,7 +649,7 @@ Shader "Custom/BufferTest"
             SurfaceDescriptionInputs BuildSurfaceDescriptionInputs(Varyings input)
             {
                 SurfaceDescriptionInputs output;
-                ZERO_INITIALIZE(SurfaceDescriptionInputs, output);
+                    ZERO_INITIALIZE(SurfaceDescriptionInputs, output);
 
                 #ifdef HAVE_VFX_MODIFICATION
                 #if VFX_USE_GRAPH_VALUES
@@ -2549,7 +2512,7 @@ Shader "Custom/BufferTest"
             VertexDescriptionInputs BuildVertexDescriptionInputs(Attributes input)
             {
                 VertexDescriptionInputs output;
-                    ZERO_INITIALIZE(VertexDescriptionInputs, output);
+                ZERO_INITIALIZE(VertexDescriptionInputs, output);
 
                 output.ObjectSpaceNormal = input.normalOS;
                 output.ObjectSpaceTangent = input.tangentOS.xyz;
@@ -2568,7 +2531,7 @@ Shader "Custom/BufferTest"
             SurfaceDescriptionInputs BuildSurfaceDescriptionInputs(Varyings input)
             {
                 SurfaceDescriptionInputs output;
-                    ZERO_INITIALIZE(SurfaceDescriptionInputs, output);
+                ZERO_INITIALIZE(SurfaceDescriptionInputs, output);
 
                 #ifdef HAVE_VFX_MODIFICATION
                 #if VFX_USE_GRAPH_VALUES
@@ -3349,11 +3312,11 @@ Shader "Custom/BufferTest"
                     _AOInterpolation_34061a478fc64a3e9f655b08c489a181_intensity_1_Float);
                 float4 _Lerp_3f3d0883f9ed43a1baf88b46cb1f581c_Out_3_Vector4;
                 Unity_Lerp_float4(_Property_9a517af9bc0b4ed8b0a7fde17d5c66a5_Out_0_Vector4,
-    _SampleFromTexArray_c382d753cc904f0a9ecfb2b41627f622_RGBA_1_Vector4,
-    (_AOInterpolation_34061a478fc64a3e9f655b08c489a181_intensity_1_Float
-        .
-        xxxx),
-    _Lerp_3f3d0883f9ed43a1baf88b46cb1f581c_Out_3_Vector4);
+                                  _SampleFromTexArray_c382d753cc904f0a9ecfb2b41627f622_RGBA_1_Vector4,
+                                  (_AOInterpolation_34061a478fc64a3e9f655b08c489a181_intensity_1_Float
+                                      .
+                                      xxxx),
+                                  _Lerp_3f3d0883f9ed43a1baf88b46cb1f581c_Out_3_Vector4);
                 Bindings_GetSunLightLevel_65b1e65376b59264c8832500ef266b2e_half
                     _GetSunLightLevel_8853c6724f584280a8f42dc711ebda05;
                 _GetSunLightLevel_8853c6724f584280a8f42dc711ebda05.uv1 = IN.uv1;
@@ -3367,8 +3330,8 @@ Shader "Custom/BufferTest"
                     _GetSunLightLevel_8853c6724f584280a8f42dc711ebda05_Out_2_Float, float(1));
                 float4 _Multiply_a3b2207d295b4fbf8f3a01a60b382765_Out_2_Vector4;
                 Unity_Multiply_float4_float4(_Lerp_3f3d0883f9ed43a1baf88b46cb1f581c_Out_3_Vector4,
-                                                             _Vector4_d6e512ef784b42608ba0eedc573eb38d_Out_0_Vector4,
-                                                             _Multiply_a3b2207d295b4fbf8f3a01a60b382765_Out_2_Vector4);
+                                             _Vector4_d6e512ef784b42608ba0eedc573eb38d_Out_0_Vector4,
+                                             _Multiply_a3b2207d295b4fbf8f3a01a60b382765_Out_2_Vector4);
                 RGBA_1 = _Multiply_a3b2207d295b4fbf8f3a01a60b382765_Out_2_Vector4;
             }
 
@@ -3456,7 +3419,7 @@ Shader "Custom/BufferTest"
             VertexDescriptionInputs BuildVertexDescriptionInputs(Attributes input)
             {
                 VertexDescriptionInputs output;
-                    ZERO_INITIALIZE(VertexDescriptionInputs, output);
+                ZERO_INITIALIZE(VertexDescriptionInputs, output);
 
                 output.ObjectSpaceNormal = input.normalOS;
                 output.ObjectSpaceTangent = input.tangentOS.xyz;
