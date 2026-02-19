@@ -1,5 +1,4 @@
 ﻿using System;
-using Unity.Mathematics;
 using UnityEngine;
 
 namespace Runtime.Engine.Settings
@@ -22,20 +21,15 @@ namespace Runtime.Engine.Settings
         public int DrawDistance = 2;
 
         /// <summary>
-        /// Dimensions of a single chunk (XYZ).
-        /// </summary>
-        [Tooltip("Chunk dimensions")] public int3 ChunkSize = 32 * new int3(1, 1, 1);
-
-        /// <summary>
         /// Extra load distance (kept in memory) beyond view distance. Computed internally.
         /// </summary>
         [HideInInspector] [Tooltip("Number of chunks in memory = (draw_distance + 2)")]
-        public int LoadDistance = 0;
+        public int LoadDistance;
 
         /// <summary>
         /// Distance used for updates (collider/activity). Must be &lt;= draw distance.
         /// </summary>
         [HideInInspector] [Tooltip("Should be less than equal to DrawDistance")]
-        public int UpdateDistance = 0;
+        public int UpdateDistance;
     }
 }

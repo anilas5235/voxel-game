@@ -32,6 +32,11 @@ namespace Runtime.Engine.VoxelConfig.Data
         /// <summary>Texture index for the back face.</summary>
         public int TexBack;
 
+        public bool IsAir => MeshLayer == MeshLayer.Air;
+        public bool IsFoliage => VoxelType == VoxelType.Flora;
+        public bool IsTransparent => MeshLayer == MeshLayer.Transparent;
+        public bool IsSolid => MeshLayer == MeshLayer.Solid;
+
         /// <summary>
         /// Returns the texture index for a given direction.
         /// </summary>

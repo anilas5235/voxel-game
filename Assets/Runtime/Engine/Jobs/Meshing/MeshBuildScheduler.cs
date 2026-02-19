@@ -13,13 +13,13 @@ using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-namespace Runtime.Engine.Jobs.Mesh
+namespace Runtime.Engine.Jobs.Meshing
 {
     /// <summary>
     /// Schedules and executes mesh build jobs for chunks, generating both render and collider meshes
     /// using a greedy meshing algorithm and applying the results to chunk behaviors.
     /// </summary>
-    public class MeshBuildScheduler : JobScheduler
+    internal class MeshBuildScheduler : JobScheduler
     {
         private const MeshUpdateFlags MeshFlags = MeshUpdateFlags.DontRecalculateBounds |
                                                   MeshUpdateFlags.DontValidateIndices |
@@ -29,15 +29,14 @@ namespace Runtime.Engine.Jobs.Mesh
         private readonly ChunkPool _chunkPool;
         private readonly VoxelRegistry _voxelRegistry;
 
-        private readonly int3 _chunkSize;
         private JobHandle _handle;
 
         private NativeList<int3> _jobs;
         private ChunkAccessor _chunkAccessor;
-        private NativeParallelHashMap<int3, int> _results;
+        private NativeParallelHashMap<int3, MeshBuildJob.PartitionJobResult> _results;
 
-        private UnityEngine.Mesh.MeshDataArray _meshDataArray;
-        private UnityEngine.Mesh.MeshDataArray _colliderMeshDataArray;
+        private Mesh.MeshDataArray _meshDataArray;
+        private Mesh.MeshDataArray _colliderMeshDataArray;
 
         private NativeArray<VertexAttributeDescriptor> _vertexParams;
         private NativeArray<VertexAttributeDescriptor> _colliderVertexParams;
@@ -49,7 +48,7 @@ namespace Runtime.Engine.Jobs.Mesh
         /// <param name="chunkManager">Chunk manager used to access chunk data and state.</param>
         /// <param name="chunkPool">Pool providing reusable chunk behaviours and meshes.</param>
         /// <param name="voxelRegistry">Voxel registry providing render generation data for blocks.</param>
-        public MeshBuildScheduler(
+        internal MeshBuildScheduler(
             VoxelEngineSettings settings,
             ChunkManager chunkManager,
             ChunkPool chunkPool,
@@ -60,27 +59,25 @@ namespace Runtime.Engine.Jobs.Mesh
             _chunkPool = chunkPool;
             _voxelRegistry = voxelRegistry;
 
-            _chunkSize = settings.Chunk.ChunkSize;
-
             _vertexParams = new NativeArray<VertexAttributeDescriptor>(5, Allocator.Persistent)
             {
                 // Int interpolation cause issues
-                [0] = new VertexAttributeDescriptor(VertexAttribute.Position),
-                [1] = new VertexAttributeDescriptor(VertexAttribute.Normal),
-                [2] = new VertexAttributeDescriptor(VertexAttribute.TexCoord0, VertexAttributeFormat.Float32, 4),
-                [3] = new VertexAttributeDescriptor(VertexAttribute.TexCoord1, VertexAttributeFormat.Float32, 4),
-                [4] = new VertexAttributeDescriptor(VertexAttribute.TexCoord2, VertexAttributeFormat.Float32, 4)
+                [0] = new VertexAttributeDescriptor(VertexAttribute.Position, VertexAttributeFormat.Float16,4),
+                [1] = new VertexAttributeDescriptor(VertexAttribute.Normal, VertexAttributeFormat.Float16, 4),
+                [2] = new VertexAttributeDescriptor(VertexAttribute.TexCoord0, VertexAttributeFormat.Float16, 4),
+                [3] = new VertexAttributeDescriptor(VertexAttribute.TexCoord1, VertexAttributeFormat.Float16, 4),
+                [4] = new VertexAttributeDescriptor(VertexAttribute.TexCoord2, VertexAttributeFormat.Float16, 4)
             };
 
             // Collider uses only Position and Normal from CVertex
             _colliderVertexParams = new NativeArray<VertexAttributeDescriptor>(2, Allocator.Persistent)
             {
-                [0] = new VertexAttributeDescriptor(VertexAttribute.Position),
-                [1] = new VertexAttributeDescriptor(VertexAttribute.Normal)
+                [0] = new VertexAttributeDescriptor(VertexAttribute.Position, VertexAttributeFormat.Float16,4),
+                [1] = new VertexAttributeDescriptor(VertexAttribute.Normal, VertexAttributeFormat.Float16, 4)
             };
 
-            _results = new NativeParallelHashMap<int3, int>(settings.Chunk.DrawDistance.SquareSize(),
-                Allocator.Persistent);
+            _results = new NativeParallelHashMap<int3, MeshBuildJob.PartitionJobResult>(
+                settings.Chunk.DrawDistance.SquareSize(), Allocator.Persistent);
             _jobs = new NativeList<int3>(Allocator.Persistent);
         }
 
@@ -112,19 +109,18 @@ namespace Runtime.Engine.Jobs.Mesh
                 _jobs.Add(j);
             }
 
-            _meshDataArray = UnityEngine.Mesh.AllocateWritableMeshData(_jobs.Length);
-            _colliderMeshDataArray = UnityEngine.Mesh.AllocateWritableMeshData(_jobs.Length);
+            _meshDataArray = Mesh.AllocateWritableMeshData(_jobs.Length);
+            _colliderMeshDataArray = Mesh.AllocateWritableMeshData(_jobs.Length);
 
             MeshBuildJob job = new()
             {
                 Accessor = _chunkAccessor,
-                ChunkSize = _chunkSize,
                 Jobs = _jobs,
                 VertexParams = _vertexParams,
                 ColliderVertexParams = _colliderVertexParams,
                 MeshDataArray = _meshDataArray,
                 ColliderMeshDataArray = _colliderMeshDataArray,
-                VoxelEngineRenderGenData = _voxelRegistry.GetVoxelGenData(),
+                RenderGenData = _voxelRegistry.GetVoxelGenData(),
                 Results = _results.AsParallelWriter()
             };
 
@@ -140,39 +136,41 @@ namespace Runtime.Engine.Jobs.Mesh
             double start = Time.realtimeSinceStartupAsDouble;
             _handle.Complete();
 
-            UnityEngine.Mesh[] meshes = new UnityEngine.Mesh[_jobs.Length];
-            UnityEngine.Mesh[] colliderMeshes = new UnityEngine.Mesh[_jobs.Length];
+            Mesh[] meshes = new Mesh[_jobs.Length];
+            Mesh[] colliderMeshes = new Mesh[_jobs.Length];
+
+            List<ChunkPartition> changedPartitions = new();
 
             for (int index = 0; index < _jobs.Length; index++)
             {
                 int3 pos = _jobs[index];
-                ChunkBehaviour cb = _chunkPool.GetOrClaim(pos);
-                _chunkManager.ReMeshedChunk(pos);
+                ChunkPartition partition = _chunkPool.GetOrClaimPartition(pos);
+                _chunkManager.ReMeshedPartition(pos);
+                changedPartitions.Add(partition);
+                
+                MeshBuildJob.PartitionJobResult result = _results[pos];
 
-                meshes[_results[pos]] = cb.Mesh;
-                colliderMeshes[_results[pos]] = cb.ColliderMesh;
+                meshes[result.Index] = partition.Mesh;
+                colliderMeshes[result.Index] = partition.ColliderMesh;
+                partition.Mesh.bounds = result.MeshBounds;
+                partition.ColliderMesh.bounds = result.ColliderBounds;
             }
 
-            UnityEngine.Mesh.ApplyAndDisposeWritableMeshData(
+            Mesh.ApplyAndDisposeWritableMeshData(
                 _meshDataArray,
                 meshes,
                 MeshFlags
             );
 
-            UnityEngine.Mesh.ApplyAndDisposeWritableMeshData(
+            Mesh.ApplyAndDisposeWritableMeshData(
                 _colliderMeshDataArray,
                 colliderMeshes,
                 MeshFlags
             );
 
-            foreach (UnityEngine.Mesh m in meshes)
+            foreach (ChunkPartition partition in changedPartitions)
             {
-                m.RecalculateBounds();
-            }
-
-            foreach (UnityEngine.Mesh cm in colliderMeshes)
-            {
-                cm.RecalculateBounds();
+                partition.UpdateRenderStatus();
             }
 
             double totalTime = (Time.realtimeSinceStartupAsDouble - start) * 1000;

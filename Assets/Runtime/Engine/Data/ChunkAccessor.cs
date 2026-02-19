@@ -1,6 +1,7 @@
 ﻿using Unity.Burst;
 using Unity.Collections;
 using Unity.Mathematics;
+using static Runtime.Engine.Utils.VoxelConstants;
 
 namespace Runtime.Engine.Data
 {
@@ -11,101 +12,141 @@ namespace Runtime.Engine.Data
     [BurstCompile]
     internal readonly struct ChunkAccessor
     {
-        private readonly NativeParallelHashMap<int3, Chunk>.ReadOnly _chunks;
-        private readonly int3 _chunkSize;
+        private readonly NativeParallelHashMap<int2, ChunkVoxelData>.ReadOnly _chunks;
+        private readonly NativeParallelHashMap<int2, ChunkLightData>.ReadOnly _lightData;
 
         /// <summary>
         /// Constructs a new accessor.
         /// </summary>
-        internal ChunkAccessor(NativeParallelHashMap<int3, Chunk>.ReadOnly chunks, int3 chunkSize)
+        internal ChunkAccessor(NativeParallelHashMap<int2, ChunkVoxelData>.ReadOnly chunks,
+            NativeParallelHashMap<int2, ChunkLightData>.ReadOnly lightData)
         {
             _chunks = chunks;
-            _chunkSize = chunkSize;
+            _lightData = lightData;
         }
 
         /// <summary>
         /// Voxel lookup within a chunk; remaps out-of-range coordinates to neighbor chunks.
         /// </summary>
-        internal ushort GetVoxelInChunk(int3 chunkPos, int3 voxelPos)
+        internal ushort GetVoxelInPartition(in int3 partitionPos, int3 voxelPos)
         {
-            if (voxelPos.y >= _chunkSize.y || voxelPos.y < 0) return 0;
-            int3 key = int3.zero;
+            voxelPos.y += partitionPos.y * PartitionHeight;
+            if (voxelPos.y is >= ChunkHeight or < 0) return 0;
+            int2 chunkOffset = int2.zero;
 
-            for (int index = 0; index < 3; index++)
+            switch (voxelPos.x)
             {
-                if (voxelPos[index] >= 0 && voxelPos[index] < _chunkSize[index]) continue;
-
-                key[index] += voxelPos[index] % (_chunkSize[index] - 1);
-                voxelPos[index] -= key[index] * _chunkSize[index];
+                case > MaxXChunkPos:
+                    chunkOffset.x = voxelPos.x / ChunkWidth;
+                    voxelPos.x %= ChunkWidth;
+                    break;
+                case < MinChunkPosXYZ:
+                    chunkOffset.x = (voxelPos.x - ChunkWidth + 1) / ChunkWidth;
+                    voxelPos.x = (voxelPos.x % ChunkWidth + ChunkWidth) % ChunkWidth;
+                    break;
             }
 
-            key *= _chunkSize;
+            switch (voxelPos.z)
+            {
+                case > MaxZChunkPos:
+                    chunkOffset.y = voxelPos.z / ChunkDepth;
+                    voxelPos.z %= ChunkDepth;
+                    break;
+                case < MinChunkPosXYZ:
+                    chunkOffset.y = (voxelPos.z - ChunkDepth + 1) / ChunkDepth;
+                    voxelPos.z = (voxelPos.z % ChunkDepth + ChunkDepth) % ChunkDepth;
+                    break;
+            }
 
-            return TryGetChunk(chunkPos + key, out Chunk chunk) ? chunk.GetVoxel(voxelPos) : (ushort)0;
+            return TryGetChunk(partitionPos.xz + chunkOffset, out ChunkVoxelData chunk)
+                ? chunk.GetVoxel(voxelPos)
+                : (ushort)0;
         }
 
         /// <summary>
         /// Attempts to get a chunk at a position.
         /// </summary>
-        internal bool TryGetChunk(int3 pos, out Chunk chunk) => _chunks.TryGetValue(pos, out chunk);
+        internal bool TryGetChunk(int2 pos, out ChunkVoxelData chunk) => _chunks.TryGetValue(pos, out chunk);
+
+        internal byte GetLightInPartition(int3 partitionPos, int3 voxelPos)
+        {
+            FindPartitionAndLocalPos(ref partitionPos, ref voxelPos);
+
+            return TryGetLightData(partitionPos, out PartitionLightData lightData)
+                ? lightData.GetLight( voxelPos)
+                : (byte)0;
+        }
+
+        private static void FindPartitionAndLocalPos(ref int3 partitionPos, ref int3 voxelPos)
+        {
+            int3 partitionOffset = int3.zero;
+
+            switch (voxelPos.x)
+            {
+                case > MaxXPartitionPos:
+                    partitionOffset.x = voxelPos.x / PartitionWidth;
+                    voxelPos.x %= PartitionWidth;
+                    break;
+                case < MinPartitionPosXYZ:
+                    partitionOffset.x = (voxelPos.x - PartitionWidth + 1) / PartitionWidth;
+                    voxelPos.x = (voxelPos.x % PartitionWidth + PartitionWidth) % PartitionWidth;
+                    break;
+            }
+
+            switch (voxelPos.y)
+            {
+                case > MaxYPartitionPos:
+                    partitionOffset.y = voxelPos.y / PartitionHeight;
+                    voxelPos.y %= PartitionHeight;
+                    break;
+                case < MinPartitionPosXYZ:
+                    partitionOffset.y = (voxelPos.y - PartitionHeight + 1) / PartitionHeight;
+                    voxelPos.y = (voxelPos.y % PartitionHeight + PartitionHeight) % PartitionHeight;
+                    break;
+            }
+
+            switch (voxelPos.z)
+            {
+                case > MaxZPartitionPos:
+                    partitionOffset.z = voxelPos.z / PartitionDepth;
+                    voxelPos.z %= PartitionDepth;
+                    break;
+                case < MinPartitionPosXYZ:
+                    partitionOffset.z = (voxelPos.z - PartitionDepth + 1) / PartitionDepth;
+                    voxelPos.z = (voxelPos.z % PartitionDepth + PartitionDepth) % PartitionDepth;
+                    break;
+            }
+
+            partitionPos += partitionOffset;
+        }
+
+        internal bool TryGetLightData(int3 partitionPos, out PartitionLightData lightData)
+        {
+            lightData = default;
+            return _lightData.TryGetValue(partitionPos.xz, out ChunkLightData chunkLightData) &&
+                   chunkLightData.TryGetPartitionLight(partitionPos.y, out lightData);
+        }
 
         /// <summary>
         /// Checks whether a chunk exists.
         /// </summary>
-        internal bool ContainsChunk(int3 coord) => _chunks.ContainsKey(coord);
-
-        #region Try Neighbours
-
-        /// <summary>
-        /// Right (+X) neighbor.
-        /// </summary>
-        internal bool TryGetNeighborPx(int3 pos, out Chunk chunk)
-        {
-            int3 px = pos + new int3(1, 0, 0) * _chunkSize;
-
-            return _chunks.TryGetValue(px, out chunk);
-        }
-
-        /// <summary>
-        /// Forward (+Z) neighbor.
-        /// </summary>
-        internal bool TryGetNeighborPz(int3 pos, out Chunk chunk)
-        {
-            int3 pz = pos + new int3(0, 0, 1) * _chunkSize;
-
-            return _chunks.TryGetValue(pz, out chunk);
-        }
-
-        /// <summary>
-        /// Left (-X) neighbor.
-        /// </summary>
-        internal bool TryGetNeighborNx(int3 pos, out Chunk chunk)
-        {
-            int3 nx = pos + new int3(-1, 0, 0) * _chunkSize;
-
-            return _chunks.TryGetValue(nx, out chunk);
-        }
-
-        /// <summary>
-        /// Back (-Z) neighbor.
-        /// </summary>
-        internal bool TryGetNeighborNz(int3 pos, out Chunk chunk)
-        {
-            int3 nz = pos + new int3(0, 0, -1) * _chunkSize;
-
-            return _chunks.TryGetValue(nz, out chunk);
-        }
-
-        #endregion
+        internal bool ContainsChunk(int2 coord) => _chunks.ContainsKey(coord);
 
         /// <summary>
         /// Checks whether a voxel coordinate lies inside chunk bounds.
         /// </summary>
-        public bool InChunkBounds(int3 chunkItr)
+        public static bool InChunkBounds(int3 chunkLocalPos)
         {
-            return chunkItr.x >= 0 && chunkItr.x < _chunkSize.x &&
-                   chunkItr.y >= 0 && chunkItr.y < _chunkSize.y &&
-                   chunkItr.z >= 0 && chunkItr.z < _chunkSize.z;
+            return chunkLocalPos.x >= 0 && chunkLocalPos.x < ChunkWidth &&
+                   chunkLocalPos.y >= 0 && chunkLocalPos.y < ChunkHeight &&
+                   chunkLocalPos.z >= 0 && chunkLocalPos.z < ChunkDepth;
+        }
+
+        public static bool InPartitionBounds(int3 partitionLocalPos)
+        {
+            return partitionLocalPos.x >= 0 && partitionLocalPos.x < PartitionWidth &&
+                   partitionLocalPos.y >= 0 && partitionLocalPos.y < PartitionHeight &&
+                   partitionLocalPos.z >= 0 && partitionLocalPos.z < PartitionDepth;
         }
     }
 }

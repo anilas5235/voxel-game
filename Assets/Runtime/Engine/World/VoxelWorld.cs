@@ -1,8 +1,8 @@
-﻿using Runtime.Engine.Components;
+﻿using System;
+using Runtime.Engine.Components;
 using Runtime.Engine.Jobs;
 using Runtime.Engine.Jobs.Chunk;
-using Runtime.Engine.Jobs.Collider;
-using Runtime.Engine.Jobs.Mesh;
+using Runtime.Engine.Jobs.Meshing;
 using Runtime.Engine.Noise;
 using Runtime.Engine.Settings;
 using Runtime.Engine.Utils;
@@ -26,41 +26,32 @@ namespace Runtime.Engine.World
         #region API
 
         /// <summary>
-        /// Gets the current focus transform that drives which chunks are loaded and updated.
+        /// The partition coordinates of the current focus position.
         /// </summary>
-        public Transform Focus => focus;
-
-        /// <summary>
-        /// Gets the voxel engine settings used to configure chunk sizes and distances.
-        /// </summary>
-        public VoxelEngineSettings Settings => settings;
-
-        /// <summary>
-        /// Gets the chunk coordinates of the current focus position.
-        /// </summary>
-        public int3 FocusChunkCoord { get; private set; }
+        private int3 FocusPartitionCoords { get; set; }
+        
+        private int3 FocusPosition { get; set; }
 
         /// <summary>
         /// Gets the central scheduler that coordinates chunk data, mesh and collider jobs.
         /// </summary>
-        public VoxelEngineScheduler Scheduler { get; private set; }
+        private VoxelEngineScheduler Scheduler { get; set; }
 
         /// <summary>
         /// Gets the noise profile used for procedural terrain generation.
         /// </summary>
-        public NoiseProfile NoiseProfile { get; private set; }
+        private NoiseProfile NoiseProfile { get; set; }
 
         /// <summary>
         /// Gets the chunk manager that stores and accesses chunk data.
         /// </summary>
-        public ChunkManager ChunkManager { get; private set; }
+        private ChunkManager ChunkManager { get; set; }
 
         #endregion
 
         private ChunkPool _chunkPool;
         private MeshBuildScheduler _meshBuildScheduler;
         private ChunkScheduler _chunkScheduler;
-        private ColliderBuildScheduler _colliderBuildScheduler;
 
         private bool _isFocused;
 
@@ -79,12 +70,12 @@ namespace Runtime.Engine.World
             {
                 ConfigureSettings();
 
-                provider.Settings = Settings;
+                provider.Settings = settings;
             });
 
             ConstructEngineComponents();
 
-            FocusChunkCoord = new int3(1, 1, 1) * int.MinValue;
+            FocusPartitionCoords = new int3(1, 1, 1) * int.MinValue;
         }
 
         /// <summary>
@@ -101,15 +92,23 @@ namespace Runtime.Engine.World
         /// </summary>
         private void Update()
         {
-            int3 newFocusChunkCoord = _isFocused ? VoxelUtils.GetChunkCoords(focus.position) : int3.zero;
+            int3 newFocusCoords = _isFocused ? VoxelUtils.GetPartitionCoords(focus.position) : int3.zero;
 
-            if (!(newFocusChunkCoord == FocusChunkCoord).AndReduce())
+            if (!(newFocusCoords == FocusPartitionCoords).AndReduce())
             {
-                FocusChunkCoord = newFocusChunkCoord;
-                Scheduler.FocusUpdate(FocusChunkCoord);
+                FocusPartitionCoords = newFocusCoords;
+                Scheduler.FocusUpdate(FocusPartitionCoords);
             }
 
-            Scheduler.ScheduleUpdate(FocusChunkCoord);
+            Scheduler.ScheduleUpdate(FocusPartitionCoords);
+        }
+
+        private void FixedUpdate()
+        {
+            if(!_isFocused) return;
+            
+            FocusPosition = focus.position.Int3();
+            //_occlusionCuller.OccUpdate(FocusPartitionCoords, FocusPosition,focus.forward.Float3());
         }
 
         /// <summary>
@@ -147,8 +146,8 @@ namespace Runtime.Engine.World
         /// </summary>
         private void ConfigureSettings()
         {
-            Settings.Chunk.LoadDistance = Settings.Chunk.DrawDistance + 2;
-            Settings.Chunk.UpdateDistance = math.max(Settings.Chunk.DrawDistance - 2, 2);
+            settings.Chunk.LoadDistance = settings.Chunk.DrawDistance + 2;
+            settings.Chunk.UpdateDistance = math.max(settings.Chunk.DrawDistance - 2, 2);
         }
 
         /// <summary>
@@ -174,15 +173,9 @@ namespace Runtime.Engine.World
                 VoxelDataImporter.Instance.CreateConfig()
             );
 
-            _colliderBuildScheduler = VoxelEngineProvider.Current.ColliderBuildScheduler(
-                ChunkManager,
-                _chunkPool
-            );
-
             Scheduler = VoxelEngineProvider.Current.VoxelEngineScheduler(
                 _meshBuildScheduler,
                 _chunkScheduler,
-                _colliderBuildScheduler,
                 ChunkManager,
                 _chunkPool
             );

@@ -16,36 +16,34 @@ namespace Runtime.Engine.Jobs.Chunk
     /// Schedules and manages jobs that generate chunk data, wraps <see cref="ChunkJob"/>, 
     /// tracks job lists and result maps, and forwards completed chunks to <see cref="ChunkManager"/>.
     /// </summary>
-    public class ChunkScheduler : JobScheduler
+    internal class ChunkScheduler : JobScheduler
     {
-        private readonly int3 _chunkSize;
-        private readonly ChunkManager _chunkStore;
+        private readonly ChunkManager _chunkManager;
         private readonly NoiseProfile _noiseProfile;
         private JobHandle _handle;
-        private NativeList<int3> _jobs;
-        private NativeParallelHashMap<int3, Data.Chunk> _results;
+        private NativeList<int2> _jobs;
+        private NativeParallelHashMap<int2, Data.ChunkVoxelData> _results;
         private readonly GeneratorConfig _config;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ChunkScheduler"/> class with its own result collection.
         /// </summary>
         /// <param name="settings">Voxel engine settings providing chunk dimensions and load distance.</param>
-        /// <param name="chunkStore">Chunk manager that receives finished chunk data.</param>
+        /// <param name="chunkManager">Chunk manager that receives finished chunk data.</param>
         /// <param name="noiseProfile">Noise profile used for terrain height generation.</param>
         /// <param name="config">Generator configuration used by chunk jobs.</param>
-        public ChunkScheduler(
+        internal ChunkScheduler(
             VoxelEngineSettings settings,
-            ChunkManager chunkStore,
+            ChunkManager chunkManager,
             NoiseProfile noiseProfile,
             GeneratorConfig config
         )
         {
-            _chunkSize = settings.Chunk.ChunkSize;
-            _chunkStore = chunkStore;
+            _chunkManager = chunkManager;
             _noiseProfile = noiseProfile;
             _config = config;
-            _jobs = new NativeList<int3>(Allocator.Persistent);
-            _results = new NativeParallelHashMap<int3, Data.Chunk>(
+            _jobs = new NativeList<int2>(Allocator.Persistent);
+            _results = new NativeParallelHashMap<int2, Data.ChunkVoxelData>(
                 settings.Chunk.LoadDistance.SquareSize(),
                 Allocator.Persistent
             );
@@ -56,15 +54,6 @@ namespace Runtime.Engine.Jobs.Chunk
         /// </summary>
         internal bool IsReady = true;
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="ChunkScheduler"/> class that writes into an
-        /// externally provided result map (useful for testing and debugging).
-        /// </summary>
-        /// <param name="results">Native hash map that will receive generated chunk data.</param>
-        public ChunkScheduler(NativeParallelHashMap<int3, Data.Chunk> results)
-        {
-            _results = results;
-        }
 
         /// <summary>
         /// Gets a value indicating whether the scheduled job has completed.
@@ -75,16 +64,15 @@ namespace Runtime.Engine.Jobs.Chunk
         /// Starts a Burst-compiled chunk generation job for the given list of chunk world positions.
         /// </summary>
         /// <param name="jobs">List of chunk world positions to generate.</param>
-        internal void Start(List<int3> jobs)
+        internal void Start(List<int2> jobs)
         {
             StartRecord();
             IsReady = false;
-            foreach (int3 j in jobs) _jobs.Add(j);
+            foreach (int2 j in jobs) _jobs.Add(j);
 
             ChunkJob job = new()
             {
                 Jobs = _jobs,
-                ChunkSize = _chunkSize,
                 NoiseProfile = _noiseProfile,
                 Results = _results.AsParallelWriter(),
                 RandomSeed = _config.GlobalSeed,
@@ -102,7 +90,7 @@ namespace Runtime.Engine.Jobs.Chunk
         {
             double start = Time.realtimeSinceStartupAsDouble;
             _handle.Complete();
-            _chunkStore.AddChunks(_results);
+            _chunkManager.AddChunks(_results);
             double totalTime = (Time.realtimeSinceStartupAsDouble - start) * 1000;
             if (totalTime >= 1)
             {
@@ -110,6 +98,7 @@ namespace Runtime.Engine.Jobs.Chunk
                     $"Built {_jobs.Length} ChunkData, Collected Results in <color=red>{totalTime:0.000}</color>ms"
                 );
             }
+
             _jobs.Clear();
             _results.Clear();
             IsReady = true;

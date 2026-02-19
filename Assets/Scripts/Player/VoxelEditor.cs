@@ -27,6 +27,8 @@ namespace Player
         /// Currently selected voxel ID that will be placed in placement mode.
         /// </summary>
         public ushort voxelId = 1;
+        
+        public LayerMask voxelLayerMask;
 
         /// <summary>
         /// Raised whenever <see cref="voxelId"/> changes (for example to update UI).
@@ -82,6 +84,7 @@ namespace Player
             else if (place)
             {
                 if (!GetLookAtVoxelPos(out Vector3Int voxelWorldPos, true)) return;
+                if (Physics.CheckBox(voxelWorldPos+ Vector3.one * .5f , Vector3.one * 0.45f)) return;
                 VoxelWorld.Instance.SetVoxel(voxelId, voxelWorldPos);
             }
         }
@@ -96,12 +99,23 @@ namespace Player
         {
             voxelWorldPos = Vector3Int.zero;
             bool res = Physics.Raycast(_camera.transform.position, _camera.transform.forward, out RaycastHit hitInfo,
-                5f);
+                5f,voxelLayerMask);
             if (!res) return false;
 
             Vector3 worldPos = hitInfo.point + _camera.transform.forward * (.001f * (placeMode ? -1 : 1));
             voxelWorldPos = Vector3Int.FloorToInt(worldPos);
             return true;
         }
+        
+#if UNITY_EDITOR
+        private void OnDrawGizmos()
+        {
+            if (Application.isPlaying && GetLookAtVoxelPos(out Vector3Int voxelWorldPos))
+            {
+                Gizmos.color = Color.yellow;
+                Gizmos.DrawWireCube(voxelWorldPos + Vector3.one * .5f , Vector3.one * 0.45f);
+            }
+        }
+#endif
     }
 }

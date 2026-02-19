@@ -1,9 +1,11 @@
-﻿using Runtime.Engine.Noise;
+﻿using Runtime.Engine.Data;
+using Runtime.Engine.Noise;
 using Runtime.Engine.Utils.Extensions;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
+using static Runtime.Engine.Utils.VoxelConstants;
 
 namespace Runtime.Engine.Jobs.Chunk
 {
@@ -12,12 +14,11 @@ namespace Runtime.Engine.Jobs.Chunk
     /// for multiple chunks in parallel.
     /// </summary>
     [BurstCompile]
-    public struct ChunkJob : IJobParallelFor
+    internal partial struct ChunkJob : IJobParallelFor
     {
-        [ReadOnly] public int3 ChunkSize;
         [ReadOnly] public NoiseProfile NoiseProfile;
-        [ReadOnly] public NativeList<int3> Jobs; // Chunk world positions
-        [WriteOnly] public NativeParallelHashMap<int3, Data.Chunk>.ParallelWriter Results; // Result mapping
+        [ReadOnly] public NativeList<int2> Jobs; // Chunk world positions
+        [WriteOnly] public NativeParallelHashMap<int2, ChunkVoxelData>.ParallelWriter Results; // Result mapping
         [ReadOnly] public int RandomSeed;
         [ReadOnly] public GeneratorConfig Config;
 
@@ -30,46 +31,46 @@ namespace Runtime.Engine.Jobs.Chunk
         /// <param name="index">Index of the chunk position in the <see cref="Jobs"/> list.</param>
         public void Execute(int index)
         {
-            int3 position = Jobs[index];
-            Data.Chunk chunk = GenerateChunkData(position);
-            Results.TryAdd(position, chunk);
+            int2 position = Jobs[index];
+            GenerateChunkData(position, out ChunkVoxelData voxelData);
+            Results.TryAdd(position, voxelData);
         }
 
         /// <summary>
         /// Generates all voxel data for a given chunk (terrain, ores, caves, structures, vegetation).
         /// </summary>
-        private Data.Chunk GenerateChunkData(int3 chunkWordPos)
+        private void GenerateChunkData(int2 chunkPos, out ChunkVoxelData voxelData)
         {
-            int volume = ChunkSize.x * ChunkSize.y * ChunkSize.z;
             int surfaceArea = ChunkSize.x * ChunkSize.z;
             int waterLevel = Config.WaterLevel;
 
-            NativeArray<ushort> vox = new(volume, Allocator.Temp);
+            int3 chunkWorldPos = ChunkSize.MemberMultiply(chunkPos.x, 0, chunkPos.y);
+
+            NativeArray<ushort> vox = new(VoxelsPerChunk, Allocator.Temp);
             NativeArray<ChunkColumn> chunkColumns = new(surfaceArea, Allocator.Temp);
 
-            ChunkGenerationTerrain.PrepareChunkMaps(ref ChunkSize, ref NoiseProfile, RandomSeed, ref Config,
-                ref chunkWordPos, chunkColumns);
-            ChunkGenerationTerrain.FillTerrain(ref ChunkSize, vox, waterLevel, chunkColumns, ref Config);
-            ChunkGenerationCavesOres.PlaceOres(ChunkSize, vox, Config, RandomSeed);
-            ChunkGenerationCavesOres.CarveCaves(ChunkSize, vox, chunkWordPos, chunkColumns, Config, RandomSeed,
+            PrepareChunkMaps(ref NoiseProfile, RandomSeed, ref Config, ref chunkWorldPos,
+                chunkColumns);
+            FillTerrain(vox, waterLevel, chunkColumns, ref Config);
+            PlaceOres(vox, Config, RandomSeed);
+            CarveCaves(vox, chunkWorldPos, chunkColumns, Config, RandomSeed,
                 CaveScale, LavaLevel);
-            ChunkGenerationStructures.PlaceStructures(ref vox, ref chunkColumns, ref chunkWordPos, ref ChunkSize,
+            PlaceStructures(ref vox, ref chunkColumns, ref chunkWorldPos,
                 RandomSeed, ref Config);
-            ChunkGenerationVegetation.PlaceVegetation(ref vox, ref chunkColumns, ref chunkWordPos, ref ChunkSize,
+            PlaceVegetation(ref vox, ref chunkColumns, ref chunkWorldPos,
                 RandomSeed, ref Config);
 
-            Data.Chunk data = WriteToChunkData(vox, chunkWordPos);
+            WriteToChunkData(vox, out voxelData);
             vox.Dispose();
             chunkColumns.Dispose();
-            return data;
         }
 
         /// <summary>
         /// Writes uncompressed voxel data into the chunk using run-length encoding (RLE) compaction.
         /// </summary>
-        private Data.Chunk WriteToChunkData(NativeArray<ushort> vox, int3 chunkWordPos)
+        private void WriteToChunkData(NativeArray<ushort> vox, out ChunkVoxelData data)
         {
-            Data.Chunk data = new(chunkWordPos, ChunkSize);
+            data = new ChunkVoxelData(VoxelsPerChunk / 4);
             ushort last = 0;
             int run = 0;
             bool hasLast = false;
@@ -90,9 +91,8 @@ namespace Runtime.Engine.Jobs.Chunk
                     hasLast = true;
                 }
             }
-            if (hasLast && run > 0) data.AddVoxels(last, run);
 
-            return data;
+            if (hasLast && run > 0) data.AddVoxels(last, run);
         }
     }
 }
