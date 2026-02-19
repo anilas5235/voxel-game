@@ -1,4 +1,5 @@
 ﻿using System;
+using Runtime.Engine.Data;
 using Runtime.Engine.VoxelConfig.Data;
 using Unity.Burst;
 using Unity.Collections;
@@ -44,6 +45,11 @@ namespace Runtime.Engine.Jobs.Meshing
             public NativeHashMap<int3, ushort> TransparentVoxels;
             public NativeHashMap<int3, ushort> SolidVoxels;
 
+            public PartitionLightData PartitionLightData;
+
+            public ChunkVoxelData
+                ChunkVoxelData; //TODO: Use this when possible to avoid accessing the main data in the meshing job
+
             public int RenderVertexCount;
             public int CollisionVertexCount;
 
@@ -51,12 +57,16 @@ namespace Runtime.Engine.Jobs.Meshing
             public bool HasNoFoliage => FoliageVoxels.IsEmpty;
             public bool HasNoTransparent => TransparentVoxels.IsEmpty;
             public bool HasNoSolid => SolidVoxels.IsEmpty;
+            public bool HasNoVoxels => HasNoFoliage && HasNoTransparent && HasNoSolid;
 
-            internal PartitionJobData(Mesh.MeshData mesh, Mesh.MeshData colliderMesh, int3 partitionPos)
+            internal PartitionJobData(Mesh.MeshData mesh, Mesh.MeshData colliderMesh, int3 partitionPos,
+                PartitionLightData partitionLightData, ChunkVoxelData chunkVoxelData)
             {
                 Mesh = mesh;
                 ColliderMesh = colliderMesh;
                 PartitionPos = partitionPos;
+                PartitionLightData = partitionLightData;
+                ChunkVoxelData = chunkVoxelData;
                 ChunkPos = partitionPos.xz;
                 MeshBuffer = new MeshBuffer
                 {
@@ -106,20 +116,39 @@ namespace Runtime.Engine.Jobs.Meshing
         {
             public float3 V1, V2, V3, V4;
 
-            public VQuad(float3 v1, float3 v2, float3 v3, float3 v4)
-            {
-                V1 = v1;
-                V2 = v2;
-                V3 = v3;
-                V4 = v4;
-            }
-
             public void OffsetAll(float3 offset)
             {
                 V1 += offset;
                 V2 += offset;
                 V3 += offset;
                 V4 += offset;
+            }
+        }
+
+        [BurstCompile]
+        private struct Quad
+        {
+            public VQuad Positions;
+            public float3 Normal;
+            public UVQuad UV0;
+            public float4 UV1;
+            public float4 AO;
+
+            public void OffsetAll(float3 offset)
+            {
+                Positions.OffsetAll(offset);
+            }
+
+            public Vertex GetVertex(int index)
+            {
+                return index switch
+                {
+                    0 => new Vertex(Positions.V1, Normal, UV0.Uv1, UV1, AO),
+                    1 => new Vertex(Positions.V2, Normal, UV0.Uv2, UV1, AO),
+                    2 => new Vertex(Positions.V3, Normal, UV0.Uv3, UV1, AO),
+                    3 => new Vertex(Positions.V4, Normal, UV0.Uv4, UV1, AO),
+                    _ => throw new ArgumentOutOfRangeException(nameof(index), "Index must be between 0 and 3.")
+                };
             }
         }
 
@@ -152,15 +181,17 @@ namespace Runtime.Engine.Jobs.Meshing
             internal readonly MeshLayer MeshLayer;
             internal readonly sbyte Normal;
             internal readonly sbyte TopOpen;
+            internal readonly byte Sunlight;
 
             internal int4 AO;
 
-            public Mask(ushort voxelId, MeshLayer meshLayer, sbyte normal, int4 ao, sbyte topOpen = 0)
+            public Mask(ushort voxelId, MeshLayer meshLayer, sbyte normal, int4 ao, byte sunlight, sbyte topOpen = 0)
             {
                 MeshLayer = meshLayer;
                 VoxelId = voxelId;
                 Normal = normal;
                 AO = ao;
+                Sunlight = sunlight;
                 TopOpen = topOpen;
             }
 
@@ -170,6 +201,7 @@ namespace Runtime.Engine.Jobs.Meshing
                     MeshLayer == other.MeshLayer &&
                     VoxelId == other.VoxelId &&
                     Normal == other.Normal &&
+                    Sunlight == other.Sunlight &&
                     AO[0] == other.AO[0] &&
                     AO[1] == other.AO[1] &&
                     AO[2] == other.AO[2] &&
@@ -180,6 +212,15 @@ namespace Runtime.Engine.Jobs.Meshing
         #endregion
 
         #region Helpers
+
+        [BurstCompile]
+        private ushort GetVoxel(ref PartitionJobData jobData, int3 voxelPos)
+        {
+            voxelPos.y += jobData.PartitionPos.y * PartitionHeight;
+            return ChunkAccessor.InChunkBounds(voxelPos)
+                ? jobData.ChunkVoxelData.GetVoxel(voxelPos)
+                : Accessor.GetVoxelInPartition(jobData.PartitionPos, voxelPos);
+        }
 
         [BurstCompile]
         private MeshLayer GetMeshLayer(ushort voxelId, VoxelEngineRenderGenData renderGenData)

@@ -53,7 +53,7 @@ namespace Runtime.Engine.Utils.Extensions
         /// Flacht 3D Position ab unter Verwendung eines int3 Position-Structs.
         /// </summary>
         [BurstCompile]
-        public static int Flatten(this int3 vec, int3 pos) => Flatten(vec, pos.x, pos.y, pos.z);
+        public static int Flatten(this int3 vec, in int3 pos) => Flatten(vec, pos.x, pos.y, pos.z);
 
         /// <summary>
         /// Reduziert bool3 mit OR Verknüpfung.
@@ -146,6 +146,16 @@ namespace Runtime.Engine.Utils.Extensions
 
         /// <summary> (0,0,-1) Vektor. </summary>
         public static readonly int3 Int3Backward = new(0, 0, -1);
+        
+        public static readonly int3[] Int3Directions = new[]
+        {
+            Int3Forward,
+            Int3Backward,
+            Int3Right,
+            Int3Left,
+            Int3Up,
+            Int3Down,
+        };
 
         /// <summary> (0,0,0) Vektor. </summary>
         public static readonly float3 Float3Zero = new(0, 0, 0);

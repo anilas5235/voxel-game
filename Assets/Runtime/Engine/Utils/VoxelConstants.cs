@@ -37,5 +37,7 @@ namespace Runtime.Engine.Utils
         internal const MeshUpdateFlags MeshFlags = MeshUpdateFlags.DontRecalculateBounds |
                                                    MeshUpdateFlags.DontValidateIndices |
                                                    MeshUpdateFlags.DontResetBoneBounds;
+        
+        internal const byte MaxLightLevel = 15;
     }
 }

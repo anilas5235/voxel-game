@@ -2,7 +2,6 @@
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Mathematics;
-using UnityEngine;
 
 namespace Runtime.Engine.Jobs.Meshing
 {
@@ -12,11 +11,11 @@ namespace Runtime.Engine.Jobs.Meshing
     [BurstCompile]
     public struct Vertex
     {
-        public half4 Position;
-        public half4 Normal;
-        public half4 UV0;
-        public half4 UV1;
-        public half4 AO;
+        public half4 Position; // xyz = position, w = 0 (unused could hold extra data)
+        public half4 Normal; // xyz = normal, w = 0 (unused could hold extra data)
+        public half4 UV0; // xy = Sized UV for texture atlas, zw = normalized UV for shader sampling
+        public half4 UV1; // x = texture ID, y = depth fade factor, z = unused, w = sunlight level
+        public half4 AO; // xyzw = AO values 
 
         /// <summary>
         /// Creates a vertex with all attributes.
@@ -64,13 +63,9 @@ namespace Runtime.Engine.Jobs.Meshing
         public NativeList<ushort> SolidIndexBuffer;
         public NativeList<ushort> TransparentIndexBuffer;
         public NativeList<ushort> FoliageIndexBuffer;
-        private float3 _minMBounds;
-        private float3 _maxMBounds;
 
         public NativeList<CVertex> CVertexBuffer;
         public NativeList<ushort> CIndexBuffer;
-        private float3 _minCBounds;
-        private float3 _maxCBounds;
 
         /// <summary>
         /// Disposes all native lists.
@@ -85,13 +80,7 @@ namespace Runtime.Engine.Jobs.Meshing
             CIndexBuffer.Dispose();
         }
 
-        public void AddVertex(ref Vertex vertex)
-        {
-            VertexBuffer.AddNoResize(vertex);
-            float3 pos = vertex.GetPosition();
-            _minMBounds = math.min(_minMBounds, pos);
-            _maxMBounds = math.max(_maxMBounds, pos);
-        }
+        public void AddVertex(ref Vertex vertex) => VertexBuffer.AddNoResize(vertex);
 
         public void AddIndex(int index, SubMeshType subMeshType)
         {
@@ -114,27 +103,9 @@ namespace Runtime.Engine.Jobs.Meshing
             }
         }
 
-        public void GetMeshBounds(out Bounds bounds)
-        {
-            bounds = new Bounds();
-            bounds.SetMinMax(_minMBounds, _maxMBounds);
-        }
-
-        public void AddCVertex(CVertex vertex)
-        {
-            CVertexBuffer.AddNoResize(vertex);
-            float3 pos = vertex.GetPosition();
-            _minCBounds = math.min(_minCBounds, pos);
-            _maxCBounds = math.max(_maxCBounds, pos);
-        }
-
-        public void GetColliderBounds(out Bounds bounds)
-        {
-            bounds = new Bounds();
-            bounds.SetMinMax(_minCBounds, _maxCBounds);
-        }
+        public void AddCVertex(CVertex vertex) => CVertexBuffer.AddNoResize(vertex);
     }
-    
+
     internal enum SubMeshType : byte
     {
         Solid = 0,

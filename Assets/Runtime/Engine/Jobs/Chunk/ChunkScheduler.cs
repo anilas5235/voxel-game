@@ -22,7 +22,7 @@ namespace Runtime.Engine.Jobs.Chunk
         private readonly NoiseProfile _noiseProfile;
         private JobHandle _handle;
         private NativeList<int2> _jobs;
-        private NativeParallelHashMap<int2, Data.Chunk> _results;
+        private NativeParallelHashMap<int2, Data.ChunkVoxelData> _results;
         private readonly GeneratorConfig _config;
 
         /// <summary>
@@ -43,7 +43,7 @@ namespace Runtime.Engine.Jobs.Chunk
             _noiseProfile = noiseProfile;
             _config = config;
             _jobs = new NativeList<int2>(Allocator.Persistent);
-            _results = new NativeParallelHashMap<int2, Data.Chunk>(
+            _results = new NativeParallelHashMap<int2, Data.ChunkVoxelData>(
                 settings.Chunk.LoadDistance.SquareSize(),
                 Allocator.Persistent
             );

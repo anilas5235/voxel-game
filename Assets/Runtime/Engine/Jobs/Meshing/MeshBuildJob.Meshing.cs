@@ -152,12 +152,13 @@ namespace Runtime.Engine.Jobs.Meshing
                         uDelta[axInfo.UAxis] = quadWidth;
                         vDelta[axInfo.VAxis] = quadHeight;
 
-                        VQuad quadVerts = new(
-                            pos,
-                            pos + uDelta,
-                            pos + vDelta,
-                            pos + uDelta + vDelta
-                        );
+                        VQuad quadVerts = new()
+                        {
+                            V1 = pos,
+                            V2 = pos + uDelta,
+                            V3 = pos + vDelta,
+                            V4 = pos + uDelta + vDelta,
+                        };
 
                         CreateQuad(
                             ref jobData,
@@ -199,26 +200,29 @@ namespace Runtime.Engine.Jobs.Meshing
             {
                 int3 pos = foliageVoxel.Key;
                 VoxelRenderDef def = RenderGenData.GetRenderDef(foliageVoxel.Value);
+                byte sunLight = ComputeSunlight(ref jobData, pos);
 
                 // Diagonal 1
-                VQuad flora1 = new(
-                    pos,
-                    pos + new float3(0, 1, 0),
-                    pos + new float3(1, 0, 1),
-                    pos + new float3(1, 1, 1)
-                );
+                VQuad flora1 = new()
+                {
+                    V1 = pos,
+                    V2 = pos + new float3(0, 1, 0),
+                    V3 = pos + new float3(1, 0, 1),
+                    V4 = pos + new float3(1, 1, 1)
+                };
 
-                AddFloraQuad(ref jobData, def, in flora1, int4.zero);
+                AddFloraQuad(ref jobData, def, in flora1, float4.zero, sunLight);
 
                 // Diagonal 2
-                VQuad flora2 = new(
-                    pos + new float3(1, 0, 0),
-                    pos + new float3(1, 1, 0),
-                    pos + new float3(0, 0, 1),
-                    pos + new float3(0, 1, 1)
-                );
+                VQuad flora2 = new()
+                {
+                    V1 = pos + new float3(1, 0, 0),
+                    V2 = pos + new float3(1, 1, 0),
+                    V3 = pos + new float3(0, 0, 1),
+                    V4 = pos + new float3(0, 1, 1)
+                };
 
-                AddFloraQuad(ref jobData, def, in flora2, int4.zero);
+                AddFloraQuad(ref jobData, def, in flora2, float4.zero, sunLight);
             }
         }
 
@@ -252,12 +256,13 @@ namespace Runtime.Engine.Jobs.Meshing
                         uDelta[axInfo.UAxis] = quadWidth;
                         vDelta[axInfo.VAxis] = quadHeight;
 
-                        VQuad quadVerts = new(
-                            pos,
-                            pos + uDelta,
-                            pos + vDelta,
-                            pos + uDelta + vDelta
-                        );
+                        VQuad quadVerts = new()
+                        {
+                            V1 = pos,
+                            V2 = pos + uDelta,
+                            V3 = pos + vDelta,
+                            V4 = pos + uDelta + vDelta
+                        };
 
                         CreateColliderQuad(
                             ref jobData,

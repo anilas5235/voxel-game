@@ -24,15 +24,17 @@ namespace Runtime.Engine.Components
     {
         private readonly Dictionary<int2, Chunk> _chunks;
         private readonly SimpleFastPriorityQueue<int2, int> _queue;
-        private NativeParallelHashMap<int2, Chunk> _accessorMap;
+        private NativeParallelHashMap<int2, ChunkVoxelData> _accessorMap;
+        private NativeParallelHashMap<int2, ChunkLightData> _lightAccessorMap;
 
         private readonly HashSet<int3> _reMeshPartitions;
         private readonly HashSet<int3> _reCollidePartitions;
 
         private int3 _focus;
         private readonly int _chunkStoreSize;
-        
+
         internal Action OnChunkRemeshRequested;
+
         /// <summary>
         /// Creates a new manager with capacities from <paramref name="settings"/>.
         /// </summary>
@@ -46,8 +48,12 @@ namespace Runtime.Engine.Components
             _chunks = new Dictionary<int2, Chunk>(_chunkStoreSize);
             _queue = new SimpleFastPriorityQueue<int2, int>();
 
-            _accessorMap = new NativeParallelHashMap<int2, Chunk>(
-                settings.Scheduler.MeshingBatchSize * 27,
+            _accessorMap = new NativeParallelHashMap<int2, ChunkVoxelData>(
+                settings.Scheduler.MeshingBatchSize * 6,
+                Allocator.Persistent
+            );
+            _lightAccessorMap = new NativeParallelHashMap<int2, ChunkLightData>(
+                settings.Scheduler.MeshingBatchSize * 6,
                 Allocator.Persistent
             );
         }
@@ -62,7 +68,7 @@ namespace Runtime.Engine.Components
             int2 chunkPos = GetChunkCoords(position);
             int3 blockPos = GetLocalVoxelCoords(position);
             if (blockPos.y < 0 || blockPos.y >= ChunkSize.y) return 0;
-            if (_chunks.TryGetValue(chunkPos, out Chunk chunk)) return chunk.GetVoxel(blockPos);
+            if (_chunks.TryGetValue(chunkPos, out Chunk chunk)) return chunk.VoxelData.GetVoxel(blockPos);
             VoxelEngineLogger.Warn<ChunkManager>($"Chunk : {chunkPos} not loaded");
             return 0;
         }
@@ -91,7 +97,7 @@ namespace Runtime.Engine.Components
                 return false;
             }
 
-            bool result = chunk.SetVoxel(blockPos, voxelId);
+            bool result = chunk.VoxelData.SetVoxel(blockPos, voxelId);
             _chunks[chunkPos] = chunk;
             if (remesh && result) ReMeshPartitions(position.Int3());
             return result;
@@ -139,15 +145,18 @@ namespace Runtime.Engine.Components
         /// <summary>
         /// Adds newly generated chunks, evicts oldest if capacity exceeded.
         /// </summary>
-        internal void AddChunks(NativeParallelHashMap<int2, Chunk> chunks)
+        internal void AddChunks(NativeParallelHashMap<int2, ChunkVoxelData> chunks)
         {
-            foreach (KeyValue<int2, Chunk> pair in chunks)
+            foreach (KeyValue<int2, ChunkVoxelData> pair in chunks)
             {
                 int2 position = pair.Key;
-                Chunk chunk = pair.Value;
-                if (_chunks.ContainsKey(chunk.Position))
+
+                if (_chunks.ContainsKey(position))
                     throw new InvalidOperationException($"Chunk {position} already exists");
+
                 if (_queue.Count >= _chunkStoreSize) RemoveChunkData(_queue.Dequeue());
+
+                Chunk chunk = new(position) { VoxelData = pair.Value };
                 _chunks.Add(position, chunk);
                 _queue.Enqueue(position, -(position - _focus.xz).SqrMagnitude());
             }
@@ -167,6 +176,7 @@ namespace Runtime.Engine.Components
         internal ChunkAccessor GetAccessor(List<int3> positions)
         {
             _accessorMap.Clear();
+            _lightAccessorMap.Clear();
             foreach (int3 position in positions)
             {
                 for (int x = -1; x <= 1; x++)
@@ -175,11 +185,12 @@ namespace Runtime.Engine.Components
                     int2 pos = position.xz + new int2(x, z);
                     if (!_chunks.TryGetValue(pos, out Chunk chunk))
                         throw new InvalidOperationException($"Chunk {pos} has not been generated");
-                    if (!_accessorMap.ContainsKey(pos)) _accessorMap.Add(pos, chunk);
+                    if (!_accessorMap.ContainsKey(pos)) _accessorMap.Add(pos, chunk.VoxelData);
+                    if (!_lightAccessorMap.ContainsKey(pos)) _lightAccessorMap.Add(pos, chunk.LightData);
                 }
             }
 
-            return new ChunkAccessor(_accessorMap.AsReadOnly());
+            return new ChunkAccessor(_accessorMap.AsReadOnly(), _lightAccessorMap.AsReadOnly());
         }
 
         /// <summary>
@@ -239,7 +250,7 @@ namespace Runtime.Engine.Components
                     _reMeshPartitions.Add(pCoords + Int3Up);
                     break;
             }
-            
+
             OnChunkRemeshRequested?.Invoke();
         }
     }

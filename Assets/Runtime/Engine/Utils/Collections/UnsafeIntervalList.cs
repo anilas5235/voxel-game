@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Text;
+using System.Collections.Generic;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -8,33 +9,28 @@ namespace Runtime.Engine.Utils.Collections
 {
     /// <summary>
     /// Memory-efficient list of compressed intervals (similar to run-length encoding).
-    /// Stores sequences of identical IDs as nodes with cumulative end index. Enables O(log n) lookup via binary search.
+    /// Stores sequences of identical values as nodes with cumulative end index. Enables O(log n) lookup via binary search.
     /// Supports coalescing on Set to minimize fragmentation.
     /// </summary>
     [BurstCompile]
-    public struct UnsafeIntervalList
+    public struct UnsafeIntervalList<T> where T : unmanaged, IEquatable<T>
     {
-        // Array of structs impl
         /// <summary>
         /// Internal node representing an interval until inclusive end position (Count viewed as cumulative length).
         /// </summary>
         private struct Node
         {
-            public ushort ID;
+            public T Value;
             public int Count;
 
-            public Node(ushort id, int count)
+            public Node(T value, int count)
             {
-                ID = id;
+                Value = value;
                 Count = count;
             }
         }
 
         private UnsafeList<Node> _internal;
-
-        // Struct of arrays impl (nicht genutzt, eventuell für zukünftiges Profiling behalten)
-        // private UnsafeList<int> _Ids;
-        // private UnsafeList<int> _Counts;
 
         /// <summary>
         /// Total decompressed length (sum of interval lengths).
@@ -69,25 +65,25 @@ namespace Runtime.Engine.Utils.Collections
         public int NodeIndex(int index) => BinarySearch(index);
 
         /// <summary>
-        /// Adds a new interval (ID repeated <paramref name="count"/> times).
+        /// Adds a new interval (value repeated <paramref name="count"/> times).
         /// </summary>
-        public void AddInterval(ushort id, int count)
+        public void AddInterval(T value, int count)
         {
             Length += count;
-            _internal.Add(new Node(id, Length));
+            _internal.Add(new Node(value, Length));
         }
 
         /// <summary>
         /// Gets value at decompressed position. Complexity: O(log n).
         /// </summary>
         /// <exception cref="IndexOutOfRangeException">Wenn Index außerhalb (Editor/Development Builds).</exception>
-        public ushort Get(int index)
+        public T Get(int index)
         {
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
-            if (index >= Length)
+            if ((uint)index >= (uint)Length)
                 throw new IndexOutOfRangeException($"{index} is out of range for the given data of length {Length}");
 #endif
-            return _internal[BinarySearch(index)].ID;
+            return _internal[BinarySearch(index)].Value;
         }
 
         /// <summary>
@@ -96,68 +92,65 @@ namespace Runtime.Engine.Utils.Collections
         /// </summary>
         /// <returns>True falls Änderung auftrat.</returns>
         /// <exception cref="IndexOutOfRangeException">Wenn Index außerhalb (Editor/Development Builds).</exception>
-        public bool Set(int index, ushort id)
+        public bool Set(int index, T value)
         {
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
-            if (index >= Length)
+            if ((uint)index >= (uint)Length)
                 throw new IndexOutOfRangeException($"{index} is out of range for the given data of length {Length}");
 #endif
 
             int nodeIndex = BinarySearch(index);
 
-            int block = _internal[nodeIndex].ID;
+            T current = _internal[nodeIndex].Value;
+            if (current.Equals(value)) return false; // No Change
 
-            if (block == id) return false; // No Change
+            (bool hasLeft, T leftItem, int leftNodeIndex) = LeftOf(index, nodeIndex);
+            (bool hasRight, T rightItem, int rightNodeIndex) = RightOf(index, nodeIndex);
 
-            (int leftItem, int leftNodeIndex) = LeftOf(index, nodeIndex);
-            (int rightItem, int rightNodeIndex) = RightOf(index, nodeIndex);
+            bool eqLeft = hasLeft && value.Equals(leftItem);
+            bool eqRight = hasRight && value.Equals(rightItem);
 
             // Nodes are returned by value, so we need to update them back in the array
 
-            if (id == leftItem && id == rightItem)
+            if (eqLeft && eqRight)
             {
                 // [X,A,X] -> [X,X,X]
                 Node leftNode = _internal[leftNodeIndex];
-
                 leftNode.Count = _internal[rightNodeIndex].Count;
-
                 _internal[leftNodeIndex] = leftNode;
-
                 _internal.RemoveRange(nodeIndex, 2);
             }
-            else if (id == leftItem)
+            else if (eqLeft)
             {
                 // [X,A,A,Y] -> [X,X,A,Y]
-                Node leftNode = _internal[leftNodeIndex]; // This is returned by value
+                Node leftNode = _internal[leftNodeIndex];
                 Node node = _internal[nodeIndex];
 
                 leftNode.Count++;
-
                 _internal[leftNodeIndex] = leftNode;
 
                 if (leftNode.Count == node.Count) _internal.RemoveRange(nodeIndex, 1); // [X,A,Y] -> [X,X,Y]
             }
-            else if (id == rightItem)
+            else if (eqRight)
             {
                 // [X,A,A,Y] -> [X,A,Y,Y]
-                Node leftNode = _internal[leftNodeIndex];
+                Node leftNode = leftNodeIndex >= 0 ? _internal[leftNodeIndex] : default;
                 Node node = _internal[nodeIndex];
 
                 node.Count--;
-
                 _internal[nodeIndex] = node;
 
-                if (leftNode.Count == node.Count) _internal.RemoveRange(nodeIndex, 1); // [X,A,Y] -> [X,Y,Y]
+                if (leftNodeIndex >= 0 && leftNode.Count == node.Count) _internal.RemoveRange(nodeIndex, 1); // [X,A,Y] -> [X,Y,Y]
             }
             else
             {
                 // No Coalesce
-                if (block == leftItem && block == rightItem)
+                bool eqCurrentLeft = hasLeft && current.Equals(leftItem);
+                bool eqCurrentRight = hasRight && current.Equals(rightItem);
+
+                if (eqCurrentLeft && eqCurrentRight)
                 {
                     // [X,X,X] -> [X,A,X]
-                    // Unity docs says that InsertRange creates duplicates of node at node_index but in the
-                    // debugger I have seen junk values sometimes, so to be safe we set the values of
-                    // each newly created node to the correct value.
                     _internal.InsertRange(nodeIndex, 2);
 
                     Node leftNode = _internal[nodeIndex];
@@ -166,28 +159,26 @@ namespace Runtime.Engine.Utils.Collections
 
                     leftNode.Count = index;
 
-                    node.ID = id;
+                    node.Value = value;
                     node.Count = index + 1;
 
-                    rightNode.ID = leftNode.ID;
+                    rightNode.Value = leftNode.Value;
 
                     _internal[nodeIndex] = leftNode;
                     _internal[nodeIndex + 1] = node;
                     _internal[nodeIndex + 2] = rightNode;
                 }
-                else if (block != leftItem && block == rightItem)
+                else if (!eqCurrentLeft && eqCurrentRight)
                 {
                     // [X,Y,Y] -> [X,A,Y]
                     _internal.InsertRange(nodeIndex, 1);
 
                     Node node = _internal[nodeIndex];
-
-                    node.ID = id;
+                    node.Value = value;
                     node.Count = _internal[leftNodeIndex].Count + 1;
-
                     _internal[nodeIndex] = node;
                 }
-                else if (block == leftItem && block != rightItem)
+                else if (eqCurrentLeft)
                 {
                     // [X,X,Y] -> [X,A,Y]
                     _internal.InsertRange(nodeIndex, 1);
@@ -195,7 +186,7 @@ namespace Runtime.Engine.Utils.Collections
                     Node node = _internal[nodeIndex + 1];
                     Node leftNode = _internal[leftNodeIndex];
 
-                    node.ID = id;
+                    node.Value = value;
                     node.Count = leftNode.Count;
 
                     leftNode.Count--;
@@ -207,9 +198,7 @@ namespace Runtime.Engine.Utils.Collections
                 {
                     // [X,Y,X] -> [X,A,X] or [X,Y,Z] -> [X,A,Z]
                     Node node = _internal[nodeIndex];
-
-                    node.ID = id;
-
+                    node.Value = value;
                     _internal[nodeIndex] = node;
                 }
             }
@@ -218,47 +207,51 @@ namespace Runtime.Engine.Utils.Collections
         }
 
         /// <summary>
-        /// Returns left neighbor item (ID) relative to index.
+        /// Returns left neighbor item (Value) relative to index.
         /// </summary>
-        public int LeftOf(int index)
+        public bool TryLeftOf(int index, out T value)
         {
-            return LeftOf(index, NodeIndex(index)).Item1;
+            (bool has, T v, _) = LeftOf(index, NodeIndex(index));
+            value = v;
+            return has;
         }
 
         /// <summary>
-        /// Returns right neighbor item (ID) relative to index.
+        /// Returns right neighbor item (Value) relative to index.
         /// </summary>
-        public int RightOf(int index)
+        public bool TryRightOf(int index, out T value)
         {
-            return RightOf(index, NodeIndex(index)).Item1;
+            (bool has, T v, _) = RightOf(index, NodeIndex(index));
+            value = v;
+            return has;
         }
 
-        private (int, int) LeftOf(int index, int nodeIndex)
+        private (bool hasValue, T value, int nodeIndex) LeftOf(int index, int nodeIndex)
         {
             if (nodeIndex == 0)
             {
                 // First Node
-                return index == 0 ? (-1, -1) : (_internal[nodeIndex].ID, nodeIndex);
+                return index == 0 ? (false, default, -1) : (true, _internal[nodeIndex].Value, nodeIndex);
             }
 
             Node left = _internal[nodeIndex - 1];
             Node node = _internal[nodeIndex];
 
-            return index - 1 < left.Count ? (left.ID, nodeIndex - 1) : (node.ID, nodeIndex);
+            return index - 1 < left.Count ? (true, left.Value, nodeIndex - 1) : (true, node.Value, nodeIndex);
         }
 
-        private (int, int) RightOf(int index, int nodeIndex)
+        private (bool hasValue, T value, int nodeIndex) RightOf(int index, int nodeIndex)
         {
             if (nodeIndex == CompressedLength - 1)
             {
                 // Last Node
-                return index == Length - 1 ? (-1, -1) : (_internal[nodeIndex].ID, nodeIndex);
+                return index == Length - 1 ? (false, default, -1) : (true, _internal[nodeIndex].Value, nodeIndex);
             }
 
             Node right = _internal[nodeIndex + 1];
             Node node = _internal[nodeIndex];
 
-            return index + 1 >= node.Count ? (right.ID, nodeIndex + 1) : (node.ID, nodeIndex);
+            return index + 1 >= node.Count ? (true, right.Value, nodeIndex + 1) : (true, node.Value, nodeIndex);
         }
 
         /// <summary>
@@ -267,11 +260,11 @@ namespace Runtime.Engine.Utils.Collections
         private int BinarySearch(int index)
         {
             int min = 0;
-            int max = _internal.Length;
+            int max = _internal.Length - 1;
 
             while (min <= max)
             {
-                int mid = (max + min) / 2;
+                int mid = (max + min) >> 1;
                 int count = _internal[mid].Count;
 
                 if (index == count) return mid + 1;
@@ -292,10 +285,17 @@ namespace Runtime.Engine.Utils.Collections
 
             foreach (Node node in _internal)
             {
-                sb.AppendLine($"[Data: {node.ID}, Count: {node.Count}]");
+                sb.AppendLine($"[Data: {node.Value}, Count: {node.Count}]");
             }
 
             return sb.ToString();
         }
+
+        public void Clear()
+        {
+            _internal.Clear();
+            Length = 0;
+        }
     }
 }
+
