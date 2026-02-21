@@ -13,7 +13,6 @@ namespace Test
         private static readonly VertexAttributeDescriptor[] VertexParams = new[]
         {
             new VertexAttributeDescriptor(VertexAttribute.Position),
-            new VertexAttributeDescriptor(VertexAttribute.Normal),
             new VertexAttributeDescriptor(VertexAttribute.TexCoord0, VertexAttributeFormat.Float16, 4),
             new VertexAttributeDescriptor(VertexAttribute.TexCoord1, VertexAttributeFormat.Float16, 4),
             new VertexAttributeDescriptor(VertexAttribute.TexCoord2, VertexAttributeFormat.Float16, 4)
@@ -23,8 +22,7 @@ namespace Test
         public struct Vertex
         {
             public float3 Position; // xyz = position, w = 0 (unused could hold extra data)
-            public float3 Normal; // xyz = normal, w = 0 (unused could hold extra data)
-            public half4 UV0; // xy = Sized UV for texture atlas, zw = normalized UV for shader sampling
+            public half4 UV0; // x = quadIndex, yzw = unused (could hold extra data)
             public half4 UV1; // x = texture ID, y = depth fade factor, z = unused, w = sunlight level
             public half4 AO; // xyzw = AO values 
         }
@@ -37,101 +35,18 @@ namespace Test
 
             mf.mesh = new Mesh();
 
-            List<Vertex> vertexData = new()
-            {
-                new Vertex
-                {
-                    Position = new float3(1f, 0.0f, 1.0f),
-                    Normal = new float3(1.0f, 0.0f, 0.0f),
-                    UV1 = (half4)new float4(0.0f, 0f, 0.0f, 15f),
-                    AO = (half4)new float4(1.0f, 1.0f, 1.0f, 1f)
-                },
-                new Vertex
-                {
-                    Position = new float3(0.0f, 0.0f, 0.0f),
-                    Normal = new float3(-1.0f, 0.0f, 0.0f),
-                    UV1 = (half4)new float4(0.0f, 0f, 0.0f, 15f),
-                    AO = (half4)new float4(0.0f, 1.0f, 1.0f, 1f)
-                },
-                new Vertex
-                {
-                    Position = new float3(0.0f, 1.0f, 0.0f),
-                    Normal = new float3(0.0f, 1.0f, 0.0f),
-                    UV1 = (half4)new float4(2.0f, 0f, 0.0f, 15f),
-                    AO = (half4)new float4(1.0f, 1.0f, 1.0f, 1f)
-                },
-                new Vertex
-                {
-                    Position = new float3(0.0f, 0.0f, 1.0f),
-                    Normal = new float3(0.0f, -1.0f, 0.0f),
-                    UV1 = (half4)new float4(2.0f, 0f, 0.0f, 15f),
-                    AO = (half4)new float4(1.0f, 1.0f, 1.0f, 1f)
-                },
-                new Vertex
-                {
-                    Position = new float3(0.0f, 0.0f, 1.0f),
-                    Normal = new float3(0.0f, 0.0f, 1.0f),
-                    UV1 = (half4)new float4(4.0f, 0f, 0.0f, 15f),
-                    AO = (half4)new float4(1.0f, 1.0f, 1.0f, 1f)
-                },
-                new Vertex
-                {
-                    Position = new float3(1.0f, 0.0f, 0.0f),
-                    Normal = new float3(0.0f, 0.0f, -1.0f),
-                    UV1 = (half4)new float4(4.0f, 0f, 0.0f, 15f),
-                    AO = (half4)new float4(1.0f, 1.0f, 1.0f, 1f)
-                },
+            List<Vertex> vertexData = new();
 
-                new Vertex
+            for (int i = 0; i < 6; i++)
+            {
+                vertexData.Add(new Vertex
                 {
-                    Position = new float3(2f, 0.0f, 0.0f),
-                    Normal = new float3(1.0f, 0.0f, 0.0f),
-                    UV1 = (half4)new float4(0.0f, 0f, 0.0f, 15f),
-                    AO = (half4)new float4(1.0f, 1.0f, 1.0f, 1f)
-                },
-                new Vertex
-                {
-                    Position = new float3(2.0f, 0.0f, 0.0f),
-                    Normal = new float3(-1.0f, 0.0f, 0.0f),
-                    UV1 = (half4)new float4(0.0f, 0f, 0.0f, 15f),
-                    AO = (half4)new float4(0.0f, 1.0f, 1.0f, 1f)
-                },
-                new Vertex
-                {
-                    Position = new float3(2.0f, 0.0f, 0.0f),
-                    Normal = new float3(0.0f, 1.0f, 0.0f),
-                    UV1 = (half4)new float4(2.0f, 0f, 0.0f, 15f),
-                    AO = (half4)new float4(1.0f, 1.0f, 1.0f, 1f)
-                },
-                new Vertex
-                {
-                    Position = new float3(2.0f, 0.0f, 0.0f),
-                    Normal = new float3(0.0f, -1.0f, 0.0f),
-                    UV1 = (half4)new float4(2.0f, 0f, 0.0f, 15f),
-                    AO = (half4)new float4(1.0f, 1.0f, 1.0f, 1f)
-                },
-                new Vertex
-                {
-                    Position = new float3(2.0f, 0.0f, 0.0f),
-                    Normal = new float3(0.0f, 0.0f, 1.0f),
-                    UV1 = (half4)new float4(4.0f, 0f, 0.0f, 15f),
-                    AO = (half4)new float4(1.0f, 1.0f, 1.0f, 1f)
-                },
-                new Vertex
-                {
-                    Position = new float3(2.0f, 0.0f, 0.0f),
-                    Normal = new float3(0.0f, 0.0f, -1.0f),
-                    UV1 = (half4)new float4(4.0f, 0f, 0.0f, 15f),
-                    AO = (half4)new float4(1.0f, 1.0f, 1.0f, 1f)
-                },
-                new Vertex
-                {
-                    Position = new float3(5.0f, 0.0f, 0.0f),
-                    Normal = new float3(0.0f, 1.0f, -1.0f).Normalized(),
-                    UV1 = (half4)new float4(8.0f, 0f, 0.0f, 15f),
-                    AO = (half4)new float4(1.0f, 1.0f, 1.0f, 1f)
-                }
-            };
+                    Position = float3.zero,
+                    UV0 = new half4(new float4(i, 0f, 0f, 0f)),
+                    UV1 = new half4(new float4(3f, 0f, 0f, 0f)),
+                    AO = (half4)float4.zero,
+                });
+            }
 
             /*for (int x = -100; x < 100; x++)
             for (int y = -100; y < 100; y++)

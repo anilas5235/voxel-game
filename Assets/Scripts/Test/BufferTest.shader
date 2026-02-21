@@ -18,6 +18,21 @@ Shader "Custom/BufferTest"
         HLSLINCLUDE
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
+        struct QuadData
+        {
+            float3 position00;
+            float3 position01;
+            float3 position02;
+            float3 position03;
+            float3 normal;
+            float2 uv00;
+            float2 uv01;
+            float2 uv02;
+            float2 uv03;
+        };
+
+        StructuredBuffer<QuadData> quad_buffer;
+
         struct GeomData
         {
             float4 positionCS : SV_POSITION;
@@ -30,36 +45,29 @@ Shader "Custom/BufferTest"
 
         [maxvertexcount(4)]
         void geom(point GeomData IN[1], inout TriangleStream<GeomData> outStream)
-        {
-            float3 n = IN[0].normalWS;
-            float3 worldUp = float3(0, 1, 0);
-
-            if (abs(n.y) > 0.99) worldUp = float3(1, 0, 0);
-
-            float3 left_ws = normalize(cross(worldUp, n));
-            float3 up_ws = cross(n, left_ws);
-
-            //Bottom right
-            GeomData OUT = IN[0];
-            OUT.texCoord0 = float4(0, 0, 0, 0);
-            outStream.Append(OUT);
+        {            
+            QuadData quad = quad_buffer[IN[0].texCoord0.x];            
             
-            //Bottom left
-            OUT.positionWS = IN[0].positionWS + left_ws;
+            GeomData OUT = IN[0];
+            OUT.positionWS = IN[0].positionWS + quad.position00;
             OUT.positionCS = TransformWorldToHClip(OUT.positionWS);
-            OUT.texCoord0 = float4(1, 0, 1, 0);
+            OUT.texCoord0 = float4(quad.uv00, 0, 0);
+            OUT.normalWS = quad.normal;
             outStream.Append(OUT);
 
-            //Top right
-            OUT.positionWS = IN[0].positionWS + up_ws;
+            OUT.positionWS = IN[0].positionWS + quad.position01;
             OUT.positionCS = TransformWorldToHClip(OUT.positionWS);
-            OUT.texCoord0 = float4(0, 1, 0, 1);
-            outStream.Append(OUT);            
+            OUT.texCoord0 = float4(quad.uv01, 1, 0);
+            outStream.Append(OUT);
 
-            //Top left
-            OUT.positionWS = IN[0].positionWS + left_ws + up_ws;
+            OUT.positionWS = IN[0].positionWS + quad.position02;
             OUT.positionCS = TransformWorldToHClip(OUT.positionWS);
-            OUT.texCoord0 = float4(1, 1, 1, 1);
+            OUT.texCoord0 = float4(quad.uv02, 0, 1);
+            outStream.Append(OUT);
+
+            OUT.positionWS = IN[0].positionWS + quad.position03;
+            OUT.positionCS = TransformWorldToHClip(OUT.positionWS);
+            OUT.texCoord0 = float4(quad.uv03, 1, 1);
             outStream.Append(OUT);
             outStream.RestartStrip();
         }
@@ -630,7 +638,7 @@ Shader "Custom/BufferTest"
             VertexDescriptionInputs BuildVertexDescriptionInputs(Attributes input)
             {
                 VertexDescriptionInputs output;
-                    ZERO_INITIALIZE(VertexDescriptionInputs, output);
+                ZERO_INITIALIZE(VertexDescriptionInputs, output);
 
                 output.ObjectSpaceNormal = input.normalOS;
                 output.ObjectSpaceTangent = input.tangentOS.xyz;
@@ -649,7 +657,7 @@ Shader "Custom/BufferTest"
             SurfaceDescriptionInputs BuildSurfaceDescriptionInputs(Varyings input)
             {
                 SurfaceDescriptionInputs output;
-                    ZERO_INITIALIZE(SurfaceDescriptionInputs, output);
+                ZERO_INITIALIZE(SurfaceDescriptionInputs, output);
 
                 #ifdef HAVE_VFX_MODIFICATION
                 #if VFX_USE_GRAPH_VALUES
@@ -3438,7 +3446,7 @@ Shader "Custom/BufferTest"
             SurfaceDescriptionInputs BuildSurfaceDescriptionInputs(Varyings input)
             {
                 SurfaceDescriptionInputs output;
-                    ZERO_INITIALIZE(SurfaceDescriptionInputs, output);
+                ZERO_INITIALIZE(SurfaceDescriptionInputs, output);
 
                 #ifdef HAVE_VFX_MODIFICATION
                 #if VFX_USE_GRAPH_VALUES

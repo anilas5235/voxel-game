@@ -1,5 +1,8 @@
-﻿using Runtime.Engine.Jobs.Chunk;
+﻿using System.Collections.Generic;
+using System.Runtime.InteropServices;
+using Runtime.Engine.Jobs.Chunk;
 using Runtime.Engine.Utils;
+using Unity.Mathematics;
 using UnityEngine;
 
 namespace Runtime.Engine.VoxelConfig.Data
@@ -12,6 +15,8 @@ namespace Runtime.Engine.VoxelConfig.Data
     [DefaultExecutionOrder(-1000)]
     public class VoxelDataImporter : Singleton<VoxelDataImporter>
     {
+        private static readonly int QuadBufferID = Shader.PropertyToID("quad_buffer");
+
         /// <summary>
         /// Material used for opaque voxel rendering (solid mesh layer).
         /// </summary>
@@ -26,6 +31,22 @@ namespace Runtime.Engine.VoxelConfig.Data
         /// Registry containing all registered <see cref="VoxelDefinition"/> instances.
         /// </summary>
         public VoxelRegistry VoxelRegistry { get; } = new();
+
+        private ComputeBuffer _quadDataBuffer;
+
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        private struct QuadData
+        {
+            public float3 position00;
+            public float3 position01;
+            public float3 position02;
+            public float3 position03;
+            public float3 normal;
+            public float2 uv00;
+            public float2 uv01;
+            public float2 uv02;
+            public float2 uv03;
+        };
 
         /// <summary>
         /// Loads packages, registers voxels and updates materials when the importer is created.
@@ -43,6 +64,88 @@ namespace Runtime.Engine.VoxelConfig.Data
             foreach (VoxelDataPackage package in voxelDataPackages) RegisterPackage(package);
 
             UpdateMaterials();
+
+            List<QuadData> quadDataList = new()
+            {
+                new QuadData
+                {
+                    position00 = new float3(0, 0, 1),
+                    position01 = new float3(1, 0, 1),
+                    position02 = new float3(0, 1, 1),
+                    position03 = new float3(1, 1, 1),
+                    normal = new float3(0, 0, 1),
+                    uv00 = new float2(0, 0),
+                    uv01 = new float2(1, 0),
+                    uv02 = new float2(0, 1),
+                    uv03 = new float2(1, 1),
+                },
+                new QuadData
+                {
+                    position00 = new float3(0, 0, 0),
+                    position01 = new float3(0, 1, 0),
+                    position02 = new float3(1, 0, 0),
+                    position03 = new float3(1, 1, 0),
+                    normal = new float3(0, 0, -1),
+                    uv00 = new float2(0, 0),
+                    uv01 = new float2(0, 1),
+                    uv02 = new float2(1, 0),
+                    uv03 = new float2(1, 1),
+                },
+                new QuadData
+                {
+                    position00 = new float3(1, 0, 0),
+                    position01 = new float3(1, 1, 0),
+                    position02 = new float3(1, 0, 1),
+                    position03 = new float3(1, 1, 1),
+                    normal = new float3(1, 0, 0),
+                    uv00 = new float2(0, 0),
+                    uv01 = new float2(0, 1),
+                    uv02 = new float2(1, 0),
+                    uv03 = new float2(1, 1),
+                },
+                new QuadData
+                {
+                    position00 = new float3(0, 0, 0),
+                    position01 = new float3(0, 0, 1),
+                    position02 = new float3(0, 1, 0),
+                    position03 = new float3(0, 1, 1),
+                    normal = new float3(-1, 0, 0),
+                    uv00 = new float2(0, 0),
+                    uv01 = new float2(1, 0),
+                    uv02 = new float2(0, 1),
+                    uv03 = new float2(1, 1),
+                },
+                new QuadData
+                {
+                    position00 = new float3(0, 1, 0),
+                    position01 = new float3(0, 1, 1),
+                    position02 = new float3(1, 1, 0),
+                    position03 = new float3(1, 1, 1),
+                    normal = new float3(0, 1, 0),
+                    uv00 = new float2(0, 0),
+                    uv02 = new float2(1, 0),
+                    uv01 = new float2(0, 1),
+                    uv03 = new float2(1, 1),
+                },
+                new QuadData
+                {
+                    position00 = new float3(0, 0, 0),
+                    position01 = new float3(1, 0, 0),
+                    position02 = new float3(0, 0, 1),
+                    position03 = new float3(1, 0, 1),
+                    normal = new float3(0, -1, 0),
+                    uv00 = new float2(0, 0),
+                    uv01 = new float2(1, 0),
+                    uv02 = new float2(0, 1),
+                    uv03 = new float2(1, 1),
+                },
+            };
+
+            _quadDataBuffer = new ComputeBuffer(quadDataList.Count, Marshal.SizeOf<QuadData>());
+
+            _quadDataBuffer.SetData(quadDataList);
+
+            voxelSolidMaterial.SetBuffer(QuadBufferID, _quadDataBuffer);
         }
 
         /// <summary>
