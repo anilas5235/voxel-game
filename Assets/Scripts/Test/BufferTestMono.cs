@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
-using Runtime.Engine.Utils.Extensions;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -13,18 +12,20 @@ namespace Test
         private static readonly VertexAttributeDescriptor[] VertexParams = new[]
         {
             new VertexAttributeDescriptor(VertexAttribute.Position),
-            new VertexAttributeDescriptor(VertexAttribute.TexCoord0, VertexAttributeFormat.Float16, 4),
-            new VertexAttributeDescriptor(VertexAttribute.TexCoord1, VertexAttributeFormat.Float16, 4),
-            new VertexAttributeDescriptor(VertexAttribute.TexCoord2, VertexAttributeFormat.Float16, 4)
+            new VertexAttributeDescriptor(VertexAttribute.TexCoord0, VertexAttributeFormat.UInt32, 4),
         };
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         public struct Vertex
         {
             public float3 Position; // xyz = position, w = 0 (unused could hold extra data)
-            public half4 UV0; // x = quadIndex, yzw = unused (could hold extra data)
-            public half4 UV1; // x = texture ID, y = depth fade factor, z = unused, w = sunlight level
-            public half4 AO; // xyzw = AO values 
+            public ushort QuadIndex;
+            public ushort padding;
+            public ushort TextureIndex;
+            public byte LightDataAndAO;
+            public byte padding1;
+            public uint padding2;
+            public uint padding3;
         }
 
 
@@ -42,9 +43,31 @@ namespace Test
                 vertexData.Add(new Vertex
                 {
                     Position = float3.zero,
-                    UV0 = new half4(new float4(i, 0f, 0f, 0f)),
-                    UV1 = new half4(new float4(3f, 0f, 0f, 0f)),
-                    AO = (half4)float4.zero,
+                    QuadIndex = (ushort)i,
+                    TextureIndex = 3,
+                    LightDataAndAO = 0b0000_1111,
+                });
+            }
+            
+            for (int i = 0; i < 6; i++)
+            {
+                vertexData.Add(new Vertex
+                {
+                    Position = new float3(0,1,0),
+                    QuadIndex = (ushort)i,
+                    TextureIndex = 3,
+                    LightDataAndAO = 0b1111_0000,
+                });
+            }
+            
+            for (int i = 0; i < 6; i++)
+            {
+                vertexData.Add(new Vertex
+                {
+                    Position = new float3(0,2,0),
+                    QuadIndex = (ushort)i,
+                    TextureIndex = 3,
+                    LightDataAndAO = 0b1111,
                 });
             }
 

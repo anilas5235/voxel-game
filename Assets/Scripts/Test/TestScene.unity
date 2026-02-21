@@ -148,7 +148,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8ea334ed0f9e41aaaeb72f0194c790cb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  voxelSolidMaterial: {fileID: 2100000, guid: 445ab4719def68e448c76546394f4935, type: 2}
+  voxelSolidMaterial: {fileID: 2100000, guid: 788cc08923f07d441a2f1ee3c4462504, type: 2}
   voxelTransparentMaterial: {fileID: 2100000, guid: e8e8dbf7c2062df49bf757b4e9d3a636, type: 2}
 --- !u!4 &454811961
 Transform:
@@ -209,7 +209,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 445ab4719def68e448c76546394f4935, type: 2}
+  - {fileID: 2100000, guid: 788cc08923f07d441a2f1ee3c4462504, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0

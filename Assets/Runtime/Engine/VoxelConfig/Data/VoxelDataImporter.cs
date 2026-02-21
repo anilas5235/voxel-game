@@ -140,7 +140,6 @@ namespace Runtime.Engine.VoxelConfig.Data
                     uv03 = new float2(1, 1),
                 },
             };
-
             _quadDataBuffer = new ComputeBuffer(quadDataList.Count, Marshal.SizeOf<QuadData>());
 
             _quadDataBuffer.SetData(quadDataList);
