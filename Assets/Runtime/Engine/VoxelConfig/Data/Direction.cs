@@ -1,6 +1,7 @@
 ﻿using System;
 using Unity.Mathematics;
 using UnityEngine;
+using static Runtime.Engine.Utils.Extensions.VectorConstants;
 
 namespace Runtime.Engine.VoxelConfig.Data
 {
@@ -22,6 +23,60 @@ namespace Runtime.Engine.VoxelConfig.Data
     /// </summary>
     public static class DirectionUtils
     {
+        /// <summary>
+        /// Ermittelt Richtung für Normal-Vektor int3 basierend auf dominanter Komponente.
+        /// </summary>
+        public static Direction ToDirection(this int3 vec)
+        {
+            if (vec.x < vec.y && vec.z < vec.y) return Direction.Up;
+            if (vec.x > vec.y && vec.z > vec.y) return Direction.Down;
+            if (vec.y < vec.x && vec.z < vec.x) return Direction.Right;
+            if (vec.y > vec.x && vec.z > vec.x) return Direction.Left;
+            if (vec.x < vec.z && vec.y < vec.z) return Direction.Forward;
+            if (vec.x > vec.z && vec.y > vec.z) return Direction.Backward;
+
+            throw new Exception("Invalid direction vector");
+        }
+
+        public static int3 ToInt3(this Direction direction)
+        {
+            return direction switch
+            {
+                Direction.Up => Int3Up,
+                Direction.Down => Int3Down,
+                Direction.Forward => Int3Forward,
+                Direction.Backward => Int3Backward,
+                Direction.Right => Int3Right,
+                Direction.Left => Int3Left,
+
+                _ => throw new ArgumentOutOfRangeException(nameof(direction), direction, null)
+            };
+        }
+        
+        public static int3 RelativeUp(this Direction direction)
+        {
+            return direction switch
+            {
+                Direction.Up => Int3Forward,
+                Direction.Down => Int3Backward,
+                _ => Int3Up
+            };
+        }
+
+        public static int3 RelativeDown(this Direction direction) => GetOpposite(direction).RelativeUp();
+        
+        public static int3 RelativeRight(this Direction direction)
+        {
+            return direction switch
+            {
+                Direction.Right => Int3Forward,
+                Direction.Left => Int3Backward,
+                _ => Int3Right
+            };
+        }
+        
+        public static int3 RelativeLeft(this Direction direction) => GetOpposite(direction).RelativeRight();
+
         /// <summary>
         /// Converts a <see cref="Direction"/> into a corresponding <see cref="Vector3Int"/> unit vector.
         /// </summary>

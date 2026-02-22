@@ -33,8 +33,9 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _AOIntensity: 1
-    - _AOPower: 1
+    - _AOFalloff: 0.2
+    - _AOIntensity: 0.8
+    - _AOPower: 2
     m_Colors:
     - _AOColor: {r: 0, g: 0, b: 0, a: 0}
     - _AOCurve: {r: 0.75, g: 0.825, b: 0.9, a: 1}

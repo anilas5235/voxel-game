@@ -78,13 +78,13 @@ namespace Runtime.Engine.Jobs.Meshing
             }
 
             mesh.subMeshCount = 3;
-            SubMeshDescriptor descriptor0 = new(0, solidIndexes);
-            SubMeshDescriptor descriptor1 = new(solidIndexes, transparentIndexes);
-            SubMeshDescriptor descriptor2 = new(solidIndexes + transparentIndexes, foliageIndexes);
+            SubMeshDescriptor solidSubMesh = new(0, solidIndexes, MeshTopology.Points);
+            SubMeshDescriptor transparentSubMesh = new(solidIndexes, transparentIndexes, MeshTopology.Points);
+            SubMeshDescriptor foliageSubMesh = new(solidIndexes + transparentIndexes, foliageIndexes, MeshTopology.Points);
 
-            mesh.SetSubMesh(0, descriptor0, MeshFlags);
-            mesh.SetSubMesh(1, descriptor1, MeshFlags);
-            mesh.SetSubMesh(2, descriptor2, MeshFlags);
+            mesh.SetSubMesh(0, solidSubMesh, MeshFlags);
+            mesh.SetSubMesh(1, transparentSubMesh, MeshFlags);
+            mesh.SetSubMesh(2, foliageSubMesh, MeshFlags);
         }
     }
 }

@@ -47,9 +47,7 @@ namespace Runtime.Engine.Jobs.Meshing
 
             public PartitionLightData PartitionLightData;
 
-            public ChunkVoxelData
-                ChunkVoxelData; //TODO: Use this when possible to avoid accessing the main data in the meshing job
-
+            public ChunkVoxelData ChunkVoxelData;
             public int RenderVertexCount;
             public int CollisionVertexCount;
 
@@ -125,33 +123,6 @@ namespace Runtime.Engine.Jobs.Meshing
             }
         }
 
-        [BurstCompile]
-        private struct Quad
-        {
-            public VQuad Positions;
-            public float3 Normal;
-            public UVQuad UV0;
-            public float4 UV1;
-            public float4 AO;
-
-            public void OffsetAll(float3 offset)
-            {
-                Positions.OffsetAll(offset);
-            }
-
-            public Vertex GetVertex(int index)
-            {
-                return index switch
-                {
-                    0 => new Vertex(Positions.V1, Normal, UV0.Uv1, UV1, AO),
-                    1 => new Vertex(Positions.V2, Normal, UV0.Uv2, UV1, AO),
-                    2 => new Vertex(Positions.V3, Normal, UV0.Uv3, UV1, AO),
-                    3 => new Vertex(Positions.V4, Normal, UV0.Uv4, UV1, AO),
-                    _ => throw new ArgumentOutOfRangeException(nameof(index), "Index must be between 0 and 3.")
-                };
-            }
-        }
-
         private interface IMaskComparable<T>
         {
             bool CompareTo(T other);
@@ -170,42 +141,6 @@ namespace Runtime.Engine.Jobs.Meshing
             public bool CompareTo(CMask other)
             {
                 return Normal == other.Normal;
-            }
-        }
-
-        [BurstCompile]
-        private struct Mask : IMaskComparable<Mask>
-        {
-            public readonly ushort VoxelId;
-
-            internal readonly MeshLayer MeshLayer;
-            internal readonly sbyte Normal;
-            internal readonly sbyte TopOpen;
-            internal readonly byte Sunlight;
-
-            internal int4 AO;
-
-            public Mask(ushort voxelId, MeshLayer meshLayer, sbyte normal, int4 ao, byte sunlight, sbyte topOpen = 0)
-            {
-                MeshLayer = meshLayer;
-                VoxelId = voxelId;
-                Normal = normal;
-                AO = ao;
-                Sunlight = sunlight;
-                TopOpen = topOpen;
-            }
-
-            public bool CompareTo(Mask other)
-            {
-                return
-                    MeshLayer == other.MeshLayer &&
-                    VoxelId == other.VoxelId &&
-                    Normal == other.Normal &&
-                    Sunlight == other.Sunlight &&
-                    AO[0] == other.AO[0] &&
-                    AO[1] == other.AO[1] &&
-                    AO[2] == other.AO[2] &&
-                    AO[3] == other.AO[3];
             }
         }
 
@@ -229,27 +164,11 @@ namespace Runtime.Engine.Jobs.Meshing
         }
 
         [BurstCompile]
-        private void ClearMaskRegion(NativeArray<Mask> normalMask, int n, int width, int height, int axis1Limit)
-        {
-            for (int l = 0; l < height; ++l)
-            for (int k = 0; k < width; ++k)
-                normalMask[n + k + l * axis1Limit] = default;
-        }
-
-        [BurstCompile]
         private void ClearColMaskRegion(NativeArray<CMask> normalMask, int n, int width, int height, int axis1Limit)
         {
             for (int l = 0; l < height; ++l)
             for (int k = 0; k < width; ++k)
                 normalMask[n + k + l * axis1Limit] = default;
-        }
-
-        private void EnsureCapacity<T>(NativeList<T> list, int add) where T : unmanaged
-        {
-            int need = list.Length + add;
-            if (need <= list.Capacity) return;
-            int newCap = math.max(list.Capacity * 2, need);
-            list.Capacity = newCap;
         }
 
         #endregion

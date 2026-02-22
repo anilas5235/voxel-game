@@ -1,41 +1,48 @@
 ﻿using System;
+using System.Runtime.InteropServices;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Mathematics;
 
 namespace Runtime.Engine.Jobs.Meshing
 {
-    /// <summary>
-    /// Vertex structure for rendered voxels (position, normal, 3 UV layers for texture atlas / AO / extra data).
-    /// </summary>
-    [BurstCompile]
+    [BurstCompile, StructLayout(LayoutKind.Sequential, Pack = 1)]
     public struct Vertex
     {
-        public half4 Position; // xyz = position, w = 0 (unused could hold extra data)
-        public half4 Normal; // xyz = normal, w = 0 (unused could hold extra data)
-        public half4 UV0; // xy = Sized UV for texture atlas, zw = normalized UV for shader sampling
-        public half4 UV1; // x = texture ID, y = depth fade factor, z = unused, w = sunlight level
-        public half4 AO; // xyzw = AO values 
+        public float3 Position;
+        public ushort QuadIndex;
+        public ushort padding;
+        public ushort TextureIndex;
+        private byte LightDataAndAO;
+        public byte padding1;
+        public uint padding2;
+        public uint padding3;
 
-        /// <summary>
-        /// Creates a vertex with all attributes.
-        /// </summary>
-        public Vertex(float3 position, float3 normal, float4 uv0, float4 uv1, float4 ao)
+        public Vertex(float3 position, ushort quadIndex, ushort textureIndex, byte light, byte ao)
         {
-            Position = new half4((half3)position, half.zero);
-            Normal = new half4((half3)normal, half.zero);
-            UV0 = (half4)uv0;
-            UV1 = (half4)uv1;
-            AO = (half4)ao;
+            Position = position;
+            QuadIndex = quadIndex;
+            TextureIndex = textureIndex;
+            LightDataAndAO = 0;
+            padding = 0;
+            padding1 = 0;
+            padding2 = 0;
+            padding3 = 0;
+
+            SetLight(light);
+            SetAO(ao);
         }
 
-        internal float3 GetPosition() => new(Position.x, Position.y, Position.z);
+
+        public void SetLight(byte sunlight) => LightDataAndAO = (byte)(LightDataAndAO | (sunlight & 0b1111));
+
+        public void SetAO(byte ao) => LightDataAndAO = (byte)(LightDataAndAO | (ao << 4));
     }
 
     /// <summary>
     /// Compact vertex structure for collider mesh (position + normal).
     /// </summary>
-    [BurstCompile]
+    [BurstCompile, StructLayout(LayoutKind.Sequential, Pack = 1)]
     public struct CVertex
     {
         public half4 Position;
@@ -49,8 +56,6 @@ namespace Runtime.Engine.Jobs.Meshing
             Position = new half4((half3)position, half.zero);
             Normal = new half4((half3)normal, half.zero);
         }
-
-        internal float3 GetPosition() => new(Position.x, Position.y, Position.z);
     }
 
     /// <summary>
@@ -80,22 +85,30 @@ namespace Runtime.Engine.Jobs.Meshing
             CIndexBuffer.Dispose();
         }
 
-        public void AddVertex(ref Vertex vertex) => VertexBuffer.AddNoResize(vertex);
+        public void AddVertex(ref Vertex vertex)
+        {
+            EnsureCapacity(VertexBuffer, 1);
+            VertexBuffer.AddNoResize(vertex);
+        }
 
         public void AddIndex(int index, SubMeshType subMeshType)
         {
             switch (subMeshType)
             {
                 case SubMeshType.Solid:
+                    EnsureCapacity(SolidIndexBuffer, 1);
                     SolidIndexBuffer.AddNoResize((ushort)index);
                     break;
                 case SubMeshType.Transparent:
+                    EnsureCapacity(TransparentIndexBuffer, 1);
                     TransparentIndexBuffer.AddNoResize((ushort)index);
                     break;
                 case SubMeshType.Foliage:
+                    EnsureCapacity(FoliageIndexBuffer, 1);
                     FoliageIndexBuffer.AddNoResize((ushort)index);
                     break;
                 case SubMeshType.Collider:
+                    EnsureCapacity(CIndexBuffer, 1);
                     CIndexBuffer.AddNoResize((ushort)index);
                     break;
                 default:
@@ -103,7 +116,19 @@ namespace Runtime.Engine.Jobs.Meshing
             }
         }
 
-        public void AddCVertex(CVertex vertex) => CVertexBuffer.AddNoResize(vertex);
+        public void AddCVertex(CVertex vertex)
+        {
+            EnsureCapacity(CVertexBuffer, 1);
+            CVertexBuffer.AddNoResize(vertex);
+        }
+        
+        private void EnsureCapacity<T>(NativeList<T> list, int add) where T : unmanaged
+        {
+            int need = list.Length + add;
+            if (need <= list.Capacity) return;
+            int newCap = math.max(list.Capacity * 2, need);
+            list.Capacity = newCap;
+        }
     }
 
     internal enum SubMeshType : byte

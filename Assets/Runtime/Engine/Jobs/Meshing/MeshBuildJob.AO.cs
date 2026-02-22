@@ -1,4 +1,5 @@
 ﻿using Runtime.Engine.Utils.Extensions;
+using Runtime.Engine.VoxelConfig.Data;
 using Unity.Burst;
 using Unity.Mathematics;
 
@@ -11,59 +12,34 @@ namespace Runtime.Engine.Jobs.Meshing
         #region AO Calculation
 
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
-        private int4 ComputeAOMask(in int3 coord, ref PartitionJobData jobData,in AxisInfo axInfo)
+        private void ComputeAO(in int3 coord, ref PartitionJobData jobData, in Direction direction, out byte aoMask)
         {
-            int3 l = coord;
-            int3 r = coord;
-            int3 b = coord;
-            int3 T = coord;
+            aoMask = 0;
+            int3 up = coord + direction.RelativeUp();
+            int3 right = coord + direction.RelativeRight();
+            int3 down = coord + direction.RelativeDown();
+            int3 left = coord + direction.RelativeLeft();
 
-            int3 lbc = coord;
-            int3 rbc = coord;
-            int3 ltc = coord;
-            int3 rtc = coord;
-
-            l[axInfo.VAxis] -= 1;
-            r[axInfo.VAxis] += 1;
-            b[axInfo.UAxis] -= 1;
-            T[axInfo.UAxis] += 1;
-
-            lbc[axInfo.UAxis] -= 1;
-            lbc[axInfo.VAxis] -= 1;
-            rbc[axInfo.UAxis] -= 1;
-            rbc[axInfo.VAxis] += 1;
-            ltc[axInfo.UAxis] += 1;
-            ltc[axInfo.VAxis] -= 1;
-            rtc[axInfo.UAxis] += 1;
-            rtc[axInfo.VAxis] += 1;
-
-            int lo = GetMeshLayer(GetVoxel(ref jobData, l), RenderGenData) == 0 ? 1 : 0;
-            int ro = GetMeshLayer(GetVoxel(ref jobData, r), RenderGenData) == 0 ? 1 : 0;
-            int bo = GetMeshLayer(GetVoxel(ref jobData, b), RenderGenData) == 0 ? 1 : 0;
-            int to = GetMeshLayer(GetVoxel(ref jobData, T), RenderGenData) == 0 ? 1 : 0;
-
-            int lbco = GetMeshLayer(GetVoxel(ref jobData, lbc), RenderGenData) == 0 ? 1 : 0;
-            int rbco = GetMeshLayer(GetVoxel(ref jobData, rbc), RenderGenData) == 0 ? 1 : 0;
-            int ltco = GetMeshLayer(GetVoxel(ref jobData, ltc), RenderGenData) == 0 ? 1 : 0;
-            int rtco = GetMeshLayer(GetVoxel(ref jobData, rtc), RenderGenData) == 0 ? 1 : 0;
-
-            return new int4(
-                ComputeAO(lo, bo, lbco),
-                ComputeAO(lo, to, ltco),
-                ComputeAO(ro, bo, rbco),
-                ComputeAO(ro, to, rtco)
-            );
+            if (GetMeshLayer(GetVoxel(ref jobData, up), RenderGenData) == MeshLayer.Solid) 
+                SetBit(ref aoMask, 0, true);
+            if (GetMeshLayer(GetVoxel(ref jobData, right), RenderGenData) == MeshLayer.Solid)
+                SetBit(ref aoMask, 1, true);
+            if (GetMeshLayer(GetVoxel(ref jobData, down), RenderGenData) == MeshLayer.Solid)
+                SetBit(ref aoMask, 2, true);
+            if (GetMeshLayer(GetVoxel(ref jobData, left), RenderGenData) == MeshLayer.Solid)
+                SetBit(ref aoMask, 3, true);
         }
 
-        [BurstCompile]
-        private int ComputeAO(int s1, int s2, int c)
+        private void SetBit(ref byte mask, int bitIndex, bool value)
         {
-            if (s1 == 1 && s2 == 1)
+            if (value)
             {
-                return 0;
+                mask |= (byte)(1 << bitIndex);
             }
-
-            return 3 - (s1 + s2 + c);
+            else
+            {
+                mask &= (byte)~(1 << bitIndex);
+            }
         }
 
         #endregion

@@ -116,8 +116,8 @@ namespace Runtime.Engine.Utils.Extensions
         /// Komponentenweise Multiplikation mit Einzelwerten.
         /// </summary>
         public static int3 MemberMultiply(this int3 a, int x, int y, int z) => new(a.x * x, a.y * y, a.z * z);
-        
-        
+
+
         public static half Max(half a, half b) => a > b ? a : b;
     }
 
@@ -136,7 +136,7 @@ namespace Runtime.Engine.Utils.Extensions
         public static readonly int3 Int3Down = new(0, -1, 0);
 
         /// <summary> (1,0,0) Vektor. </summary>
-        public static readonly int3 Int3Right = new(1, 0, 0);
+        public static readonly int3 Int3Right = new(1, 0, 0); 
 
         /// <summary> (-1,0,0) Vektor. </summary>
         public static readonly int3 Int3Left = new(-1, 0, 0);
@@ -146,7 +146,7 @@ namespace Runtime.Engine.Utils.Extensions
 
         /// <summary> (0,0,-1) Vektor. </summary>
         public static readonly int3 Int3Backward = new(0, 0, -1);
-        
+
         public static readonly int3[] Int3Directions = new[]
         {
             Int3Forward,
@@ -196,7 +196,7 @@ namespace Runtime.Engine.Utils.Extensions
         /// Konvertiert Vector3 (floored) zu int3.
         /// </summary>
         public static int3 Int3(this Vector3 vec) => Vector3Int.FloorToInt(vec).Int3();
-        
+
         public static float3 Float3(this Vector3 vec) => new(vec.x, vec.y, vec.z);
 
         /// <summary>
@@ -208,21 +208,6 @@ namespace Runtime.Engine.Utils.Extensions
         /// Konvertiert int2 zu float2.
         /// </summary>
         public static float2 Float2(this int2 vec) => new(vec.x, vec.y);
-
-        /// <summary>
-        /// Ermittelt Richtung für Normal-Vektor int3 basierend auf dominanter Komponente.
-        /// </summary>
-        public static Direction ToDirection(this int3 vec)
-        {
-            if (vec.x < vec.y && vec.z < vec.y) return Direction.Up;
-            if (vec.x > vec.y && vec.z > vec.y) return Direction.Down;
-            if (vec.y < vec.x && vec.z < vec.x) return Direction.Right;
-            if (vec.y > vec.x && vec.z > vec.x) return Direction.Left;
-            if (vec.x < vec.z && vec.y < vec.z) return Direction.Forward;
-            if (vec.x > vec.z && vec.y > vec.z) return Direction.Backward;
-
-            throw new Exception("Invalid direction vector");
-        }
 
         /// <summary>
         /// Normalisiert einen float3.

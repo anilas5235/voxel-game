@@ -1,7 +1,9 @@
-﻿using Runtime.Engine.VoxelConfig.Data;
+﻿using Runtime.Engine.Utils.Extensions;
+using Runtime.Engine.VoxelConfig.Data;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Mathematics;
+using UnityEngine.UI;
 using static Runtime.Engine.Utils.VoxelConstants;
 
 namespace Runtime.Engine.Jobs.Meshing
@@ -15,15 +17,15 @@ namespace Runtime.Engine.Jobs.Meshing
         private void MeshSolids(ref PartitionJobData jobData)
         {
             if (jobData.HasNoSolid) return;
-
-            SliceMeshBuild(ref jobData, ref jobData.SolidVoxels);
+            NativeHashMap<int3, ushort> sortedVoxels = jobData.SolidVoxels;
+            BuildFaces(ref jobData, ref sortedVoxels, SubMeshType.Solid);
         }
 
         private void MeshTransparent(ref PartitionJobData jobData)
         {
             if (jobData.HasNoTransparent) return;
-
-            SliceMeshBuild(ref jobData, ref jobData.TransparentVoxels);
+            NativeHashMap<int3, ushort> sortedVoxels = jobData.TransparentVoxels;
+            BuildFaces(ref jobData, ref sortedVoxels, SubMeshType.Transparent);
         }
 
         private void MeshCollision(ref PartitionJobData jobData)
@@ -31,11 +33,12 @@ namespace Runtime.Engine.Jobs.Meshing
             if (jobData.HasNoCollision) return;
             // Sweep along each principal axis (X, Y, Z)
             NativeHashMap<int3, ushort> map = default;
-            SliceMeshBuild(ref jobData, ref map, true);
+            ColliderSliceMeshBuild(ref jobData, ref map);
         }
 
-        private void SliceMeshBuild(ref PartitionJobData jobData, ref NativeHashMap<int3, ushort> sortedVoxels,
-            bool collider = false)
+        [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
+        private void BuildFaces(ref PartitionJobData jobData, ref NativeHashMap<int3, ushort> sortedVoxels,
+            SubMeshType subMeshType)
         {
             // Sweep along each principal axis (X, Y, Z)
             for (int mainAxis = 0; mainAxis < 3; mainAxis++)
@@ -59,43 +62,99 @@ namespace Runtime.Engine.Jobs.Meshing
                 int3 directionMask = int3.zero;
                 directionMask[mainAxis] = 1;
 
-                if (collider)
+                Direction dir = directionMask.ToDirection();
+                Direction negDir = dir.GetOpposite();
+
+                for (pos[mainAxis] = 0; pos[mainAxis] < mainAxisLimit; ++pos[mainAxis])
+                for (pos[axisInfo.VAxis] = 0; pos[axisInfo.VAxis] < axisInfo.VLimit; ++pos[axisInfo.VAxis])
+                for (pos[axisInfo.UAxis] = 0; pos[axisInfo.UAxis] < axisInfo.ULimit; ++pos[axisInfo.UAxis])
                 {
-                    BuildColliderSlice(ref jobData, pos, mainAxis, mainAxisLimit, directionMask, axisInfo);
-                }
-                else
-                {
-                    BuildRenderSlice(ref jobData, ref sortedVoxels, pos, mainAxis, mainAxisLimit, directionMask,
-                        axisInfo);
+                    if (!sortedVoxels.ContainsKey(pos))
+                    {
+                        continue;
+                    }
+
+                    BuildFace(ref jobData, sortedVoxels, subMeshType, pos, dir);
+                    BuildFace(ref jobData, sortedVoxels, subMeshType, pos, negDir);
                 }
             }
         }
 
-        private void BuildRenderSlice(ref PartitionJobData jobData, ref NativeHashMap<int3, ushort> sortedVoxels,
-            int3 pos, int mainAxis, int mainAxisLimit, int3 directionMask, AxisInfo axisInfo)
+        private void BuildFace(ref PartitionJobData jobData, NativeHashMap<int3, ushort> sortedVoxels,
+            SubMeshType subMeshType, int3 pos, Direction direction)
         {
-            // Temporary mask buffer for the current slice (U x V)
-            int uvGridSize = axisInfo.ULimit * axisInfo.VLimit;
-            NativeArray<Mask> posNormalMask = new(uvGridSize, Allocator.Temp);
-            NativeArray<Mask> negNormalMask = new(uvGridSize, Allocator.Temp);
+            int3 neighborCoord = pos + direction.ToInt3();
 
-            for (pos[mainAxis] = 0; pos[mainAxis] < mainAxisLimit;)
+            ushort currentVoxel = sortedVoxels[pos];
+            ushort neighborVoxel = GetVoxel(ref jobData, neighborCoord);
+
+            VoxelRenderDef neighborDef = RenderGenData.GetRenderDef(neighborVoxel);
+            VoxelRenderDef currentDef = RenderGenData.GetRenderDef(currentVoxel);
+
+            MeshLayer currentLayer = currentDef.MeshLayer;
+            MeshLayer neighborLayer = neighborDef.MeshLayer;
+
+            if (ShouldSkipFace(currentDef, neighborDef))
             {
-                bool info = BuildMasks(ref jobData, ref sortedVoxels, pos, directionMask, axisInfo,
-                    ref posNormalMask, ref negNormalMask);
-
-                // Move to the actual slice index we just built the mask for
-                ++pos[mainAxis];
-
-                if (!info) continue;
-
-                BuildSurfaceQuads(ref jobData, axisInfo, pos, posNormalMask, directionMask);
-                BuildSurfaceQuads(ref jobData, axisInfo, pos - directionMask, negNormalMask, -directionMask);
+                return;
             }
 
-            posNormalMask.Dispose();
-            negNormalMask.Dispose();
+            sbyte top = ComputeTopVoxelOfType(pos, currentVoxel, ref jobData);
+            ComputeAO(neighborCoord, ref jobData, direction, out byte ao);
+            byte sunlight = ComputeSunlight(ref jobData, neighborCoord);
+
+            int quadIndex = direction switch
+            {
+                Direction.Right => 0,
+                Direction.Left => 1,
+                Direction.Up => 2,
+                Direction.Down => 3,
+                Direction.Forward => 4,
+                Direction.Backward => 5,
+                _ => -1
+            };
+
+            var vertex = new Vertex
+            (
+                pos,
+                (ushort)quadIndex,
+                (ushort)currentDef.GetTextureId(direction),
+                sunlight,
+                ao
+            );
+
+            AddVertex(ref jobData, subMeshType, ref vertex);
         }
+
+        private void ColliderSliceMeshBuild(ref PartitionJobData jobData,
+            ref NativeHashMap<int3, ushort> sortedVoxels)
+        {
+            // Sweep along each principal axis (X, Y, Z)
+            for (int mainAxis = 0; mainAxis < 3; mainAxis++)
+            {
+                // Define orthogonal axes for the 2D slice (U and V plane)
+                int uAxis = (mainAxis + 1) % 3;
+                int vAxis = (mainAxis + 2) % 3;
+
+                int mainAxisLimit = PartitionSize[mainAxis];
+
+                AxisInfo axisInfo = new()
+                {
+                    UAxis = uAxis,
+                    VAxis = vAxis,
+                    ULimit = PartitionSize[uAxis],
+                    VLimit = PartitionSize[vAxis]
+                };
+
+                int3 pos = int3.zero;
+
+                int3 directionMask = int3.zero;
+                directionMask[mainAxis] = 1;
+
+                BuildColliderSlice(ref jobData, pos, mainAxis, mainAxisLimit, directionMask, axisInfo);
+            }
+        }
+
 
         private void BuildColliderSlice(ref PartitionJobData jobData, int3 pos, int mainAxis, int mainAxisLimit,
             int3 directionMask, AxisInfo axisInfo)
@@ -123,69 +182,6 @@ namespace Runtime.Engine.Jobs.Meshing
             negColMask.Dispose();
         }
 
-        /// <summary>
-        /// Builds surface quads for one slice using greedy merging.
-        /// </summary>
-        [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
-        private void BuildSurfaceQuads(ref PartitionJobData jobData, AxisInfo axInfo, int3 pos,
-            NativeArray<Mask> normalMask, int3 directionMask)
-        {
-            int3 uDelta = int3.zero;
-            int3 vDelta = int3.zero;
-
-            int maskIndex = 0;
-            for (int v = 0; v < axInfo.VLimit; v++)
-            {
-                for (int u = 0; u < axInfo.ULimit;)
-                {
-                    if (normalMask[maskIndex].Normal != 0)
-                    {
-                        // Found a face; grow the maximal rectangle (width x height)
-                        Mask current = normalMask[maskIndex];
-                        pos[axInfo.UAxis] = u;
-                        pos[axInfo.VAxis] = v;
-
-                        int quadWidth = FindQuadWidth(normalMask, maskIndex, current, u, axInfo.ULimit);
-                        int quadHeight = FindQuadHeight(normalMask, maskIndex, current, axInfo.ULimit,
-                            axInfo.VLimit, quadWidth, v);
-
-                        uDelta[axInfo.UAxis] = quadWidth;
-                        vDelta[axInfo.VAxis] = quadHeight;
-
-                        VQuad quadVerts = new()
-                        {
-                            V1 = pos,
-                            V2 = pos + uDelta,
-                            V3 = pos + vDelta,
-                            V4 = pos + uDelta + vDelta,
-                        };
-
-                        CreateQuad(
-                            ref jobData,
-                            RenderGenData.GetRenderDef(current.VoxelId),
-                            current,
-                            directionMask,
-                            new int2(quadWidth, quadHeight),
-                            in quadVerts
-                        );
-
-                        ClearMaskRegion(normalMask, maskIndex, quadWidth, quadHeight, axInfo.ULimit);
-                        uDelta = int3.zero;
-                        vDelta = int3.zero;
-
-                        // Jump horizontally by the consumed width
-                        u += quadWidth;
-                        maskIndex += quadWidth;
-                    }
-                    else
-                    {
-                        // No face here; advance to next cell
-                        u++;
-                        maskIndex++;
-                    }
-                }
-            }
-        }
 
         /// <summary>
         /// Builds foliage billboard quads from collected flora voxels.
@@ -201,28 +197,26 @@ namespace Runtime.Engine.Jobs.Meshing
                 int3 pos = foliageVoxel.Key;
                 VoxelRenderDef def = RenderGenData.GetRenderDef(foliageVoxel.Value);
                 byte sunLight = ComputeSunlight(ref jobData, pos);
+                ComputeAO(pos, ref jobData, Direction.Forward, out byte ao);
 
-                // Diagonal 1
-                VQuad flora1 = new()
-                {
-                    V1 = pos,
-                    V2 = pos + new float3(0, 1, 0),
-                    V3 = pos + new float3(1, 0, 1),
-                    V4 = pos + new float3(1, 1, 1)
-                };
+                Vertex vertex = new(
+                    pos,
+                    6,
+                    (ushort)def.GetTextureId(Direction.Forward),
+                    sunLight,
+                    ao
+                );
+                AddVertex(ref jobData, SubMeshType.Foliage, ref vertex);
 
-                AddFloraQuad(ref jobData, def, in flora1, float4.zero, sunLight);
-
-                // Diagonal 2
-                VQuad flora2 = new()
-                {
-                    V1 = pos + new float3(1, 0, 0),
-                    V2 = pos + new float3(1, 1, 0),
-                    V3 = pos + new float3(0, 0, 1),
-                    V4 = pos + new float3(0, 1, 1)
-                };
-
-                AddFloraQuad(ref jobData, def, in flora2, float4.zero, sunLight);
+                vertex = new Vertex
+                (
+                    pos,
+                    7,
+                    (ushort)def.GetTextureId(Direction.Forward),
+                    sunLight,
+                    ao
+                );
+                AddVertex(ref jobData, SubMeshType.Foliage, ref vertex);
             }
         }
 
