@@ -58,12 +58,12 @@ namespace Runtime.Engine.VoxelConfig.Data
             return direction switch
             {
                 Direction.Up => Int3Forward,
-                Direction.Down => Int3Backward,
+                Direction.Down => Int3Forward,
                 _ => Int3Up
             };
         }
 
-        public static int3 RelativeDown(this Direction direction) => GetOpposite(direction).RelativeUp();
+        public static int3 RelativeDown(this Direction direction) => -direction.RelativeUp();
         
         public static int3 RelativeRight(this Direction direction)
         {
@@ -79,7 +79,7 @@ namespace Runtime.Engine.VoxelConfig.Data
             };
         }
         
-        public static int3 RelativeLeft(this Direction direction) => GetOpposite(direction).RelativeRight();
+        public static int3 RelativeLeft(this Direction direction) => -direction.RelativeRight();
 
         /// <summary>
         /// Converts a <see cref="Direction"/> into a corresponding <see cref="Vector3Int"/> unit vector.

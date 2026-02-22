@@ -206,10 +206,10 @@ Shader "Custom/VoxelShader"
                 float dist_left = 1.0 - tileUV.x;
 
                 // Per-edge contribution: ramps from 1 at the edge to 0 at _AOFalloff distance
-                float ao_up = bit_up * saturate(1.0 - dist_up / _AOFalloff) * lerp(c_ur, c_ul, tileUV.x);
-                float ao_right = bit_right * saturate(1.0 - dist_right / _AOFalloff) * lerp(c_ur, c_dr, tileUV.y);
-                float ao_down = bit_down * saturate(1.0 - dist_down / _AOFalloff) * lerp(c_dr, c_dl, tileUV.x);
-                float ao_left = bit_left * saturate(1.0 - dist_left / _AOFalloff) * lerp(c_dl, c_ul, tileUV.y);
+                float ao_up = bit_up * saturate(1.0 - dist_up / _AOFalloff); //* lerp(c_ur, c_ul, tileUV.x);
+                float ao_right = bit_right * saturate(1.0 - dist_right / _AOFalloff); //* lerp(c_ur, c_dr, tileUV.y);
+                float ao_down = bit_down * saturate(1.0 - dist_down / _AOFalloff); //* lerp(c_dr, c_dl, tileUV.x);
+                float ao_left = bit_left * saturate(1.0 - dist_left / _AOFalloff); //* lerp(c_dl, c_ul, tileUV.y);
 
                 float ao_intensity = max(max(ao_up, ao_right), max(ao_down, ao_left));
 

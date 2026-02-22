@@ -149,11 +149,12 @@ namespace Runtime.Engine.Jobs.Meshing
         #region Helpers
 
         [BurstCompile]
-        private ushort GetVoxel(ref PartitionJobData jobData, int3 voxelPos)
+        private ushort GetVoxel(ref PartitionJobData jobData, in int3 voxelPos)
         {
-            voxelPos.y += jobData.PartitionPos.y * PartitionHeight;
-            return ChunkAccessor.InChunkBounds(voxelPos)
-                ? jobData.ChunkVoxelData.GetVoxel(voxelPos)
+            int3 chunkLocalPos = voxelPos;
+            chunkLocalPos += jobData.PartitionPos * VoxelsPerPartition;
+            return ChunkAccessor.InChunkBounds(chunkLocalPos)
+                ? jobData.ChunkVoxelData.GetVoxel(chunkLocalPos)
                 : Accessor.GetVoxelInPartition(jobData.PartitionPos, voxelPos);
         }
 
