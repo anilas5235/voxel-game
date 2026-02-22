@@ -186,19 +186,34 @@ Shader "Custom/VoxelShader"
                 // --- Ambient occlusion ---
                 int occlusions = extra.ao;
                 // Bits: 0=up (UV.y=1), 1=right (UV.x=0), 2=down (UV.y=0), 3=left (UV.x=1)
+
+                float bit_up = (float)(occlusions >> 0 & 1);
+                float bit_right = (float)(occlusions >> 1 & 1);
+                float bit_down = (float)(occlusions >> 2 & 1);
+                float bit_left = (float)(occlusions >> 3 & 1);
+
+                // Corner occlusion: sum of the two adjacent edge bits (0, 1 or 2)
+                // UV(0,0)=down-right, UV(1,0)=down-left, UV(0,1)=up-right, UV(1,1)=up-left
+                float c_dr = (bit_right + bit_down) / 2; // UV(0,0)
+                float c_dl = (bit_left + bit_down) / 2; // UV(1,0)
+                float c_ur = (bit_right + bit_up) / 2; // UV(0,1)
+                float c_ul = (bit_left + bit_up) / 2; // UV(1,1)
+
                 // Distance from each edge (0 at edge, 1 at opposite edge)
-                float dist_up    = 1.0 - tileUV.y;
+                float dist_up = 1.0 - tileUV.y;
                 float dist_right = tileUV.x;
-                float dist_down  = tileUV.y;
-                float dist_left  = 1.0 - tileUV.x;
+                float dist_down = tileUV.y;
+                float dist_left = 1.0 - tileUV.x;
 
                 // Per-edge contribution: ramps from 1 at the edge to 0 at _AOFalloff distance
-                float ao_up    = (occlusions >> 0 & 1) * saturate(1.0 - dist_up    / _AOFalloff);
-                float ao_right = (occlusions >> 1 & 1) * saturate(1.0 - dist_right / _AOFalloff);
-                float ao_down  = (occlusions >> 2 & 1) * saturate(1.0 - dist_down  / _AOFalloff);
-                float ao_left  = (occlusions >> 3 & 1) * saturate(1.0 - dist_left  / _AOFalloff);
+                float ao_up = bit_up * saturate(1.0 - dist_up / _AOFalloff) * lerp(c_ur, c_ul, tileUV.x);
+                float ao_right = bit_right * saturate(1.0 - dist_right / _AOFalloff) * lerp(c_ur, c_dr, tileUV.y);
+                float ao_down = bit_down * saturate(1.0 - dist_down / _AOFalloff) * lerp(c_dr, c_dl, tileUV.x);
+                float ao_left = bit_left * saturate(1.0 - dist_left / _AOFalloff) * lerp(c_dl, c_ul, tileUV.y);
 
                 float ao_intensity = max(max(ao_up, ao_right), max(ao_down, ao_left));
+
+                // Normalise to 0..1 (max corner value is 2)
                 ao_intensity = pow(ao_intensity, _AOPower) * _AOIntensity;
 
                 // Multiply albedo toward _AOColor (option A: multiplicative)
