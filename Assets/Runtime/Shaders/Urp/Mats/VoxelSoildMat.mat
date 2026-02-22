@@ -99,8 +99,8 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _AOFalloff: 0.2
-    - _AOIntensity: 0.8
+    - _AOFalloff: 0.35
+    - _AOIntensity: 0.745
     - _AOPower: 2
     - _AddPrecomputedVelocity: 0
     - _AlphaClip: 0
