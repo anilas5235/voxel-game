@@ -86,10 +86,10 @@ namespace Runtime.Engine.VoxelConfig.Data
                     position02 = new float3(1, 0, 0),
                     position03 = new float3(1, 1, 0),
                     normal = new float3(0, 0, -1),
-                    uv00 = new float2(0, 0),
-                    uv01 = new float2(0, 1),
-                    uv02 = new float2(1, 0),
-                    uv03 = new float2(1, 1),
+                    uv00 = new float2(1, 0),
+                    uv01 = new float2(1, 1),
+                    uv02 = new float2(0, 0),
+                    uv03 = new float2(0, 1),
                 },
                 new QuadData
                 {
@@ -98,10 +98,10 @@ namespace Runtime.Engine.VoxelConfig.Data
                     position02 = new float3(1, 0, 1),
                     position03 = new float3(1, 1, 1),
                     normal = new float3(1, 0, 0),
-                    uv00 = new float2(0, 0),
-                    uv01 = new float2(0, 1),
-                    uv02 = new float2(1, 0),
-                    uv03 = new float2(1, 1),
+                    uv00 = new float2(1, 0),
+                    uv01 = new float2(1, 1),
+                    uv02 = new float2(0, 0),
+                    uv03 = new float2(0, 1),
                 },
                 new QuadData
                 {
@@ -122,10 +122,10 @@ namespace Runtime.Engine.VoxelConfig.Data
                     position02 = new float3(1, 1, 0),
                     position03 = new float3(1, 1, 1),
                     normal = new float3(0, 1, 0),
-                    uv00 = new float2(0, 0),
-                    uv02 = new float2(1, 0),
-                    uv01 = new float2(0, 1),
-                    uv03 = new float2(1, 1),
+                    uv00 = new float2(1, 0),
+                    uv02 = new float2(0, 0),
+                    uv01 = new float2(1, 1),
+                    uv03 = new float2(0, 1),
                 },
                 new QuadData
                 {

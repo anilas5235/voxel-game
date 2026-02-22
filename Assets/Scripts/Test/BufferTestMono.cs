@@ -29,12 +29,12 @@ namespace Test
 
             public void SetLight(byte sunlight)
             {
-                LightDataAndAO = (byte)((LightDataAndAO & 0b1111) | sunlight);
+                LightDataAndAO = (byte)(LightDataAndAO | (sunlight & 0b1111));
             }
 
             public void SetAO(byte ao)
             {
-                LightDataAndAO = (byte)((LightDataAndAO & 0b1111_0000) | (ao << 4));
+                LightDataAndAO = (byte)(LightDataAndAO | (ao << 4));
             }
         }
 
@@ -72,6 +72,22 @@ namespace Test
                 vertexData.Add(v);
             }
 
+            for (int i = 0; i < 16; i++)
+            {
+                for (int j = 0; j < 6; j++)
+                {
+                    var v = new Vertex
+                    {
+                        Position = new float3(2 * i, 1, 0),
+                        QuadIndex = (ushort)j,
+                        TextureIndex = 0,
+                    };
+                    v.SetLight(15);
+                    v.SetAO((byte)i);
+                    vertexData.Add(v);
+                }
+            }
+
             /*for (int x = -100; x < 100; x++)
             for (int y = -100; y < 100; y++)
             {
@@ -101,7 +117,7 @@ namespace Test
 
             mf.mesh.SetIndices(indices, MeshTopology.Points, 0);
 
-            mf.mesh.bounds = new Bounds(Vector3.zero, Vector3.one * 10f);
+            mf.mesh.bounds = new Bounds(Vector3.zero, Vector3.one * 100f);
         }
     }
 }

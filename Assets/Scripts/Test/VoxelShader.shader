@@ -2,12 +2,11 @@ Shader "Custom/VoxelShader"
 {
     Properties
     {
-        _AOColor ("AO Color", Color) = (0, 0, 0, 0)
-        _AOCurve ("AO Curve", Vector) = (0.75, 0.825, 0.9, 1)
-        _AOIntensity ("AO Intensity", Range(0, 1)) = 1
-        _AOPower ("AO Power", Range(1, 10)) = 1
-        [NoScaleOffset]
-        _Textures ("Textures", 2DArray) = "" {}
+        _AOColor ("AO Color", Color) = (0, 0, 0, 1)
+        _AOIntensity ("AO Intensity", Range(0, 1)) = 0.8
+        _AOPower ("AO Power", Range(0.1, 4)) = 1.0
+        _AOFalloff ("AO Falloff", Range(0.01, 1)) = 0.3
+        [NoScaleOffset] _Textures ("Textures", 2DArray) = "" {}
     }
 
     SubShader
@@ -29,9 +28,9 @@ Shader "Custom/VoxelShader"
         struct QuadData
         {
             float3 position00; // vertex offset from voxel origin
-            float3 position01; 
-            float3 position02; 
-            float3 position03; 
+            float3 position01;
+            float3 position02;
+            float3 position03;
             float3 normal;
             float2 uv00;
             float2 uv01;
@@ -44,10 +43,10 @@ Shader "Custom/VoxelShader"
         struct GeomInput
         {
             float3 positionWS : TEXCOORD0; // voxel world-space pos, base for quad corners
-            uint4 packedUV0 : TEXCOORD1; 
+            uint4 packedUV0 : TEXCOORD1;
             /* X: quad index u16, 16 bit unused; 
             Y: texArrayIndex u16, sunLightLevel u4, ao u4, 8 bit unused; 
-            Z and W unused */            
+            Z and W unused */
         };
 
         uint get_quad_index(uint4 packed)
@@ -127,6 +126,7 @@ Shader "Custom/VoxelShader"
                 float4 _AOCurve;
                 float _AOIntensity;
                 float _AOPower;
+                float _AOFalloff;
             CBUFFER_END
 
             TEXTURE2D_ARRAY(_Textures);
@@ -184,15 +184,31 @@ Shader "Custom/VoxelShader"
                 float4 albedo = SAMPLE_TEXTURE2D_ARRAY(_Textures, sampler_Textures, tileUV, texIndex);
 
                 // --- Ambient occlusion ---
-                int aoLevel = extra.ao; // lower 4 bits represent if occluded on the side of the face staring up, right, down, left (in that order), 0 = no occlusion, 1 = occluded
-                float aoIntensity = 0;
-                float4 aoColor = lerp(_AOColor, albedo, aoIntensity);
+                int occlusions = extra.ao;
+                // Bits: 0=up (UV.y=1), 1=right (UV.x=0), 2=down (UV.y=0), 3=left (UV.x=1)
+                // Distance from each edge (0 at edge, 1 at opposite edge)
+                float distUp    = 1.0 - tileUV.y;
+                float distRight = tileUV.x;
+                float distDown  = tileUV.y;
+                float distLeft  = 1.0 - tileUV.x;
+
+                // Per-edge contribution: ramps from 1 at the edge to 0 at _AOFalloff distance
+                float aoUp    = ((occlusions >> 0) & 1) * saturate(1.0 - distUp    / _AOFalloff);
+                float aoRight = ((occlusions >> 1) & 1) * saturate(1.0 - distRight / _AOFalloff);
+                float aoDown  = ((occlusions >> 2) & 1) * saturate(1.0 - distDown  / _AOFalloff);
+                float aoLeft  = ((occlusions >> 3) & 1) * saturate(1.0 - distLeft  / _AOFalloff);
+
+                float aoIntensity = max(max(aoUp, aoRight), max(aoDown, aoLeft));
+                aoIntensity = pow(aoIntensity, _AOPower) * _AOIntensity;
+
+                // Multiply albedo toward _AOColor (option A: multiplicative)
+                albedo.rgb *= lerp(1.0, _AOColor.rgb, aoIntensity);
 
                 // --- Sun light level ---
                 float sunLight = lerp(0.05, 1.0, extra.light / 15.0f);
 
                 // --- Final colour ---
-                return half4(aoColor.rgb * sunLight, 1);
+                return half4(albedo.rgb * sunLight, 1);
             }
             ENDHLSL
         }
@@ -228,6 +244,7 @@ Shader "Custom/VoxelShader"
                 float4 _AOCurve;
                 float _AOIntensity;
                 float _AOPower;
+                float _AOFalloff;
             CBUFFER_END
 
             struct DepthAttributes
