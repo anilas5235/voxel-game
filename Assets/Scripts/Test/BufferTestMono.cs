@@ -22,10 +22,20 @@ namespace Test
             public ushort QuadIndex;
             public ushort padding;
             public ushort TextureIndex;
-            public byte LightDataAndAO;
+            private byte LightDataAndAO;
             public byte padding1;
             public uint padding2;
             public uint padding3;
+
+            public void SetLight(byte sunlight)
+            {
+                LightDataAndAO = (byte)((LightDataAndAO & 0b1111) | sunlight);
+            }
+
+            public void SetAO(byte ao)
+            {
+                LightDataAndAO = (byte)((LightDataAndAO & 0b1111_0000) | (ao << 4));
+            }
         }
 
 
@@ -40,35 +50,26 @@ namespace Test
 
             for (int i = 0; i < 6; i++)
             {
-                vertexData.Add(new Vertex
+                var v = new Vertex
                 {
                     Position = float3.zero,
                     QuadIndex = (ushort)i,
                     TextureIndex = 3,
-                    LightDataAndAO = 0b0000_1111,
-                });
+                };
+                v.SetLight(15);
+                vertexData.Add(v);
             }
-            
-            for (int i = 0; i < 6; i++)
+
+            for (int i = 0; i < 16; i++)
             {
-                vertexData.Add(new Vertex
+                var v = new Vertex
                 {
-                    Position = new float3(0,1,0),
-                    QuadIndex = (ushort)i,
+                    Position = new float3(1 + i, 0, 0),
+                    QuadIndex = 0,
                     TextureIndex = 3,
-                    LightDataAndAO = 0b1111_0000,
-                });
-            }
-            
-            for (int i = 0; i < 6; i++)
-            {
-                vertexData.Add(new Vertex
-                {
-                    Position = new float3(0,2,0),
-                    QuadIndex = (ushort)i,
-                    TextureIndex = 3,
-                    LightDataAndAO = 0b1111,
-                });
+                };
+                v.SetLight((byte)i);
+                vertexData.Add(v);
             }
 
             /*for (int x = -100; x < 100; x++)

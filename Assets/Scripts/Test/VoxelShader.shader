@@ -184,14 +184,15 @@ Shader "Custom/VoxelShader"
                 float4 albedo = SAMPLE_TEXTURE2D_ARRAY(_Textures, sampler_Textures, tileUV, texIndex);
 
                 // --- Ambient occlusion ---
-                //float aoIntensity = 0;
-                //float4 aoColor = lerp(_AOColor, albedo, aoIntensity);
+                int aoLevel = extra.ao; // lower 4 bits represent if occluded on the side of the face staring up, right, down, left (in that order), 0 = no occlusion, 1 = occluded
+                float aoIntensity = 0;
+                float4 aoColor = lerp(_AOColor, albedo, aoIntensity);
 
                 // --- Sun light level ---
                 float sunLight = lerp(0.05, 1.0, extra.light / 15.0f);
 
                 // --- Final colour ---
-                return half4(albedo.rgb * sunLight, 1);
+                return half4(aoColor.rgb * sunLight, 1);
             }
             ENDHLSL
         }
