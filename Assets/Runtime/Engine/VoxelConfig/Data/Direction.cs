@@ -71,7 +71,11 @@ namespace Runtime.Engine.VoxelConfig.Data
             {
                 Direction.Right => Int3Forward,
                 Direction.Left => Int3Backward,
-                _ => Int3Right
+                Direction.Forward => Int3Left,
+                Direction.Backward => Int3Right,
+                Direction.Up => Int3Right,
+                Direction.Down => Int3Left,
+                _ => throw new ArgumentOutOfRangeException(nameof(direction), direction, null)
             };
         }
         
