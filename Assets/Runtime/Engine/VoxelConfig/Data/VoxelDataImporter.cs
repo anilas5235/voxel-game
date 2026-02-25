@@ -148,8 +148,8 @@ namespace Runtime.Engine.VoxelConfig.Data
                     position03 = new float3(1, 1, 1),
                     normal = new float3(1, 0, 1).Normalized(),
                     uv00 = new float2(0, 0),
-                    uv01 = new float2(1, 0),
-                    uv02 = new float2(0, 1),
+                    uv01 = new float2(0, 1),
+                    uv02 = new float2(1, 0),
                     uv03 = new float2(1, 1),
                 },
                 new QuadData() // Diagonal 2
@@ -160,8 +160,8 @@ namespace Runtime.Engine.VoxelConfig.Data
                     position03 = new float3(0, 1, 1),
                     normal = new float3(-1, 0, -1).Normalized(),
                     uv00 = new float2(0, 0),
-                    uv01 = new float2(1, 0),
-                    uv02 = new float2(0, 1),
+                    uv01 = new float2(0, 1),
+                    uv02 = new float2(1, 0),
                     uv03 = new float2(1, 1),
                 },
             };

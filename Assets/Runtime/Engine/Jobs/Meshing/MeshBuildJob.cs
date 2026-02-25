@@ -47,9 +47,9 @@ namespace Runtime.Engine.Jobs.Meshing
 
             MeshSolids(ref jobData);
 
-            //MeshTransparent(ref jobData);
+            MeshTransparent(ref jobData);
 
-            //MeshFoliage(ref jobData);
+            MeshFoliage(ref jobData);
 
             MeshCollision(ref jobData);
 
