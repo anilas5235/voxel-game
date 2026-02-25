@@ -18,24 +18,31 @@ namespace Test
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         public struct Vertex
         {
-            public float3 Position; // xyz = position, w = 0 (unused could hold extra data)
+            public float3 Position;
             public ushort QuadIndex;
             public ushort padding;
             public ushort TextureIndex;
-            private byte LightDataAndAO;
-            public byte padding1;
+            private byte LightData;
+            public byte AOData;
             public uint padding2;
             public uint padding3;
 
-            public void SetLight(byte sunlight)
+            public Vertex(float3 position, ushort quadIndex, ushort textureIndex, byte light, byte ao)
             {
-                LightDataAndAO = (byte)(LightDataAndAO | (sunlight & 0b1111));
+                Position = position;
+                QuadIndex = quadIndex;
+                padding = 0;
+                TextureIndex = textureIndex;
+                LightData = 0;
+                AOData = ao;
+                padding2 = 0;
+                padding3 = 0;
+
+                SetLight(light);
             }
 
-            public void SetAO(byte ao)
-            {
-                LightDataAndAO = (byte)(LightDataAndAO | (ao << 4));
-            }
+
+            public void SetLight(byte sunlight) => LightData = (byte)(LightData | (sunlight & 0b1111));
         }
 
 
@@ -72,21 +79,23 @@ namespace Test
                 vertexData.Add(v);
             }
 
-            for (int i = 0; i < 16; i++)
+            for (int x = 0; x < 8; x++)
+            for (int i = 0; i < 6; i++)
             {
-                for (int j = 0; j < 6; j++)
+                var v = new Vertex
                 {
-                    var v = new Vertex
-                    {
-                        Position = new float3(2 * i, 1, 0),
-                        QuadIndex = (ushort)j,
-                        TextureIndex = 0,
-                    };
-                    v.SetLight(15);
-                    v.SetAO((byte)i);
-                    vertexData.Add(v);
-                }
+                    Position = new float3(2 * x, 0, 5),
+                    QuadIndex = (ushort)i,
+                    TextureIndex = 0,
+                };
+                v.SetLight(15);
+
+                v.AOData = (byte)(1 << x);
+                vertexData.Add(v);
             }
+            
+            
+
 
             /*for (int x = -100; x < 100; x++)
             for (int y = -100; y < 100; y++)

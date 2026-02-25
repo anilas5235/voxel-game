@@ -15,20 +15,23 @@ namespace Runtime.Engine.Jobs.Meshing
         private void ComputeAO(in int3 coord, ref PartitionJobData jobData, in Direction direction, out byte aoMask)
         {
             aoMask = 0;
-            int3 up = coord + direction.RelativeUp();
-            int3 right = coord + direction.RelativeRight();
-            int3 down = coord + direction.RelativeDown();
-            int3 left = coord + direction.RelativeLeft();
+            int3 up = direction.RelativeUp();
+            int3 right = direction.RelativeRight();
+            int3 down = direction.RelativeDown();
+            int3 left = direction.RelativeLeft();
 
-            if (GetMeshLayer(GetVoxel(ref jobData, up), RenderGenData) == MeshLayer.Solid) 
-                SetBit(ref aoMask, 0, true);
-            if (GetMeshLayer(GetVoxel(ref jobData, right), RenderGenData) == MeshLayer.Solid)
-                SetBit(ref aoMask, 1, true);
-            if (GetMeshLayer(GetVoxel(ref jobData, down), RenderGenData) == MeshLayer.Solid)
-                SetBit(ref aoMask, 2, true);
-            if (GetMeshLayer(GetVoxel(ref jobData, left), RenderGenData) == MeshLayer.Solid)
-                SetBit(ref aoMask, 3, true);
+            SetBit(ref aoMask, 0, IsSolid(ref jobData, coord + up));
+            SetBit(ref aoMask, 1, IsSolid(ref jobData, coord + up + right));
+            SetBit(ref aoMask, 2, IsSolid(ref jobData, coord + right));
+            SetBit(ref aoMask, 3, IsSolid(ref jobData, coord + down + right));
+            SetBit(ref aoMask, 4, IsSolid(ref jobData, coord + down));
+            SetBit(ref aoMask, 5, IsSolid(ref jobData, coord + down + left));
+            SetBit(ref aoMask, 6, IsSolid(ref jobData, coord + left));
+            SetBit(ref aoMask, 7, IsSolid(ref jobData, coord + up + left));
         }
+
+        private bool IsSolid(ref PartitionJobData jobData, in int3 itr) =>
+            GetMeshLayer(GetVoxel(ref jobData, itr), RenderGenData) == MeshLayer.Solid;
 
         private void SetBit(ref byte mask, int bitIndex, bool value)
         {

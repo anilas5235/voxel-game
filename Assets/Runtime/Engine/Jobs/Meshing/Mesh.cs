@@ -13,8 +13,8 @@ namespace Runtime.Engine.Jobs.Meshing
         public ushort QuadIndex;
         public ushort padding;
         public ushort TextureIndex;
-        private byte LightDataAndAO;
-        public byte padding1;
+        private byte LightData;
+        public byte AOData;
         public uint padding2;
         public uint padding3;
 
@@ -22,21 +22,18 @@ namespace Runtime.Engine.Jobs.Meshing
         {
             Position = position;
             QuadIndex = quadIndex;
-            TextureIndex = textureIndex;
-            LightDataAndAO = 0;
             padding = 0;
-            padding1 = 0;
+            TextureIndex = textureIndex;
+            LightData = 0;
+            AOData = ao;
             padding2 = 0;
             padding3 = 0;
 
             SetLight(light);
-            SetAO(ao);
         }
 
 
-        public void SetLight(byte sunlight) => LightDataAndAO = (byte)(LightDataAndAO | (sunlight & 0b1111));
-
-        public void SetAO(byte ao) => LightDataAndAO = (byte)(LightDataAndAO | (ao << 4));
+        public void SetLight(byte sunlight) => LightData = (byte)(LightData | (sunlight & 0b1111));
     }
 
     /// <summary>

@@ -3,9 +3,9 @@ Shader "Custom/VoxelShader"
     Properties
     {
         _AOColor ("AO Color", Color) = (0, 0, 0, 1)
-        _AOIntensity ("AO Intensity", Range(0, 1)) = 0.8
-        _AOPower ("AO Power", Range(0.1, 4)) = 1.0
-        _AOFalloff ("AO Falloff", Range(0.01, 1)) = 0.3
+        _AOCurve("AOCurve", Vector, 4) = (0.75, 0.825, 0.9, 1)
+        _AOIntensity("AOIntensity", Range(0, 1)) = 1
+        _AOPower("AOPower", Range(1, 10)) = 1
         [NoScaleOffset] _Textures ("Textures", 2DArray) = "" {}
     }
 
@@ -45,7 +45,7 @@ Shader "Custom/VoxelShader"
             float3 positionWS : TEXCOORD0; // voxel world-space pos, base for quad corners
             uint4 packedUV0 : TEXCOORD1;
             /* X: quad index u16, 16 bit unused; 
-            Y: texArrayIndex u16, sunLightLevel u4, ao u4, 8 bit unused; 
+            Y: texArrayIndex u16, sunLightLevel u4, 4 bit unused, ao u8; 
             Z and W unused */
         };
 
@@ -58,7 +58,7 @@ Shader "Custom/VoxelShader"
         {
             float4 positionCS : SV_POSITION;
             float2 texCoord0 : TEXCOORD0; // xy = tile UV
-            uint packed : TEXCOORD1; // (texArrayIndex u16, sunLightLevel u4, ao u4, 8 bit unused)
+            uint packed : TEXCOORD1; // (texArrayIndex u16, sunLightLevel u4, 4 bit unused, ao u8)
         };
 
         // ── Geometry stage ────────────────────────────────────────────
@@ -66,8 +66,8 @@ Shader "Custom/VoxelShader"
         [maxvertexcount(4)]
         void geom(point GeomInput IN[1], inout TriangleStream<Varyings> stream)
         {
-            uint quadIndex = get_quad_index(IN[0].packedUV0);
-            QuadData q = quad_buffer[quadIndex];
+            uint quad_index = get_quad_index(IN[0].packedUV0);
+            QuadData q = quad_buffer[quad_index];
 
             float3 origin = IN[0].positionWS;
 
@@ -123,10 +123,9 @@ Shader "Custom/VoxelShader"
             // ── Material properties ───────────────────────────────────
             CBUFFER_START(UnityPerMaterial)
                 float4 _AOColor;
-                float4 _AOCurve;
                 float _AOIntensity;
                 float _AOPower;
-                float _AOFalloff;
+                float4 _AOCurve;
             CBUFFER_END
 
             TEXTURE2D_ARRAY(_Textures);
@@ -158,19 +157,53 @@ Shader "Custom/VoxelShader"
 
             struct FragExtraData
             {
-                int textureIndex;
-                int light;
-                int ao;
+                uint texture_index;
+                uint light;
+                uint ao;
             };
 
             FragExtraData unpack_frag_extra_data(uint packed)
             {
                 FragExtraData data;
-                data.textureIndex = packed & 0xFFFF;
+                data.texture_index = packed & 0xFFFF;
                 data.light = packed >> 16 & 0xF;
-                data.ao = packed >> 20 & 0xF;
+                data.ao = packed >> 24 & 0xFF;
                 return data;
             }
+
+            uint compute_ao_corner(const uint s1, const uint s2, const uint c)
+            {
+                return s1 == 1 && s2 == 1 ? 0 : 3 - (s1 + s2 + c);
+            }
+
+            float scale_ao(const float4 curve, float index, const float intensity, const float power)
+            {
+                return pow(abs(curve[index] * intensity), power);
+            }
+
+            float ao_interpolate(const float4 curve, const uint ao_data, const float intensity, const float power,
+                                 const float2 uv)
+            {
+                // Bits: 0=up (UV.y=1), 1=up-right (UV=1,1), 2=right (UV.x=1), 3=down-right (UV=1,0),
+                //       4=down (UV.y=0), 5=down-left (UV=0,0), 6=left (UV.x=0), 7=up-left (UV=0,1)
+                uint u = ao_data >> 0 & 1;
+                uint ur = ao_data >> 1 & 1;
+                uint r = ao_data >> 2 & 1;
+                uint dr = ao_data >> 3 & 1;
+                uint d = ao_data >> 4 & 1;
+                uint dl = ao_data >> 5 & 1;
+                uint l = ao_data >> 6 & 1;
+                uint ul = ao_data >> 7 & 1;
+
+                float dlc = scale_ao(curve, compute_ao_corner(l, d, dl), intensity, power);
+                float ulc = scale_ao(curve, compute_ao_corner(l, u, ul), intensity, power);
+                float drc = scale_ao(curve, compute_ao_corner(r, d, dr), intensity, power);
+                float urc = scale_ao(curve, compute_ao_corner(r, u, ur), intensity, power);
+
+                // Interpolate the 4 corner AO values based on the pixel's UV within the quad.
+                return clamp(lerp(lerp(dlc, drc, uv.x), lerp(ulc, urc, uv.x), uv.y), 0, 1);
+            }
+
 
             // ── Fragment shader ───────────────────────────────────────
             half4 frag(Varyings IN) : SV_Target
@@ -179,51 +212,19 @@ Shader "Custom/VoxelShader"
                 // texCoord1.x = texture array slice index
                 // texCoord0.xy = UV within the tile
                 FragExtraData extra = unpack_frag_extra_data(IN.packed);
-                int texIndex = extra.textureIndex;
-                float2 tileUV = IN.texCoord0;
-                float4 albedo = SAMPLE_TEXTURE2D_ARRAY(_Textures, sampler_Textures, tileUV, texIndex);
+                float2 uv = IN.texCoord0;
+                float4 albedo = SAMPLE_TEXTURE2D_ARRAY(_Textures, sampler_Textures, uv, extra.texture_index);
 
                 // --- Ambient occlusion ---
-                int occlusions = extra.ao;
-                // Bits: 0=up (UV.y=1), 1=right (UV.x=0), 2=down (UV.y=0), 3=left (UV.x=1)
 
-                float bit_up = (float)(occlusions >> 0 & 1);
-                float bit_right = (float)(occlusions >> 1 & 1);
-                float bit_down = (float)(occlusions >> 2 & 1);
-                float bit_left = (float)(occlusions >> 3 & 1);
-
-                // Corner occlusion: sum of the two adjacent edge bits (0, 1 or 2)
-                // UV(0,0)=down-right, UV(1,0)=down-left, UV(0,1)=up-right, UV(1,1)=up-left
-                float c_dr = (bit_right + bit_down) / 2; // UV(0,0)
-                float c_dl = (bit_left + bit_down) / 2; // UV(1,0)
-                float c_ur = (bit_right + bit_up) / 2; // UV(0,1)
-                float c_ul = (bit_left + bit_up) / 2; // UV(1,1)
-
-                // Distance from each edge (0 at edge, 1 at opposite edge)
-                float dist_up = 1.0 - tileUV.y;
-                float dist_right = tileUV.x;
-                float dist_down = tileUV.y;
-                float dist_left = 1.0 - tileUV.x;
-
-                // Per-edge contribution: ramps from 1 at the edge to 0 at _AOFalloff distance
-                float ao_up = bit_up * saturate(1.0 - dist_up / _AOFalloff); //* lerp(c_ur, c_ul, tileUV.x);
-                float ao_right = bit_right * saturate(1.0 - dist_right / _AOFalloff); //* lerp(c_ur, c_dr, tileUV.y);
-                float ao_down = bit_down * saturate(1.0 - dist_down / _AOFalloff); //* lerp(c_dr, c_dl, tileUV.x);
-                float ao_left = bit_left * saturate(1.0 - dist_left / _AOFalloff); //* lerp(c_dl, c_ul, tileUV.y);
-
-                float ao_intensity = max(max(ao_up, ao_right), max(ao_down, ao_left));
-
-                // Normalise to 0..1 (max corner value is 2)
-                ao_intensity = pow(ao_intensity, _AOPower) * _AOIntensity;
-
-                // Multiply albedo toward _AOColor (option A: multiplicative)
-                albedo.rgb *= lerp(1.0, _AOColor.rgb, ao_intensity);
+                float4 ao_color = lerp(_AOColor, albedo,
+                           ao_interpolate(extra.ao, _AOCurve, _AOIntensity, _AOPower, uv));
 
                 // --- Sun light level ---
                 float sun_light = lerp(0.05, 1.0, extra.light / 15.0f);
 
                 // --- Final colour ---
-                return half4(albedo.rgb * sun_light, 1);
+                return half4(ao_color.rgb * sun_light, 1);
             }
             ENDHLSL
         }
