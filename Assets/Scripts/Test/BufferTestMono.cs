@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 
 namespace Test
 {
@@ -19,32 +20,45 @@ namespace Test
         public struct Vertex
         {
             public float3 Position;
-            public ushort QuadIndex;
+            private uint Quad;
+
+            internal uint Extra;
+
+            /*public ushort QuadIndex;
             public ushort padding;
             public ushort TextureIndex;
             private byte LightData;
-            public byte AOData;
+            public byte AOData;*/
             public uint padding2;
             public uint padding3;
 
             public Vertex(float3 position, ushort quadIndex, ushort textureIndex, byte light, byte ao)
             {
                 Position = position;
-                QuadIndex = quadIndex;
+                /*QuadIndex = quadIndex;
                 padding = 0;
                 TextureIndex = textureIndex;
                 LightData = 0;
-                AOData = ao;
+                AOData = ao;*/
+                Quad = 0;
+                Extra = 0;
                 padding2 = 0;
                 padding3 = 0;
 
+                SetQuadIndex(quadIndex);
+                SetTextureIndex(textureIndex);
                 SetLight(light);
+                SetAO(ao);
             }
 
+            public void SetQuadIndex(ushort quadIndex) => Quad |= quadIndex;
 
-            public void SetLight(byte sunlight) => LightData = (byte)(LightData | (sunlight & 0b1111));
+            public void SetTextureIndex(ushort textureIndex) => Extra |= textureIndex;
+
+            public void SetLight(byte sunlight) => Extra |= ((uint)sunlight & 0b1111) << 16;
+
+            public void SetAO(byte ao) => Extra |= ((uint)ao) << 24;
         }
-
 
         // Start is called once before the first execution of Update after the MonoBehaviour is created
         void Start()
@@ -55,61 +69,22 @@ namespace Test
 
             List<Vertex> vertexData = new();
 
-            for (int i = 0; i < 6; i++)
-            {
-                var v = new Vertex
-                {
-                    Position = float3.zero,
-                    QuadIndex = (ushort)i,
-                    TextureIndex = 3,
-                };
-                v.SetLight(15);
-                vertexData.Add(v);
-            }
-
-            for (int i = 0; i < 16; i++)
-            {
-                var v = new Vertex
-                {
-                    Position = new float3(1 + i, 0, 0),
-                    QuadIndex = 0,
-                    TextureIndex = 3,
-                };
-                v.SetLight((byte)i);
-                vertexData.Add(v);
-            }
-
             for (int x = 0; x < 8; x++)
-            for (int i = 0; i < 6; i++)
+            for (int y = 0; y < 8; y++)
             {
-                var v = new Vertex
+                Vertex v = new()
                 {
-                    Position = new float3(2 * x, 0, 5),
-                    QuadIndex = (ushort)i,
-                    TextureIndex = 0,
+                    Position = new float3(2 * x, y, 5),
                 };
-                v.SetLight(15);
+                v.SetQuadIndex((ushort)4);
+                v.SetTextureIndex(1);
+                v.SetLight(0b1111);
 
-                v.AOData = (byte)(1 << x);
+                v.SetAO((byte)((1 << x) | (1 << y)));
                 vertexData.Add(v);
+                
             }
             
-            
-
-
-            /*for (int x = -100; x < 100; x++)
-            for (int y = -100; y < 100; y++)
-            {
-                vertexData.Add(new Vertex
-                {
-                    Position = new float3(x, y, 0f),
-                    Normal = new float3(0, 0f, -1.0f),
-                    UV0 = (half4)float4.zero,
-                    UV1 = (half4)new float4(0f, 0f, 0.0f, 1.0f),
-                    AO = (half4)new float4(0f, 0f, 0f, 0f)
-                });
-            }*/
-
             mf.mesh.SetVertexBufferParams(vertexData.Count, VertexParams);
 
             mf.mesh.SetIndexBufferParams(vertexData.Count, IndexFormat.UInt16);

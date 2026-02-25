@@ -171,29 +171,29 @@ Shader "Custom/VoxelShader"
                 return data;
             }
 
-            uint compute_ao_corner(const uint s1, const uint s2, const uint c)
+            int compute_ao_corner(const int s1, const int s2, const int c)
             {
                 return s1 == 1 && s2 == 1 ? 0 : 3 - (s1 + s2 + c);
             }
 
-            float scale_ao(const float4 curve, float index, const float intensity, const float power)
+            float scale_ao(const float4 curve, const int index, const float intensity, const float power)
             {
                 return pow(abs(curve[index] * intensity), power);
             }
 
-            float ao_interpolate(const float4 curve, const uint ao_data, const float intensity, const float power,
+            float ao_interpolate(const float4 curve, const int ao_data, const float intensity, const float power,
                                  const float2 uv)
             {
                 // Bits: 0=up (UV.y=1), 1=up-right (UV=1,1), 2=right (UV.x=1), 3=down-right (UV=1,0),
                 //       4=down (UV.y=0), 5=down-left (UV=0,0), 6=left (UV.x=0), 7=up-left (UV=0,1)
-                uint u = ao_data >> 0 & 1;
-                uint ur = ao_data >> 1 & 1;
-                uint r = ao_data >> 2 & 1;
-                uint dr = ao_data >> 3 & 1;
-                uint d = ao_data >> 4 & 1;
-                uint dl = ao_data >> 5 & 1;
-                uint l = ao_data >> 6 & 1;
-                uint ul = ao_data >> 7 & 1;
+                int u = ao_data >> 0 & 1;
+                int ur = ao_data >> 1 & 1;
+                int r = ao_data >> 2 & 1;
+                int dr = ao_data >> 3 & 1;
+                int d = ao_data >> 4 & 1;
+                int dl = ao_data >> 5 & 1;
+                int l = ao_data >> 6 & 1;
+                int ul = ao_data >> 7 & 1;
 
                 float dlc = scale_ao(curve, compute_ao_corner(l, d, dl), intensity, power);
                 float ulc = scale_ao(curve, compute_ao_corner(l, u, ul), intensity, power);
@@ -201,7 +201,7 @@ Shader "Custom/VoxelShader"
                 float urc = scale_ao(curve, compute_ao_corner(r, u, ur), intensity, power);
 
                 // Interpolate the 4 corner AO values based on the pixel's UV within the quad.
-                return clamp(lerp(lerp(dlc, drc, uv.x), lerp(ulc, urc, uv.x), uv.y), 0, 1);
+                return lerp(lerp(dlc, drc, uv.x), lerp(ulc, urc, uv.x), uv.y);
             }
 
 
@@ -218,7 +218,7 @@ Shader "Custom/VoxelShader"
                 // --- Ambient occlusion ---
 
                 float4 ao_color = lerp(_AOColor, albedo,
-                           ao_interpolate(extra.ao, _AOCurve, _AOIntensity, _AOPower, uv));
+                                       ao_interpolate(_AOCurve, extra.ao, _AOIntensity, _AOPower, uv));
 
                 // --- Sun light level ---
                 float sun_light = lerp(0.05, 1.0, extra.light / 15.0f);
