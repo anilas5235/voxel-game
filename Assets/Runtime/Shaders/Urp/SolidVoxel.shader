@@ -260,13 +260,12 @@ Shader "Custom/VoxelShader"
                 float4 _AOCurve;
                 float _AOIntensity;
                 float _AOPower;
-                float _AOFalloff;
             CBUFFER_END
 
             struct DepthAttributes
             {
                 float3 positionOS : POSITION;
-                float4 uv0 : TEXCOORD0;
+                uint4 uv0 : TEXCOORD0;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
