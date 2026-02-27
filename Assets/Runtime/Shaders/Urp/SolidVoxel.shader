@@ -285,5 +285,129 @@ Shader "Custom/VoxelShader"
             }
             ENDHLSL
         }
+
+        // ═════════════════════════════════════════════════════════════
+        // Pass 3 – Scene Selection (editor highlight / outline)
+        // ═════════════════════════════════════════════════════════════
+        Pass
+        {
+            Name "SceneSelectionPass"
+            Tags
+            {
+                "LightMode" = "SceneSelectionPass"
+            }
+
+            Cull Off
+            ZTest LEqual
+            ZWrite On
+            ColorMask RGBA
+
+            HLSLPROGRAM
+            #pragma target 4.5
+            #pragma vertex   vert_sel
+            #pragma geometry geom          // shared from HLSLINCLUDE
+            #pragma fragment frag_sel
+
+            #pragma multi_compile_instancing
+
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+
+            CBUFFER_START(UnityPerMaterial)
+                float4 _AOColor;
+                float4 _AOCurve;
+                float _AOIntensity;
+                float _AOPower;
+            CBUFFER_END
+
+            // Unity-supplied selection ID (injected by the editor)
+            int _ObjectId;
+            int _PassValue;
+
+            struct SelAttributes
+            {
+                float3 positionOS : POSITION;
+                uint4 uv0 : TEXCOORD0;
+                UNITY_VERTEX_INPUT_INSTANCE_ID
+            };
+
+            GeomInput vert_sel(SelAttributes IN)
+            {
+                UNITY_SETUP_INSTANCE_ID(IN);
+
+                GeomInput o;
+                o.positionWS = TransformObjectToWorld(IN.positionOS);
+                o.packedUV0 = IN.uv0;
+                return o;
+            }
+
+            half4 frag_sel(Varyings IN) : SV_Target
+            {
+                // Encode the object/pass ID as required by the SceneSelectionPass protocol.
+                return half4(_ObjectId, _PassValue, 1, 1);
+            }
+            ENDHLSL
+        }
+
+        // ═════════════════════════════════════════════════════════════
+        // Pass 4 – Scene Picking (editor GPU picking)
+        // ═════════════════════════════════════════════════════════════
+        Pass
+        {
+            Name "ScenePickingPass"
+            Tags
+            {
+                "LightMode" = "Picking"
+            }
+
+            Cull Off
+            ZTest LEqual
+            ZWrite On
+            ColorMask RGBA
+
+            HLSLPROGRAM
+            #pragma target 4.5
+            #pragma vertex   vert_pick
+            #pragma geometry geom          // shared from HLSLINCLUDE
+            #pragma fragment frag_pick
+
+            #pragma multi_compile_instancing
+
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/UnityInstancing.hlsl"
+
+            CBUFFER_START(UnityPerMaterial)
+                float4 _AOColor;
+                float4 _AOCurve;
+                float _AOIntensity;
+                float _AOPower;
+            CBUFFER_END
+
+            // Unity encodes the picking ID into this float4 via
+            // SceneView / HandleUtility.
+            float4 _SelectionID;
+
+            struct PickAttributes
+            {
+                float3 positionOS : POSITION;
+                uint4 uv0 : TEXCOORD0;
+                UNITY_VERTEX_INPUT_INSTANCE_ID
+            };
+
+            GeomInput vert_pick(PickAttributes IN)
+            {
+                UNITY_SETUP_INSTANCE_ID(IN);
+
+                GeomInput o;
+                o.positionWS = TransformObjectToWorld(IN.positionOS);
+                o.packedUV0 = IN.uv0;
+                return o;
+            }
+
+            half4 frag_pick(Varyings IN) : SV_Target
+            {
+                return _SelectionID;
+            }
+            ENDHLSL
+        }
     }
 }
