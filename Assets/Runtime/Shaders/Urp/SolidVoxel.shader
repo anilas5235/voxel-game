@@ -95,7 +95,7 @@ Shader "Custom/VoxelShader"
         ENDHLSL
 
         // ═════════════════════════════════════════════════════════════
-        // Pass 1 – Forward / Unlit
+        // Pass – Forward / Unlit
         // ═════════════════════════════════════════════════════════════
         Pass
         {
@@ -230,7 +230,7 @@ Shader "Custom/VoxelShader"
         }
 
         // ═════════════════════════════════════════════════════════════
-        // Pass 2 – Depth Only
+        // Pass – Depth Only
         // ═════════════════════════════════════════════════════════════
         Pass
         {
@@ -287,7 +287,7 @@ Shader "Custom/VoxelShader"
         }
 
         // ═════════════════════════════════════════════════════════════
-        // Pass 3 – Scene Selection (editor highlight / outline)
+        // Pass – Scene Selection (editor highlight / outline)
         // ═════════════════════════════════════════════════════════════
         Pass
         {
@@ -349,7 +349,7 @@ Shader "Custom/VoxelShader"
         }
 
         // ═════════════════════════════════════════════════════════════
-        // Pass 4 – Scene Picking (editor GPU picking)
+        // Pass – Scene Picking (editor GPU picking)
         // ═════════════════════════════════════════════════════════════
         Pass
         {
