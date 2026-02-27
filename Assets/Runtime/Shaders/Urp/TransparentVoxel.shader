@@ -194,8 +194,6 @@
 
             #pragma multi_compile_instancing
 
-            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
-
             CBUFFER_START(UnityPerMaterial)
                 float4 _AOColor;
                 float4 _AOCurve;
