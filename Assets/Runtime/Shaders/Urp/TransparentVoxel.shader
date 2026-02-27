@@ -219,7 +219,7 @@
 
             float depth_fade(const float4 positionSS, const float dist, const float texAlpha)
             {
-                if (dist <= 0.1f) return 1.0f;
+                if (dist <= 0.1f) return texAlpha;
 
                 float2 ndc = positionSS.xy / positionSS.w;
 
@@ -252,7 +252,7 @@
                 float alpha = depth_fade(IN.positionSS, extra.depth_fade_dist, albedo.w);
 
                 // --- Final colour ---
-                return half4(ao_color.rgb * sun_light * (extra.glow / 8.0f), alpha);
+                return half4(ao_color.rgb * sun_light * (1+extra.glow / 8.0f), alpha);
             }
             ENDHLSL
         }
