@@ -219,7 +219,7 @@
 
             float depth_fade(const float4 positionSS, const float dist, const float texAlpha)
             {
-                if (dist <= 0.1) return 1.0;
+                if (dist <= 0.1f) return 1.0f;
 
                 float2 ndc = positionSS.xy / positionSS.w;
 
@@ -252,66 +252,9 @@
                 float alpha = depth_fade(IN.positionSS, extra.depth_fade_dist, albedo.w);
 
                 // --- Final colour ---
-                return half4(ao_color.rgb * sun_light * (extra.glow / 8.0), alpha);
+                return half4(ao_color.rgb * sun_light * (extra.glow / 8.0f), alpha);
             }
             ENDHLSL
         }
-
-        /*// ═════════════════════════════════════════════════════════════
-        // Pass 2 – Depth Only
-        // ═════════════════════════════════════════════════════════════
-        Pass
-        {
-            Name "DepthOnly"
-            Tags
-            {
-                "LightMode" = "DepthOnly"
-            }
-
-            Cull Off
-            ZTest LEqual
-            ZWrite On
-            ColorMask R
-
-            HLSLPROGRAM
-            #pragma target 4.5
-            #pragma vertex   vert_depth
-            #pragma geometry geom          // shared from HLSLINCLUDE
-            #pragma fragment frag_depth
-
-            #pragma multi_compile_instancing
-
-            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
-
-            CBUFFER_START(UnityPerMaterial)
-                float4 _AOColor;
-                float4 _AOCurve;
-                float _AOIntensity;
-                float _AOPower;
-            CBUFFER_END
-
-            struct DepthAttributes
-            {
-                float3 positionOS : POSITION;
-                uint4 uv0 : TEXCOORD0;
-                UNITY_VERTEX_INPUT_INSTANCE_ID
-            };
-
-            GeomInput vert_depth(DepthAttributes IN)
-            {
-                UNITY_SETUP_INSTANCE_ID(IN);
-
-                GeomInput o;
-                o.positionWS = TransformObjectToWorld(IN.positionOS); // voxel world pos
-                o.packedUV0 = IN.uv0;
-                return o;
-            }
-
-            half frag_depth(Varyings IN) : SV_Target
-            {
-                return 0;
-            }
-            ENDHLSL
-        }*/
     }
 }
