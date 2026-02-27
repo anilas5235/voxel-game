@@ -2,6 +2,7 @@
 #define VOXEL_COMMON_INCLUDED
 
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/UnityInstancing.hlsl"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Quad buffer
@@ -48,7 +49,7 @@ uint get_quad_index(uint4 packed)
 struct Attributes
 {
     float3 positionOS : POSITION;
-    uint4  uv0        : TEXCOORD0;
+    uint4 uv0 : TEXCOORD0;
     UNITY_VERTEX_INPUT_INSTANCE_ID
 };
 
@@ -61,7 +62,7 @@ GeomInput vert(Attributes IN)
     UNITY_SETUP_INSTANCE_ID(IN);
     GeomInput o;
     o.positionWS = TransformObjectToWorld(IN.positionOS);
-    o.packedUV0  = IN.uv0;
+    o.packedUV0 = IN.uv0;
     return o;
 }
 
@@ -84,13 +85,13 @@ float ao_interpolate(const float4 curve, const int ao_data, const float intensit
 {
     // Bits: 0=up (UV.y=1), 1=up-right (UV=1,1), 2=right (UV.x=1), 3=down-right (UV=1,0),
     //       4=down (UV.y=0), 5=down-left (UV=0,0), 6=left (UV.x=0), 7=up-left (UV=0,1)
-    int u  = ao_data >> 0 & 1;
+    int u = ao_data >> 0 & 1;
     int ur = ao_data >> 1 & 1;
-    int r  = ao_data >> 2 & 1;
+    int r = ao_data >> 2 & 1;
     int dr = ao_data >> 3 & 1;
-    int d  = ao_data >> 4 & 1;
+    int d = ao_data >> 4 & 1;
     int dl = ao_data >> 5 & 1;
-    int l  = ao_data >> 6 & 1;
+    int l = ao_data >> 6 & 1;
     int ul = ao_data >> 7 & 1;
 
     float dlc = scale_ao(curve, compute_ao_corner(l, d, dl), intensity, power);

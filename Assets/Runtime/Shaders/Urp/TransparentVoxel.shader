@@ -24,36 +24,7 @@
         // ─────────────────────────────────────────────────────────────
         HLSLINCLUDE
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
-
-        struct QuadData
-        {
-            float3 position00; // vertex offset from voxel origin
-            float3 position01;
-            float3 position02;
-            float3 position03;
-            float3 normal;
-            float2 uv00;
-            float2 uv01;
-            float2 uv02;
-            float2 uv03;
-        };
-
-        StructuredBuffer<QuadData> quad_buffer;
-
-        struct GeomInput
-        {
-            float3 positionWS : TEXCOORD0; // voxel world-space pos, base for quad corners
-            uint4 packedUV0 : TEXCOORD1;
-            /* X: quad index u16, 16 bit unused;
-            Y: texArrayIndex u16, sunLightLevel u4, 4 bit unused, ao u8;
-            Z: half16 in bits 0-15;
-            W: unused */
-        };
-
-        uint get_quad_index(uint4 packed)
-        {
-            return packed.x & 0xFFFF; // lower 16 bits of uv0.x
-        }
+        #include "VoxelCommon.hlsl"
 
         struct Varyings
         {
@@ -140,30 +111,6 @@
             TEXTURE2D_ARRAY(_Textures);
             SAMPLER(sampler_Textures);
 
-            // ── Vertex input ──────────────────────────────────────────
-            // Each "vertex" is a point representing one quad face.
-            // uv0.x  = quad index into quad_buffer
-            // uv1.xyzw = (texArrayIndex, 0, 0, sunLightLevel)
-            // uv2.xyzw = raw AO corner values (used to compute per-face AO)
-            struct Attributes
-            {
-                float3 positionOS : POSITION;
-                uint4 uv0 : TEXCOORD0;
-                UNITY_VERTEX_INPUT_INSTANCE_ID
-            };
-
-            // ── Vertex shader ─────────────────────────────────────────
-            // Passes the voxel world-space origin and index data to geom.
-            GeomInput vert(Attributes IN)
-            {
-                UNITY_SETUP_INSTANCE_ID(IN);
-
-                GeomInput o;
-                o.positionWS = TransformObjectToWorld(IN.positionOS); // voxel world pos
-                o.packedUV0 = IN.uv0;
-                return o;
-            }
-
             struct FragExtraData
             {
                 uint texture_index;
@@ -182,40 +129,7 @@
                 data.depth_fade_dist = f16tof32(packed.z & 0xFFFF);
                 data.glow = (float)(packed.z >> 16 & 0xFF);
                 return data;
-            }
-
-            int compute_ao_corner(const int s1, const int s2, const int c)
-            {
-                return s1 == 1 && s2 == 1 ? 0 : 3 - (s1 + s2 + c);
-            }
-
-            float scale_ao(const float4 curve, const int index, const float intensity, const float power)
-            {
-                return pow(abs(curve[index] * intensity), power);
-            }
-
-            float ao_interpolate(const float4 curve, const int ao_data, const float intensity, const float power,
-                                 const float2 uv)
-            {
-                // Bits: 0=up (UV.y=1), 1=up-right (UV=1,1), 2=right (UV.x=1), 3=down-right (UV=1,0),
-                //       4=down (UV.y=0), 5=down-left (UV=0,0), 6=left (UV.x=0), 7=up-left (UV=0,1)
-                int u = ao_data >> 0 & 1;
-                int ur = ao_data >> 1 & 1;
-                int r = ao_data >> 2 & 1;
-                int dr = ao_data >> 3 & 1;
-                int d = ao_data >> 4 & 1;
-                int dl = ao_data >> 5 & 1;
-                int l = ao_data >> 6 & 1;
-                int ul = ao_data >> 7 & 1;
-
-                float dlc = scale_ao(curve, compute_ao_corner(l, d, dl), intensity, power);
-                float ulc = scale_ao(curve, compute_ao_corner(l, u, ul), intensity, power);
-                float drc = scale_ao(curve, compute_ao_corner(r, d, dr), intensity, power);
-                float urc = scale_ao(curve, compute_ao_corner(r, u, ur), intensity, power);
-
-                // Interpolate the 4 corner AO values based on the pixel's UV within the quad.
-                return lerp(lerp(dlc, drc, uv.x), lerp(ulc, urc, uv.x), uv.y);
-            }
+            }            
 
             float depth_fade(const float4 positionSS, const float dist, const float texAlpha)
             {
@@ -230,7 +144,6 @@
                 return lerp(texAlpha, 1, inter);
             }
 
-
             // ── Fragment shader ───────────────────────────────────────
             half4 frag(Varyings IN) : SV_Target
             {
@@ -244,7 +157,7 @@
                 // --- Ambient occlusion ---
 
                 float4 ao_color = lerp(_AOColor, albedo,
-                                       ao_interpolate(_AOCurve, extra.ao, _AOIntensity, _AOPower, uv));
+               ao_interpolate(_AOCurve, extra.ao, _AOIntensity, _AOPower, uv));
 
                 // --- Sun light level ---
                 float sun_light = lerp(0.05, 1.0, extra.light / 15.0f);
@@ -252,7 +165,7 @@
                 float alpha = depth_fade(IN.positionSS, extra.depth_fade_dist, albedo.w);
 
                 // --- Final colour ---
-                return half4(ao_color.rgb * sun_light * (1+extra.glow / 8.0f), alpha);
+                return half4(ao_color.rgb * sun_light * (1 + extra.glow / 8.0f), alpha);
             }
             ENDHLSL
         }
@@ -275,8 +188,8 @@
 
             HLSLPROGRAM
             #pragma target 4.5
-            #pragma vertex   vert_sel
-            #pragma geometry geom          // shared from HLSLINCLUDE
+            #pragma vertex   vert
+            #pragma geometry geom          
             #pragma fragment frag_sel
 
             #pragma multi_compile_instancing
@@ -291,24 +204,7 @@
             CBUFFER_END
 
             int _ObjectId;
-            int _PassValue;
-
-            struct SelAttributes
-            {
-                float3 positionOS : POSITION;
-                uint4 uv0 : TEXCOORD0;
-                UNITY_VERTEX_INPUT_INSTANCE_ID
-            };
-
-            GeomInput vert_sel(SelAttributes IN)
-            {
-                UNITY_SETUP_INSTANCE_ID(IN);
-
-                GeomInput o;
-                o.positionWS = TransformObjectToWorld(IN.positionOS);
-                o.packedUV0 = IN.uv0;
-                return o;
-            }
+            int _PassValue;            
 
             half4 frag_sel(Varyings IN) : SV_Target
             {
@@ -335,14 +231,11 @@
 
             HLSLPROGRAM
             #pragma target 4.5
-            #pragma vertex   vert_pick
-            #pragma geometry geom          // shared from HLSLINCLUDE
+            #pragma vertex   vert
+            #pragma geometry geom          
             #pragma fragment frag_pick
 
             #pragma multi_compile_instancing
-
-            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
-            #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/UnityInstancing.hlsl"
 
             CBUFFER_START(UnityPerMaterial)
                 float4 _AOColor;
@@ -351,24 +244,7 @@
                 float _AOPower;
             CBUFFER_END
 
-            float4 _SelectionID;
-
-            struct PickAttributes
-            {
-                float3 positionOS : POSITION;
-                uint4 uv0 : TEXCOORD0;
-                UNITY_VERTEX_INPUT_INSTANCE_ID
-            };
-
-            GeomInput vert_pick(PickAttributes IN)
-            {
-                UNITY_SETUP_INSTANCE_ID(IN);
-
-                GeomInput o;
-                o.positionWS = TransformObjectToWorld(IN.positionOS);
-                o.packedUV0 = IN.uv0;
-                return o;
-            }
+            float4 _SelectionID;           
 
             half4 frag_pick(Varyings IN) : SV_Target
             {
