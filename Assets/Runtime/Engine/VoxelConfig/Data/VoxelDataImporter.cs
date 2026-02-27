@@ -171,6 +171,7 @@ namespace Runtime.Engine.VoxelConfig.Data
             _quadDataBuffer.SetData(quadDataList);
 
             voxelSolidMaterial.SetBuffer(QuadBufferID, _quadDataBuffer);
+            voxelTransparentMaterial.SetBuffer(QuadBufferID, _quadDataBuffer);
         }
 
         /// <summary>
