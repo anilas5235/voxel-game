@@ -50,6 +50,8 @@ namespace Runtime.Engine.VoxelConfig.Data
         /// Distance at which transparent voxels start fading; negative value disables depth fading.
         /// </summary>
         public float depthFadeDistance = -1f;
+        
+        [Range(0,255)] public int glow;
 
         /// <summary>
         /// Optional post processing data applied when rendering this voxel.
@@ -77,6 +79,7 @@ namespace Runtime.Engine.VoxelConfig.Data
         /// If true, this voxel participates in physics collisions.
         /// </summary>
         public bool collision = true;
+
 
         /// <summary>
         /// Gets or sets the texture mapping mode for this voxel.

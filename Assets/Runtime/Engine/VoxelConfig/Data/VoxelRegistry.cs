@@ -55,6 +55,7 @@ namespace Runtime.Engine.VoxelConfig.Data
                 AlwaysRenderAllFaces = definition.alwaysRenderAllFaces,
                 VoxelType = definition.voxelType,
                 DepthFadeDistance = definition.depthFadeDistance,
+                Glow = (byte) definition.glow,
                 Collision = definition.collision,
                 TexUp = RegisterTexture(definition, Direction.Up),
                 TexDown = RegisterTexture(definition, Direction.Down),

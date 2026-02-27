@@ -36,6 +36,8 @@ namespace Runtime.Engine.VoxelConfig.Editor
             {
                 voxelDef.alwaysRenderAllFaces = false;
             }
+            
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("glow"));
 
             if (voxelDef.meshLayer == MeshLayer.Transparent)
             {

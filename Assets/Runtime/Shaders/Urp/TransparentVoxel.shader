@@ -59,8 +59,10 @@
         {
             float4 positionCS : SV_POSITION;
             float2 texCoord0 : TEXCOORD0; // xy = tile UV
-            uint packed : TEXCOORD1; // (texArrayIndex u16, sunLightLevel u4, 4 bit unused, ao u8)
-            uint packedZ : TEXCOORD2; // uv0.z – half16 in bits 0-15
+            uint4 packed : TEXCOORD1; // x: (texArrayIndex u16, sunLightLevel u4, 4 bit unused, ao u8)
+            // y:half16 , 16 bit unused
+            // z and w unused
+            float4 positionSS : TEXCOORD3;
         };
 
         // ── Geometry stage ────────────────────────────────────────────
@@ -74,23 +76,26 @@
             float3 origin = IN[0].positionWS;
 
             Varyings o;
-            o.packed = IN[0].packedUV0.y;
-            o.packedZ = IN[0].packedUV0.z;
+            o.packed = IN[0].packedUV0;
 
             o.positionCS = TransformWorldToHClip(origin + q.position00);
             o.texCoord0 = q.uv00;
+            o.positionSS = ComputeScreenPos(o.positionCS);
             stream.Append(o);
 
             o.positionCS = TransformWorldToHClip(origin + q.position01);
             o.texCoord0 = q.uv01;
+            o.positionSS = ComputeScreenPos(o.positionCS);
             stream.Append(o);
 
             o.positionCS = TransformWorldToHClip(origin + q.position02);
             o.texCoord0 = q.uv02;
+            o.positionSS = ComputeScreenPos(o.positionCS);
             stream.Append(o);
 
             o.positionCS = TransformWorldToHClip(origin + q.position03);
             o.texCoord0 = q.uv03;
+            o.positionSS = ComputeScreenPos(o.positionCS);
             stream.Append(o);
 
             stream.RestartStrip();
@@ -164,16 +169,18 @@
                 uint texture_index;
                 uint light;
                 uint ao;
-                half depth_fade_dist;
+                float depth_fade_dist;
+                float glow;
             };
 
-            FragExtraData unpack_frag_extra_data(uint packed, uint packedZ)
+            FragExtraData unpack_frag_extra_data(uint4 packed)
             {
                 FragExtraData data;
-                data.texture_index = packed & 0xFFFF;
-                data.light = packed >> 16 & 0xF;
-                data.ao = packed >> 24 & 0xFF;
-                data.depth_fade_dist = (half)(packedZ & 0xFFFF);
+                data.texture_index = packed.y & 0xFFFF;
+                data.light = packed.y >> 16 & 0xF;
+                data.ao = packed.y >> 24 & 0xFF;
+                data.depth_fade_dist = f16tof32(packed.z & 0xFFFF);
+                data.glow = (float)(packed.z >> 16 & 0xFF);
                 return data;
             }
 
@@ -188,7 +195,7 @@
             }
 
             float ao_interpolate(const float4 curve, const int ao_data, const float intensity, const float power,
-                                             const float2 uv)
+                                 const float2 uv)
             {
                 // Bits: 0=up (UV.y=1), 1=up-right (UV=1,1), 2=right (UV.x=1), 3=down-right (UV=1,0),
                 //       4=down (UV.y=0), 5=down-left (UV=0,0), 6=left (UV.x=0), 7=up-left (UV=0,1)
@@ -210,10 +217,18 @@
                 return lerp(lerp(dlc, drc, uv.x), lerp(ulc, urc, uv.x), uv.y);
             }
 
-            half depth_fade(half depth_fade_dist)
+            float depth_fade(const float4 positionSS, const float dist, const float texAlpha)
             {
-                return 1;
-            }            
+                if (dist <= 0.1) return 1.0;
+
+                float2 ndc = positionSS.xy / positionSS.w;
+
+                float raw_depth = SampleSceneDepth(ndc);
+                float scene_eye_depth = LinearEyeDepth(raw_depth, _ZBufferParams);
+
+                float inter = saturate((scene_eye_depth - positionSS.w) / dist);
+                return lerp(texAlpha, 1, inter);
+            }
 
 
             // ── Fragment shader ───────────────────────────────────────
@@ -222,26 +237,27 @@
                 // --- Texture array sample ---
                 // texCoord1.x = texture array slice index
                 // texCoord0.xy = UV within the tile
-                FragExtraData extra = unpack_frag_extra_data(IN.packed, IN.packedZ);
+                FragExtraData extra = unpack_frag_extra_data(IN.packed);
                 float2 uv = IN.texCoord0;
                 float4 albedo = SAMPLE_TEXTURE2D_ARRAY(_Textures, sampler_Textures, uv, extra.texture_index);
 
                 // --- Ambient occlusion ---
 
                 float4 ao_color = lerp(_AOColor, albedo,
-                              ao_interpolate(_AOCurve, extra.ao, _AOIntensity, _AOPower, uv));
+                                       ao_interpolate(_AOCurve, extra.ao, _AOIntensity, _AOPower, uv));
 
                 // --- Sun light level ---
                 float sun_light = lerp(0.05, 1.0, extra.light / 15.0f);
 
+                float alpha = depth_fade(IN.positionSS, extra.depth_fade_dist, albedo.w);
+
                 // --- Final colour ---
-                return half4(ao_color.rgb * sun_light,
-                       albedo.w * depth_fade(extra.depth_fade_dist));
+                return half4(ao_color.rgb * sun_light * (extra.glow / 8.0), alpha);
             }
             ENDHLSL
         }
 
-        // ═════════════════════════════════════════════════════════════
+        /*// ═════════════════════════════════════════════════════════════
         // Pass 2 – Depth Only
         // ═════════════════════════════════════════════════════════════
         Pass
@@ -296,6 +312,6 @@
                 return 0;
             }
             ENDHLSL
-        }
+        }*/
     }
 }

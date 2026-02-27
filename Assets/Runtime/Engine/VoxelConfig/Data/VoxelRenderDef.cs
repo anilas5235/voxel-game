@@ -17,6 +17,8 @@ namespace Runtime.Engine.VoxelConfig.Data
         public VoxelType VoxelType;
         /// <summary>Distance at which depth fading starts for transparent voxels.</summary>
         public float DepthFadeDistance;
+        /// <summary> Emissive glow level for the voxel (0-255, where 255 is full brightness).</summary>
+        public byte Glow;
         /// <summary>Whether this voxel participates in physics collision.</summary>
         public bool Collision;
         /// <summary>Texture index for the top face.</summary>

@@ -1,9 +1,7 @@
-﻿using Runtime.Engine.Utils.Extensions;
-using Runtime.Engine.VoxelConfig.Data;
+﻿using Runtime.Engine.VoxelConfig.Data;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Mathematics;
-using UnityEngine.UI;
 using static Runtime.Engine.Utils.VoxelConstants;
 
 namespace Runtime.Engine.Jobs.Meshing
@@ -32,8 +30,7 @@ namespace Runtime.Engine.Jobs.Meshing
         {
             if (jobData.HasNoCollision) return;
             // Sweep along each principal axis (X, Y, Z)
-            NativeHashMap<int3, ushort> map = default;
-            ColliderSliceMeshBuild(ref jobData, ref map);
+            ColliderSliceMeshBuild(ref jobData);
         }
 
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
@@ -120,14 +117,15 @@ namespace Runtime.Engine.Jobs.Meshing
                 (ushort)quadIndex,
                 (ushort)currentDef.GetTextureId(direction),
                 sunlight,
-                ao
+                ao,
+                currentLayer == MeshLayer.Transparent ? (half)currentDef.DepthFadeDistance : (half)0,
+                currentDef.Glow
             );
 
             AddVertex(ref jobData, subMeshType, ref vertex);
         }
 
-        private void ColliderSliceMeshBuild(ref PartitionJobData jobData,
-            ref NativeHashMap<int3, ushort> sortedVoxels)
+        private void ColliderSliceMeshBuild(ref PartitionJobData jobData)
         {
             // Sweep along each principal axis (X, Y, Z)
             for (int mainAxis = 0; mainAxis < 3; mainAxis++)
@@ -204,7 +202,9 @@ namespace Runtime.Engine.Jobs.Meshing
                     6,
                     (ushort)def.GetTextureId(Direction.Forward),
                     sunLight,
-                    ao
+                    ao,
+                    (half)0,
+                    def.Glow
                 );
                 AddVertex(ref jobData, SubMeshType.Foliage, ref vertex);
 
@@ -214,7 +214,8 @@ namespace Runtime.Engine.Jobs.Meshing
                     7,
                     (ushort)def.GetTextureId(Direction.Forward),
                     sunLight,
-                    ao
+                    ao, (half)0,
+                    def.Glow
                 );
                 AddVertex(ref jobData, SubMeshType.Foliage, ref vertex);
             }

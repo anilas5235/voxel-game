@@ -15,10 +15,12 @@ namespace Runtime.Engine.Jobs.Meshing
         public ushort TextureIndex;
         private byte LightData;
         public byte AOData;
-        public uint padding2;
+        public half DepthFade;
+        public byte Glow;
+        public byte padding2;
         public uint padding3;
 
-        public Vertex(float3 position, ushort quadIndex, ushort textureIndex, byte light, byte ao)
+        public Vertex(float3 position, ushort quadIndex, ushort textureIndex, byte light, byte ao, half depthFade, byte glow)
         {
             Position = position;
             QuadIndex = quadIndex;
@@ -26,6 +28,8 @@ namespace Runtime.Engine.Jobs.Meshing
             TextureIndex = textureIndex;
             LightData = 0;
             AOData = ao;
+            DepthFade = depthFade;
+            Glow = glow;
             padding2 = 0;
             padding3 = 0;
 
