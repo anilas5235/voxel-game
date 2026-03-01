@@ -158,7 +158,7 @@
                 const float4 ao_color = calc_ao_color(_AOColor, albedo, _AOCurve, extra.ao, _AOIntensity, _AOPower, uv);
 
                 // --- Sun light level ---
-                const float sun_light = calc_sun_light(extra.light);
+                const float sun_light = calc_sun_light(extra.sun_light, uv);
 
                 // --- Depth fade ---
                 const float alpha = depth_fade(IN.positionSS, extra.depth_fade_dist, albedo.w);

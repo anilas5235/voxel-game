@@ -133,9 +133,14 @@ float4 calc_ao_color(const float4 ao_color, const float4 albedo, const float4 ao
     return lerp(ao_color, albedo, t);
 }
 
-float calc_sun_light(const uint light_data)
+float calc_sun_light(const uint4 light_data, float2 uv)
 {
-    return lerp(0.05f, 1.0f, light_data / 15.0f);
+    float ul = lerp(0.05f, 1.0f, light_data.x / 15.0f);
+    float ur = lerp(0.05f, 1.0f, light_data.y / 15.0f);
+    float dr = lerp(0.05f, 1.0f, light_data.z / 15.0f);
+    float dl = lerp(0.05f, 1.0f, light_data.w / 15.0f);
+    
+    return lerp(lerp(dl, dr, uv.x), lerp(ul, ur, uv.x), uv.y);
 }
 
 float calc_glow(const float glow_data)

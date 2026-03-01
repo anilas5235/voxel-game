@@ -112,10 +112,10 @@ namespace Runtime.Engine.Jobs.Meshing
             };
 
             Vertex vertex = new(pos, quadIndex, currentDef.GetTextureId(direction));
-            vertex.SetLight(sunlight, Vertex.LightIndex.Sun0);
-            vertex.SetLight(sunlight, Vertex.LightIndex.Sun1);
-            vertex.SetLight(sunlight, Vertex.LightIndex.Sun2);
-            vertex.SetLight(sunlight, Vertex.LightIndex.Sun3);
+            vertex.SetLight(sunlight, Vertex.LightIndex.SunUL);
+            vertex.SetLight(sunlight, Vertex.LightIndex.SunUR);
+            vertex.SetLight(sunlight, Vertex.LightIndex.SunDR);
+            vertex.SetLight(sunlight, Vertex.LightIndex.SunDL);
             vertex.SetAO(ao);
             if(currentLayer == MeshLayer.Transparent) vertex.SetDepthFade(currentDef.DepthFadeDistance);
             vertex.SetGlow(currentDef.Glow);
@@ -196,10 +196,10 @@ namespace Runtime.Engine.Jobs.Meshing
                 ComputeAO(pos, ref jobData, Direction.Forward, out byte ao);
 
                 Vertex vertex = new(pos, 6, def.GetTextureId(Direction.Forward));
-                vertex.SetLight(sunlight, Vertex.LightIndex.Sun0);
-                vertex.SetLight(sunlight, Vertex.LightIndex.Sun1);
-                vertex.SetLight(sunlight, Vertex.LightIndex.Sun2);
-                vertex.SetLight(sunlight, Vertex.LightIndex.Sun3);
+                vertex.SetLight(sunlight, Vertex.LightIndex.SunUL);
+                vertex.SetLight(sunlight, Vertex.LightIndex.SunUR);
+                vertex.SetLight(sunlight, Vertex.LightIndex.SunDR);
+                vertex.SetLight(sunlight, Vertex.LightIndex.SunDL);
                 vertex.SetAO(ao);
                 vertex.SetGlow(def.Glow);
                 

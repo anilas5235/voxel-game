@@ -133,7 +133,7 @@ Shader "Custom/VoxelShader"
                 float4 ao_color =  calc_ao_color(_AOColor, albedo, _AOCurve, extra.ao, _AOIntensity, _AOPower, uv);
 
                 // --- Sun light level ---
-                float sun_light = calc_sun_light(extra.light);
+                float sun_light = calc_sun_light(extra.sun_light, uv);
 
                 // --- Final colour ---
                 return half4(ao_color.rgb * sun_light, 1);

@@ -23,14 +23,14 @@ namespace Runtime.Engine.Jobs.Meshing
 
         public enum LightIndex
         {
-            Sun0 = 0,
-            Sun1 = 4,
-            Sun2 = 8,
-            Sun3 = 12,
-            Artificial0 = 16,
-            Artificial1 = 20,
-            Artificial2 = 24,
-            Artificial3 = 28,
+            SunUL = 0,
+            SunUR = 4,
+            SunDR = 8,
+            SunDL = 12,
+            ArtificialUL = 16,
+            ArtificialUR = 20,
+            ArtificialDR = 24,
+            ArtificialDL = 28,
         }
 
         public void SetQuadIndex(ushort quadIndex) => PackedData.x |= quadIndex;
