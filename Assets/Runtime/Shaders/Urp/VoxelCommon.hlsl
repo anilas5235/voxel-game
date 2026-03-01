@@ -24,7 +24,7 @@ struct QuadData
 StructuredBuffer<QuadData> quad_buffer;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Geometry stage input/output structs
+// Geometry stage input struct
 // ─────────────────────────────────────────────────────────────────────────────
 
 struct GeomInput
@@ -37,9 +37,38 @@ struct GeomInput
        W: unused */
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Packed data accessors
+// ─────────────────────────────────────────────────────────────────────────────
+
 uint get_quad_index(uint4 packed)
 {
     return packed.x & 0xFFFF; // lower 16 bits of uv0.x
+}
+
+uint get_tex_index(uint4 packed)
+{
+    return packed.y & 0xFFFF;
+}
+
+uint get_sun_light(uint4 packed)
+{
+    return packed.y >> 16 & 0xF;
+}
+
+uint get_ao(uint4 packed)
+{
+    return packed.y >> 24 & 0xFF;
+}
+
+float get_depth_fade_dist(uint4 packed)
+{
+    return f16tof32(packed.z & 0xFFFF);
+}
+
+float get_glow(uint4 packed)
+{
+    return (float)(packed.z >> 16 & 0xFF);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -67,7 +96,7 @@ GeomInput vert(Attributes IN)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AO helpers
+// Frag helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
 int compute_ao_corner(const int s1, const int s2, const int c)
@@ -80,8 +109,8 @@ float scale_ao(const float4 curve, const int index, const float intensity, const
     return pow(abs(curve[index] * intensity), power);
 }
 
-float ao_interpolate(const float4 curve, const int ao_data, const float intensity, const float power,
-                     const float2 uv)
+float4 calc_ao_color(const float4 ao_color, const float4 albedo, const float4 ao_curve, const int ao_data,
+                     const float ao_intensity, const float ao_power, const float2 uv)
 {
     // Bits: 0=up (UV.y=1), 1=up-right (UV=1,1), 2=right (UV.x=1), 3=down-right (UV=1,0),
     //       4=down (UV.y=0), 5=down-left (UV=0,0), 6=left (UV.x=0), 7=up-left (UV=0,1)
@@ -94,11 +123,23 @@ float ao_interpolate(const float4 curve, const int ao_data, const float intensit
     int l = ao_data >> 6 & 1;
     int ul = ao_data >> 7 & 1;
 
-    float dlc = scale_ao(curve, compute_ao_corner(l, d, dl), intensity, power);
-    float ulc = scale_ao(curve, compute_ao_corner(l, u, ul), intensity, power);
-    float drc = scale_ao(curve, compute_ao_corner(r, d, dr), intensity, power);
-    float urc = scale_ao(curve, compute_ao_corner(r, u, ur), intensity, power);
+    float dlc = scale_ao(ao_color, compute_ao_corner(l, d, dl), ao_intensity, ao_power);
+    float ulc = scale_ao(ao_color, compute_ao_corner(l, u, ul), ao_intensity, ao_power);
+    float drc = scale_ao(ao_color, compute_ao_corner(r, d, dr), ao_intensity, ao_power);
+    float urc = scale_ao(ao_color, compute_ao_corner(r, u, ur), ao_intensity, ao_power);
 
-    return lerp(lerp(dlc, drc, uv.x), lerp(ulc, urc, uv.x), uv.y);
+    float t = lerp(lerp(dlc, drc, uv.x), lerp(ulc, urc, uv.x), uv.y);
+    return lerp(ao_color, albedo, t);
 }
+
+float calc_sun_light(const uint light_data)
+{
+    return lerp(0.05f, 1.0f, light_data / 15.0f);
+}
+
+float calc_glow(const float glow_data)
+{
+    return 1.0f + glow_data / 8.0f;
+}
+
 #endif // VOXEL_COMMON_INCLUDED

@@ -29,7 +29,7 @@
         struct Varyings
         {
             float4 positionCS : SV_POSITION;
-            float2 texCoord0 : TEXCOORD0; // xy = tile UV
+            float2 uv : TEXCOORD0; // xy = tile UV
             uint4 packed : TEXCOORD1; // x: (texArrayIndex u16, sunLightLevel u4, 4 bit unused, ao u8)
             // y:half16 , 16 bit unused
             // z and w unused
@@ -50,22 +50,22 @@
             o.packed = IN[0].packedUV0;
 
             o.positionCS = TransformObjectToHClip(origin + q.position00);
-            o.texCoord0 = q.uv00;
+            o.uv = q.uv00;
             o.positionSS = ComputeScreenPos(o.positionCS);
             stream.Append(o);
 
             o.positionCS = TransformObjectToHClip(origin + q.position01);
-            o.texCoord0 = q.uv01;
+            o.uv = q.uv01;
             o.positionSS = ComputeScreenPos(o.positionCS);
             stream.Append(o);
 
             o.positionCS = TransformObjectToHClip(origin + q.position02);
-            o.texCoord0 = q.uv02;
+            o.uv = q.uv02;
             o.positionSS = ComputeScreenPos(o.positionCS);
             stream.Append(o);
 
             o.positionCS = TransformObjectToHClip(origin + q.position03);
-            o.texCoord0 = q.uv03;
+            o.uv = q.uv03;
             o.positionSS = ComputeScreenPos(o.positionCS);
             stream.Append(o);
 
@@ -123,13 +123,13 @@
             FragExtraData unpack_frag_extra_data(uint4 packed)
             {
                 FragExtraData data;
-                data.texture_index = packed.y & 0xFFFF;
-                data.light = packed.y >> 16 & 0xF;
-                data.ao = packed.y >> 24 & 0xFF;
-                data.depth_fade_dist = f16tof32(packed.z & 0xFFFF);
-                data.glow = (float)(packed.z >> 16 & 0xFF);
+                data.texture_index = get_tex_index(packed);
+                data.light = get_sun_light(packed);
+                data.ao = get_ao(packed);
+                data.depth_fade_dist = get_depth_fade_dist(packed);
+                data.glow = get_glow(packed);
                 return data;
-            }            
+            }
 
             float depth_fade(const float4 positionSS, const float dist, const float texAlpha)
             {
@@ -148,24 +148,24 @@
             half4 frag(Varyings IN) : SV_Target
             {
                 // --- Texture array sample ---
-                // texCoord1.x = texture array slice index
-                // texCoord0.xy = UV within the tile
                 FragExtraData extra = unpack_frag_extra_data(IN.packed);
-                float2 uv = IN.texCoord0;
-                float4 albedo = SAMPLE_TEXTURE2D_ARRAY(_Textures, sampler_Textures, uv, extra.texture_index);
+                const float2 uv = IN.uv;
+                const float4 albedo = SAMPLE_TEXTURE2D_ARRAY(_Textures, sampler_Textures, uv, extra.texture_index);
 
                 // --- Ambient occlusion ---
-
-                float4 ao_color = lerp(_AOColor, albedo,
-               ao_interpolate(_AOCurve, extra.ao, _AOIntensity, _AOPower, uv));
+                const float4 ao_color = calc_ao_color(_AOColor, albedo, _AOCurve, extra.ao, _AOIntensity, _AOPower, uv);
 
                 // --- Sun light level ---
-                float sun_light = lerp(0.05, 1.0, extra.light / 15.0f);
+                const float sun_light = calc_sun_light(extra.light);
 
-                float alpha = depth_fade(IN.positionSS, extra.depth_fade_dist, albedo.w);
+                // --- Depth fade ---
+                const float alpha = depth_fade(IN.positionSS, extra.depth_fade_dist, albedo.w);
+
+                // --- Glow ---
+                const float glow = calc_glow(extra.glow);
 
                 // --- Final colour ---
-                return half4(ao_color.rgb * sun_light * (1 + extra.glow / 8.0f), alpha);
+                return half4(ao_color.rgb * sun_light * glow, alpha);
             }
             ENDHLSL
         }
@@ -189,7 +189,7 @@
             HLSLPROGRAM
             #pragma target 4.5
             #pragma vertex   vert
-            #pragma geometry geom          
+            #pragma geometry geom
             #pragma fragment frag_sel
 
             #pragma multi_compile_instancing
@@ -202,7 +202,7 @@
             CBUFFER_END
 
             int _ObjectId;
-            int _PassValue;            
+            int _PassValue;
 
             half4 frag_sel(Varyings IN) : SV_Target
             {
@@ -230,7 +230,7 @@
             HLSLPROGRAM
             #pragma target 4.5
             #pragma vertex   vert
-            #pragma geometry geom          
+            #pragma geometry geom
             #pragma fragment frag_pick
 
             #pragma multi_compile_instancing
@@ -242,7 +242,7 @@
                 float _AOPower;
             CBUFFER_END
 
-            float4 _SelectionID;           
+            float4 _SelectionID;
 
             half4 frag_pick(Varyings IN) : SV_Target
             {

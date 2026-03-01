@@ -29,8 +29,8 @@ Shader "Custom/VoxelShader"
         struct Varyings
         {
             float4 positionCS : SV_POSITION;
-            float2 texCoord0 : TEXCOORD0; // xy = tile UV
-            uint packed : TEXCOORD1; // (texArrayIndex u16, sunLightLevel u4, 4 bit unused, ao u8)
+            float2 uv : TEXCOORD0; // xy = tile UV
+            uint4 packed : TEXCOORD1; // (texArrayIndex u16, sunLightLevel u4, 4 bit unused, ao u8)
         };
 
         // ── Geometry stage ────────────────────────────────────────────
@@ -44,22 +44,22 @@ Shader "Custom/VoxelShader"
             float3 origin = IN[0].positionOS;
 
             Varyings o;
-            o.packed = IN[0].packedUV0.y;
+            o.packed = IN[0].packedUV0;
 
             o.positionCS = TransformObjectToHClip(origin + q.position00);
-            o.texCoord0 = q.uv00;
+            o.uv = q.uv00;
             stream.Append(o);
 
             o.positionCS = TransformObjectToHClip(origin + q.position01);
-            o.texCoord0 = q.uv01;
+            o.uv = q.uv01;
             stream.Append(o);
 
             o.positionCS = TransformObjectToHClip(origin + q.position02);
-            o.texCoord0 = q.uv02;
+            o.uv = q.uv02;
             stream.Append(o);
 
             o.positionCS = TransformObjectToHClip(origin + q.position03);
-            o.texCoord0 = q.uv03;
+            o.uv = q.uv03;
             stream.Append(o);
 
             stream.RestartStrip();
@@ -110,12 +110,12 @@ Shader "Custom/VoxelShader"
                 uint ao;
             };
 
-            FragExtraData unpack_frag_extra_data(uint packed)
+            FragExtraData unpack_frag_extra_data(uint4 packed)
             {
                 FragExtraData data;
-                data.texture_index = packed & 0xFFFF;
-                data.light = packed >> 16 & 0xF;
-                data.ao = packed >> 24 & 0xFF;
+                data.texture_index = get_tex_index(packed);
+                data.light = get_sun_light(packed);
+                data.ao = get_ao(packed);
                 return data;
             }
 
@@ -123,19 +123,15 @@ Shader "Custom/VoxelShader"
             half4 frag(Varyings IN) : SV_Target
             {
                 // --- Texture array sample ---
-                // texCoord1.x = texture array slice index
-                // texCoord0.xy = UV within the tile
                 FragExtraData extra = unpack_frag_extra_data(IN.packed);
-                float2 uv = IN.texCoord0;
+                float2 uv = IN.uv;
                 float4 albedo = SAMPLE_TEXTURE2D_ARRAY(_Textures, sampler_Textures, uv, extra.texture_index);
 
                 // --- Ambient occlusion ---
-
-                float4 ao_color = lerp(_AOColor, albedo,
-                ao_interpolate(_AOCurve, extra.ao, _AOIntensity, _AOPower, uv));
+                float4 ao_color =  calc_ao_color(_AOColor, albedo, _AOCurve, extra.ao, _AOIntensity, _AOPower, uv);
 
                 // --- Sun light level ---
-                float sun_light = lerp(0.05, 1.0, extra.light / 15.0f);
+                float sun_light = calc_sun_light(extra.light);
 
                 // --- Final colour ---
                 return half4(ao_color.rgb * sun_light, 1);
@@ -162,7 +158,7 @@ Shader "Custom/VoxelShader"
             HLSLPROGRAM
             #pragma target 4.5
             #pragma vertex   vert
-            #pragma geometry geom          
+            #pragma geometry geom
             #pragma fragment frag_depth
 
             #pragma multi_compile_instancing
@@ -172,7 +168,7 @@ Shader "Custom/VoxelShader"
                 float4 _AOCurve;
                 float _AOIntensity;
                 float _AOPower;
-            CBUFFER_END            
+            CBUFFER_END
 
             half frag_depth(Varyings IN) : SV_Target
             {
@@ -200,7 +196,7 @@ Shader "Custom/VoxelShader"
             HLSLPROGRAM
             #pragma target 4.5
             #pragma vertex   vert
-            #pragma geometry geom          
+            #pragma geometry geom
             #pragma fragment frag_sel
 
             #pragma multi_compile_instancing
@@ -214,7 +210,7 @@ Shader "Custom/VoxelShader"
 
             // Unity-supplied selection ID (injected by the editor)
             int _ObjectId;
-            int _PassValue;           
+            int _PassValue;
 
             half4 frag_sel(Varyings IN) : SV_Target
             {
@@ -243,10 +239,10 @@ Shader "Custom/VoxelShader"
             HLSLPROGRAM
             #pragma target 4.5
             #pragma vertex   vert
-            #pragma geometry geom          
+            #pragma geometry geom
             #pragma fragment frag_pick
 
-            #pragma multi_compile_instancing            
+            #pragma multi_compile_instancing
 
             CBUFFER_START(UnityPerMaterial)
                 float4 _AOColor;
@@ -258,7 +254,7 @@ Shader "Custom/VoxelShader"
             // Unity encodes the picking ID into this float4 via
             // SceneView / HandleUtility.
             float4 _SelectionID;
-           
+
             half4 frag_pick(Varyings IN) : SV_Target
             {
                 return _SelectionID;
