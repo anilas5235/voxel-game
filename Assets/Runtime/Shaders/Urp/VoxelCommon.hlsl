@@ -30,11 +30,7 @@ StructuredBuffer<QuadData> quad_buffer;
 struct GeomInput
 {
     float3 positionOS : TEXCOORD0;
-    uint4 packedUV0 : TEXCOORD1;
-    /* X: quad index u16, 16 bit unused;
-       Y: texArrayIndex u16, sunLightLevel u4, 4 bit unused, ao u8;
-       Z: (transparent only) half16 depth_fade_dist in bits 0-15, glow u8 in bits 16-23;
-       W: unused */
+    uint4 packedUV0 : TEXCOORD1;   
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -43,7 +39,7 @@ struct GeomInput
 
 uint get_quad_index(uint4 packed)
 {
-    return packed.x & 0xFFFF; // lower 16 bits of uv0.x
+    return packed.x & 0xFFFF;
 }
 
 uint get_tex_index(uint4 packed)
@@ -51,9 +47,14 @@ uint get_tex_index(uint4 packed)
     return packed.x >> 16 & 0xFFFF;
 }
 
-uint get_sun_light(uint4 packed)
+uint4 get_sun_light(uint4 packed)
 {
-    return packed.y & 0xF;
+    return uint4(packed.y & 0xF, packed.y >> 4 & 0xF, packed.y >> 8 & 0xF, packed.y >> 12 & 0xF);
+}
+
+uint4 get_artificial_light(uint4 packed)
+{
+    return uint4(packed.y >> 16 & 0xF, packed.y >> 20 & 0xF, packed.y >> 24 & 0xF, packed.y >> 28 & 0xF);
 }
 
 uint get_ao(uint4 packed)

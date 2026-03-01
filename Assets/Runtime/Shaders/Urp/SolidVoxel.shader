@@ -106,7 +106,8 @@ Shader "Custom/VoxelShader"
             struct FragExtraData
             {
                 uint texture_index;
-                uint light;
+                uint4 sun_light;
+                uint4 artificial_light;
                 uint ao;
             };
 
@@ -114,7 +115,8 @@ Shader "Custom/VoxelShader"
             {
                 FragExtraData data;
                 data.texture_index = get_tex_index(packed);
-                data.light = get_sun_light(packed);
+                data.sun_light = get_sun_light(packed);
+                data.artificial_light = get_artificial_light(packed);
                 data.ao = get_ao(packed);
                 return data;
             }
