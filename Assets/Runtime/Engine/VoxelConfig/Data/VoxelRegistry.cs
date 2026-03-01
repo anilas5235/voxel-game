@@ -40,6 +40,10 @@ namespace Runtime.Engine.VoxelConfig.Data
                 TexRight = 0
             });
             _voxelEngineRenderGenData = new VoxelEngineRenderGenData();
+            Texture2D texError = Resources.Load<Texture2D>("Artwork/TexError");
+            RegisterTexture(texError, MeshLayer.Solid);
+            Texture2D texErrorT = Resources.Load<Texture2D>("Artwork/TexErrorT");
+            RegisterTexture(texErrorT, MeshLayer.Transparent);
         }
 
         /// <summary>
@@ -90,7 +94,13 @@ namespace Runtime.Engine.VoxelConfig.Data
         private ushort RegisterTexture(VoxelDefinition definition, Direction dir)
         {
             Texture2D tex = definition.GetTexture(dir);
-            return definition.meshLayer switch
+            return RegisterTexture(tex, definition.meshLayer);
+        }
+        
+        private ushort 
+            RegisterTexture(Texture2D tex, MeshLayer meshLayer)
+        {
+            return meshLayer switch
             {
                 MeshLayer.Solid => _solidTexRegistry.RegisterTexture(tex),
                 MeshLayer.Transparent => _transparentTexRegistry.RegisterTexture(tex),
