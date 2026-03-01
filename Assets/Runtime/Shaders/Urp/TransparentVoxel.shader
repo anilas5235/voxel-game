@@ -44,27 +44,27 @@
             uint quad_index = get_quad_index(IN[0].packedUV0);
             QuadData q = quad_buffer[quad_index];
 
-            float3 origin = IN[0].positionWS;
+            float3 origin = IN[0].positionOS;
 
             Varyings o;
             o.packed = IN[0].packedUV0;
 
-            o.positionCS = TransformWorldToHClip(origin + q.position00);
+            o.positionCS = TransformObjectToHClip(origin + q.position00);
             o.texCoord0 = q.uv00;
             o.positionSS = ComputeScreenPos(o.positionCS);
             stream.Append(o);
 
-            o.positionCS = TransformWorldToHClip(origin + q.position01);
+            o.positionCS = TransformObjectToHClip(origin + q.position01);
             o.texCoord0 = q.uv01;
             o.positionSS = ComputeScreenPos(o.positionCS);
             stream.Append(o);
 
-            o.positionCS = TransformWorldToHClip(origin + q.position02);
+            o.positionCS = TransformObjectToHClip(origin + q.position02);
             o.texCoord0 = q.uv02;
             o.positionSS = ComputeScreenPos(o.positionCS);
             stream.Append(o);
 
-            o.positionCS = TransformWorldToHClip(origin + q.position03);
+            o.positionCS = TransformObjectToHClip(origin + q.position03);
             o.texCoord0 = q.uv03;
             o.positionSS = ComputeScreenPos(o.positionCS);
             stream.Append(o);

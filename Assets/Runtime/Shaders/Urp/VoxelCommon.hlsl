@@ -29,7 +29,7 @@ StructuredBuffer<QuadData> quad_buffer;
 
 struct GeomInput
 {
-    float3 positionWS : TEXCOORD0; // voxel world-space pos, base for quad corners
+    float3 positionOS : TEXCOORD0;
     uint4 packedUV0 : TEXCOORD1;
     /* X: quad index u16, 16 bit unused;
        Y: texArrayIndex u16, sunLightLevel u4, 4 bit unused, ao u8;
@@ -61,7 +61,7 @@ GeomInput vert(Attributes IN)
 {
     UNITY_SETUP_INSTANCE_ID(IN);
     GeomInput o;
-    o.positionWS = TransformObjectToWorld(IN.positionOS);
+    o.positionOS = IN.positionOS;
     o.packedUV0 = IN.uv0;
     return o;
 }
