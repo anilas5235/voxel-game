@@ -1,4 +1,5 @@
 ﻿using Unity.Burst;
+using Unity.Mathematics;
 
 namespace Runtime.Engine.VoxelConfig.Data
 {
@@ -16,23 +17,23 @@ namespace Runtime.Engine.VoxelConfig.Data
         /// <summary>Semantic voxel type (for example flora or liquid).</summary>
         public VoxelType VoxelType;
         /// <summary>Distance at which depth fading starts for transparent voxels.</summary>
-        public float DepthFadeDistance;
+        public half DepthFadeDistance;
         /// <summary> Emissive glow level for the voxel (0-255, where 255 is full brightness).</summary>
         public byte Glow;
         /// <summary>Whether this voxel participates in physics collision.</summary>
         public bool Collision;
         /// <summary>Texture index for the top face.</summary>
-        public int TexUp;
+        public ushort TexUp;
         /// <summary>Texture index for the bottom face.</summary>
-        public int TexDown;
+        public ushort TexDown;
         /// <summary>Texture index for the left face.</summary>
-        public int TexLeft;
+        public ushort TexLeft;
         /// <summary>Texture index for the right face.</summary>
-        public int TexRight;
+        public ushort TexRight;
         /// <summary>Texture index for the front face.</summary>
-        public int TexFront;
+        public ushort TexFront;
         /// <summary>Texture index for the back face.</summary>
-        public int TexBack;
+        public ushort TexBack;
 
         public bool IsAir => MeshLayer == MeshLayer.Air;
         public bool IsFoliage => VoxelType == VoxelType.Flora;
@@ -45,7 +46,7 @@ namespace Runtime.Engine.VoxelConfig.Data
         /// <param name="dir">Face direction to query.</param>
         /// <returns>Texture index for the face, or -1 if none is defined.</returns>
         [BurstCompile]
-        public readonly int GetTextureId(Direction dir)
+        public readonly ushort GetTextureId(Direction dir)
         {
             return dir switch
             {
@@ -55,7 +56,7 @@ namespace Runtime.Engine.VoxelConfig.Data
                 Direction.Right => TexRight,
                 Direction.Forward => TexFront,
                 Direction.Backward => TexBack,
-                _ => -1
+                _ => 0
             };
         }
     }

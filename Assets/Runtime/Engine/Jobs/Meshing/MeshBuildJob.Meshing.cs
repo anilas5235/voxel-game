@@ -100,7 +100,7 @@ namespace Runtime.Engine.Jobs.Meshing
             ComputeAO(neighborCoord, ref jobData, direction, out byte ao);
             byte sunlight = ComputeSunlight(ref jobData, neighborCoord);
 
-            int quadIndex = direction switch
+            ushort quadIndex = direction switch
             {
                 Direction.Right => 0,
                 Direction.Left => 1,
@@ -108,19 +108,17 @@ namespace Runtime.Engine.Jobs.Meshing
                 Direction.Down => 3,
                 Direction.Forward => 4,
                 Direction.Backward => 5,
-                _ => -1
+                _ => 0
             };
 
-            var vertex = new Vertex
-            (
-                pos,
-                (ushort)quadIndex,
-                (ushort)currentDef.GetTextureId(direction),
-                sunlight,
-                ao,
-                currentLayer == MeshLayer.Transparent ? (half)currentDef.DepthFadeDistance : (half)0,
-                currentDef.Glow
-            );
+            Vertex vertex = new(pos, quadIndex, currentDef.GetTextureId(direction));
+            vertex.SetLight(sunlight, Vertex.LightIndex.Sun0);
+            vertex.SetLight(sunlight, Vertex.LightIndex.Sun1);
+            vertex.SetLight(sunlight, Vertex.LightIndex.Sun2);
+            vertex.SetLight(sunlight, Vertex.LightIndex.Sun3);
+            vertex.SetAO(ao);
+            if(currentLayer == MeshLayer.Transparent) vertex.SetDepthFade(currentDef.DepthFadeDistance);
+            vertex.SetGlow(currentDef.Glow);
 
             AddVertex(ref jobData, subMeshType, ref vertex);
         }
@@ -194,29 +192,20 @@ namespace Runtime.Engine.Jobs.Meshing
             {
                 int3 pos = foliageVoxel.Key;
                 VoxelRenderDef def = RenderGenData.GetRenderDef(foliageVoxel.Value);
-                byte sunLight = ComputeSunlight(ref jobData, pos);
+                byte sunlight = ComputeSunlight(ref jobData, pos);
                 ComputeAO(pos, ref jobData, Direction.Forward, out byte ao);
 
-                Vertex vertex = new(
-                    pos,
-                    6,
-                    (ushort)def.GetTextureId(Direction.Forward),
-                    sunLight,
-                    ao,
-                    (half)0,
-                    def.Glow
-                );
+                Vertex vertex = new(pos, 6, def.GetTextureId(Direction.Forward));
+                vertex.SetLight(sunlight, Vertex.LightIndex.Sun0);
+                vertex.SetLight(sunlight, Vertex.LightIndex.Sun1);
+                vertex.SetLight(sunlight, Vertex.LightIndex.Sun2);
+                vertex.SetLight(sunlight, Vertex.LightIndex.Sun3);
+                vertex.SetAO(ao);
+                vertex.SetGlow(def.Glow);
+                
                 AddVertex(ref jobData, SubMeshType.Foliage, ref vertex);
 
-                vertex = new Vertex
-                (
-                    pos,
-                    7,
-                    (ushort)def.GetTextureId(Direction.Forward),
-                    sunLight,
-                    ao, (half)0,
-                    def.Glow
-                );
+                vertex.SetQuadIndex(7); 
                 AddVertex(ref jobData, SubMeshType.Foliage, ref vertex);
             }
         }

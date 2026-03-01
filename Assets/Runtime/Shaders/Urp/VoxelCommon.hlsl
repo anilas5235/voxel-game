@@ -48,27 +48,27 @@ uint get_quad_index(uint4 packed)
 
 uint get_tex_index(uint4 packed)
 {
-    return packed.y & 0xFFFF;
+    return packed.x >> 16 & 0xFFFF;
 }
 
 uint get_sun_light(uint4 packed)
 {
-    return packed.y >> 16 & 0xF;
+    return packed.y & 0xF;
 }
 
 uint get_ao(uint4 packed)
 {
-    return packed.y >> 24 & 0xFF;
+    return packed.z & 0xFF;
 }
 
 float get_depth_fade_dist(uint4 packed)
 {
-    return f16tof32(packed.z & 0xFFFF);
+    return f16tof32(packed.z >> 8 & 0xFFFF);
 }
 
 float get_glow(uint4 packed)
 {
-    return (float)(packed.z >> 16 & 0xFF);
+    return (float)(packed.z >> 24 & 0xFF);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

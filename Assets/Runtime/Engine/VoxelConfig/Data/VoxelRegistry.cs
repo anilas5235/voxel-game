@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Unity.Collections;
+using Unity.Mathematics;
 using UnityEngine;
 
 namespace Runtime.Engine.VoxelConfig.Data
@@ -31,12 +32,12 @@ namespace Runtime.Engine.VoxelConfig.Data
             {
                 MeshLayer = MeshLayer.Air,
                 Collision = false,
-                TexUp = -1,
-                TexDown = -1,
-                TexFront = -1,
-                TexBack = -1,
-                TexLeft = -1,
-                TexRight = -1
+                TexUp = 0,
+                TexDown = 0,
+                TexFront = 0,
+                TexBack = 0,
+                TexLeft = 0,
+                TexRight = 0
             });
             _voxelEngineRenderGenData = new VoxelEngineRenderGenData();
         }
@@ -54,8 +55,8 @@ namespace Runtime.Engine.VoxelConfig.Data
                 MeshLayer = definition.meshLayer,
                 AlwaysRenderAllFaces = definition.alwaysRenderAllFaces,
                 VoxelType = definition.voxelType,
-                DepthFadeDistance = definition.depthFadeDistance,
-                Glow = (byte) definition.glow,
+                DepthFadeDistance = (half)definition.depthFadeDistance,
+                Glow = (byte)definition.glow,
                 Collision = definition.collision,
                 TexUp = RegisterTexture(definition, Direction.Up),
                 TexDown = RegisterTexture(definition, Direction.Down),
@@ -86,14 +87,14 @@ namespace Runtime.Engine.VoxelConfig.Data
             return id;
         }
 
-        private int RegisterTexture(VoxelDefinition definition, Direction dir)
+        private ushort RegisterTexture(VoxelDefinition definition, Direction dir)
         {
             Texture2D tex = definition.GetTexture(dir);
             return definition.meshLayer switch
             {
                 MeshLayer.Solid => _solidTexRegistry.RegisterTexture(tex),
                 MeshLayer.Transparent => _transparentTexRegistry.RegisterTexture(tex),
-                _ => -1
+                _ => 0
             };
         }
 

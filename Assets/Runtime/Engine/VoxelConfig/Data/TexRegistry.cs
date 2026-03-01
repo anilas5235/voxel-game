@@ -11,7 +11,7 @@ namespace Runtime.Engine.VoxelConfig.Data
     internal class TexRegistry
     {
         private static int TextureSize => VoxelRegistry.TextureSize;
-        private readonly Dictionary<Texture2D, int> _textureToId = new();
+        private readonly Dictionary<Texture2D, ushort> _textureToId = new();
 
         /// <summary>
         /// Gets the resulting texture array after <see cref="PrepareTextureArray"/> has been called.
@@ -24,9 +24,9 @@ namespace Runtime.Engine.VoxelConfig.Data
         /// </summary>
         /// <param name="tex">Texture to register.</param>
         /// <returns>Assigned texture index, or -1 if registration failed.</returns>
-        public int RegisterTexture(Texture2D tex)
+        public ushort RegisterTexture(Texture2D tex)
         {
-            int textureId = -1;
+            ushort textureId = 0;
             if (!tex) return textureId;
             if (tex.width != TextureSize || tex.height != TextureSize)
             {
@@ -37,7 +37,7 @@ namespace Runtime.Engine.VoxelConfig.Data
 
             if (_textureToId.TryGetValue(tex, out textureId)) return textureId;
 
-            textureId = _textureToId.Count;
+            textureId = (ushort)_textureToId.Count;
             _textureToId[tex] = textureId;
 
             return textureId;
@@ -63,7 +63,7 @@ namespace Runtime.Engine.VoxelConfig.Data
             };
             // Copy each texture into the texture array
             int index = 0;
-            foreach (KeyValuePair<Texture2D, int> kvp in _textureToId)
+            foreach (KeyValuePair<Texture2D, ushort> kvp in _textureToId)
             {
                 VoxelEngineLogger.Info<TexRegistry>($"copy texture {kvp.Key.name} to texture array");
                 Graphics.CopyTexture(kvp.Key, 0, 0, textureArray, index, 0);

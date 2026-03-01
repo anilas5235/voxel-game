@@ -10,34 +10,41 @@ namespace Runtime.Engine.Jobs.Meshing
     public struct Vertex
     {
         public float3 Position;
-        public ushort QuadIndex;
-        public ushort padding;
-        public ushort TextureIndex;
-        private byte LightData;
-        public byte AOData;
-        public half DepthFade;
-        public byte Glow;
-        public byte padding2;
-        public uint padding3;
+        private uint4 PackedData;
 
-        public Vertex(float3 position, ushort quadIndex, ushort textureIndex, byte light, byte ao, half depthFade, byte glow)
+        public Vertex(float3 position, ushort quadIndex, ushort textureIndex)
         {
             Position = position;
-            QuadIndex = quadIndex;
-            padding = 0;
-            TextureIndex = textureIndex;
-            LightData = 0;
-            AOData = ao;
-            DepthFade = depthFade;
-            Glow = glow;
-            padding2 = 0;
-            padding3 = 0;
-
-            SetLight(light);
+            PackedData = uint4.zero;
+            
+            SetQuadIndex(quadIndex);
+            SetTextureIndex(textureIndex);
         }
 
+        public enum LightIndex
+        {
+            Sun0 = 0,
+            Sun1 = 4,
+            Sun2 = 8,
+            Sun3 = 12,
+            Artificial0 = 16,
+            Artificial1 = 20,
+            Artificial2 = 24,
+            Artificial3 = 28,
+        }
 
-        public void SetLight(byte sunlight) => LightData = (byte)(LightData | (sunlight & 0b1111));
+        public void SetQuadIndex(ushort quadIndex) => PackedData.x |= quadIndex;
+
+        public void SetTextureIndex(ushort textureIndex) => PackedData.x |= (uint)textureIndex << 16;
+
+        public void SetLight(byte sunlight, LightIndex index) =>
+            PackedData.y |= (uint)(sunlight & 0b1111) << (int)index;
+
+        public void SetAO(byte ao) => PackedData.z |= ao;
+
+        public void SetDepthFade(half depthFade) => PackedData.z |= (uint)depthFade.value << 8;
+
+        public void SetGlow(byte glow) => PackedData.z |= (uint)glow << 24;
     }
 
     /// <summary>

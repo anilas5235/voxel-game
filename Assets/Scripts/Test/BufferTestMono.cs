@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using Runtime.Engine.Jobs.Meshing;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -15,50 +16,6 @@ namespace Test
             new VertexAttributeDescriptor(VertexAttribute.Position),
             new VertexAttributeDescriptor(VertexAttribute.TexCoord0, VertexAttributeFormat.UInt32, 4),
         };
-
-        [StructLayout(LayoutKind.Sequential, Pack = 1)]
-        public struct Vertex
-        {
-            public float3 Position;
-            private uint Quad;
-
-            internal uint Extra;
-
-            /*public ushort QuadIndex;
-            public ushort padding;
-            public ushort TextureIndex;
-            private byte LightData;
-            public byte AOData;*/
-            public uint padding2;
-            public uint padding3;
-
-            public Vertex(float3 position, ushort quadIndex, ushort textureIndex, byte light, byte ao)
-            {
-                Position = position;
-                /*QuadIndex = quadIndex;
-                padding = 0;
-                TextureIndex = textureIndex;
-                LightData = 0;
-                AOData = ao;*/
-                Quad = 0;
-                Extra = 0;
-                padding2 = 0;
-                padding3 = 0;
-
-                SetQuadIndex(quadIndex);
-                SetTextureIndex(textureIndex);
-                SetLight(light);
-                SetAO(ao);
-            }
-
-            public void SetQuadIndex(ushort quadIndex) => Quad |= quadIndex;
-
-            public void SetTextureIndex(ushort textureIndex) => Extra |= textureIndex;
-
-            public void SetLight(byte sunlight) => Extra |= ((uint)sunlight & 0b1111) << 16;
-
-            public void SetAO(byte ao) => Extra |= ((uint)ao) << 24;
-        }
 
         // Start is called once before the first execution of Update after the MonoBehaviour is created
         void Start()
@@ -78,13 +35,12 @@ namespace Test
                 };
                 v.SetQuadIndex((ushort)4);
                 v.SetTextureIndex(1);
-                v.SetLight(0b1111);
+                v.SetLight(0b1111, Vertex.LightIndex.Sun0);
 
                 v.SetAO((byte)((1 << x) | (1 << y)));
                 vertexData.Add(v);
-                
             }
-            
+
             mf.mesh.SetVertexBufferParams(vertexData.Count, VertexParams);
 
             mf.mesh.SetIndexBufferParams(vertexData.Count, IndexFormat.UInt16);
