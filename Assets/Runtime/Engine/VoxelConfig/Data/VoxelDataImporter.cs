@@ -33,7 +33,7 @@ namespace Runtime.Engine.VoxelConfig.Data
         /// </summary>
         public VoxelRegistry VoxelRegistry { get; } = new();
 
-        private ComputeBuffer _quadDataBuffer;
+        public ComputeBuffer _quadDataBuffer;
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         private struct QuadData
