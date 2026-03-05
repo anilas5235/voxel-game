@@ -1,14 +1,14 @@
-using System;
 using System.Runtime.InteropServices;
 using Runtime.Engine.VoxelConfig.Data;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace Test
 {
     public class ComputeTest : MonoBehaviour
     {
-        private static readonly int PointBufferID = Shader.PropertyToID("_PointBuffer");
-        private static readonly int QuadBufferID = Shader.PropertyToID("_QuadBuffer");
+        private static readonly int PointBufferID    = Shader.PropertyToID("_PointBuffer");
+        private static readonly int QuadBufferID     = Shader.PropertyToID("_QuadBuffer");
         private static readonly int ExpandedBufferID = Shader.PropertyToID("_ExpandedBuffer");
 
         // ──────────────────────────────────────────────────────────────────────
@@ -41,7 +41,8 @@ namespace Test
         }
 
         [SerializeField] private VoxelDataImporter _importer;
-        [SerializeField] private ComputeShader _computeShader;
+        [SerializeField] private ComputeShader     _computeShader;
+        [SerializeField] private Material          _material; // ExpandedBufferDraw
 
         private const int PointCount = 1;
 
@@ -98,6 +99,22 @@ namespace Test
 
         private void Update()
         {
+            if (_expandedBuffer == null || _material == null) return;
+
+            // Bind the expanded buffer to the draw material
+            _material.SetBuffer(ExpandedBufferID, _expandedBuffer);
+
+            // PointCount quads × 6 indices each (two triangles per quad: 0,1,2  2,1,3)
+            int indexCount = PointCount * 6;
+
+            // Draw without a Mesh – the vertex shader reads SV_VertexID directly
+            Graphics.DrawProcedural(
+                _material,
+                new Bounds(Vector3.zero, Vector3.one * 1000f),
+                MeshTopology.Triangles,
+                indexCount,
+                instanceCount: 1
+            );
         }
 
         private void OnDestroy()
