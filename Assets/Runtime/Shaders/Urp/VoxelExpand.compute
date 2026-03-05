@@ -1,0 +1,87 @@
+﻿#pragma kernel CSExpand
+
+#include "QuadData.hlsl"
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Input point – must match Vertex struct in Mesh.cs (stride = 28 bytes)
+//   float3 Position  (12 bytes)
+//   uint4  PackedData(16 bytes)
+//     .x  low  16 = quadIndex, high 16 = texIndex
+//     .y  light nibbles (sun UL/UR/DR/DL | artificial UL/UR/DR/DL)
+//     .z  ao u8 | depthFade f16 | glow u8
+//     .w  unused
+// ─────────────────────────────────────────────────────────────────────────────
+
+struct Vertex
+{
+    float3 position;
+    uint4  packed;
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Output vertex – must match ExpandedVertex in VoxelCommon.hlsl (stride = 36 bytes)
+//   float3 positionOS (12 bytes)
+//   float2 uv          (8 bytes)
+//   uint4  packed      (16 bytes)
+// ─────────────────────────────────────────────────────────────────────────────
+
+struct ExpandedVertex
+{
+    float3 positionOS;
+    float2 uv;
+    uint4  packed;
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Buffers
+// ─────────────────────────────────────────────────────────────────────────────
+
+StructuredBuffer<Vertex>           _PointBuffer;
+StructuredBuffer<QuadData>         _QuadBuffer;
+RWStructuredBuffer<ExpandedVertex> _ExpandedBuffer;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Kernel
+// One thread = one input point = one quad = 4 output vertices
+// ─────────────────────────────────────────────────────────────────────────────
+
+[numthreads(64, 1, 1)]
+void CSExpand(uint3 id : SV_DispatchThreadID)
+{
+    uint pointIndex = id.x;
+
+    Vertex  p = _PointBuffer[pointIndex];
+    uint    quadIndex = p.packed.x & 0xFFFF;
+    QuadData q = _QuadBuffer[quadIndex];
+
+    float3 origin = p.position;
+    uint   outBase = pointIndex * 4;
+
+    // Corner 0 – upper-left  (uv00)
+    ExpandedVertex v0;
+    v0.positionOS = origin + q.position00;
+    v0.uv         = q.uv00;
+    v0.packed     = p.packed;
+    _ExpandedBuffer[outBase + 0] = v0;
+
+    // Corner 1 – upper-right (uv01)
+    ExpandedVertex v1;
+    v1.positionOS = origin + q.position01;
+    v1.uv         = q.uv01;
+    v1.packed     = p.packed;
+    _ExpandedBuffer[outBase + 1] = v1;
+
+    // Corner 2 – lower-left  (uv02)
+    ExpandedVertex v2;
+    v2.positionOS = origin + q.position02;
+    v2.uv         = q.uv02;
+    v2.packed     = p.packed;
+    _ExpandedBuffer[outBase + 2] = v2;
+
+    // Corner 3 – lower-right (uv03)
+    ExpandedVertex v3;
+    v3.positionOS = origin + q.position03;
+    v3.uv         = q.uv03;
+    v3.packed     = p.packed;
+    _ExpandedBuffer[outBase + 3] = v3;
+}
