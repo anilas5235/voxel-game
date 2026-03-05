@@ -148,7 +148,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8ea334ed0f9e41aaaeb72f0194c790cb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  voxelSolidMaterial: {fileID: 2100000, guid: 788cc08923f07d441a2f1ee3c4462504, type: 2}
+  voxelSolidMaterial: {fileID: 2100000, guid: c6fc15eff295d4c4d9001509eed0f6f8, type: 2}
   voxelTransparentMaterial: {fileID: 2100000, guid: e8e8dbf7c2062df49bf757b4e9d3a636, type: 2}
 --- !u!4 &454811961
 Transform:
@@ -299,6 +299,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ComputeTest
   _importer: {fileID: 454811960}
   _computeShader: {fileID: 7200000, guid: 23b41bc8fa9845aca3cdfef629496fa2, type: 3}
+  _material: {fileID: 2100000, guid: c6fc15eff295d4c4d9001509eed0f6f8, type: 2}
 --- !u!4 &715584154
 Transform:
   m_ObjectHideFlags: 0
