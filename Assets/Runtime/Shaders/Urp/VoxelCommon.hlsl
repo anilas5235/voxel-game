@@ -23,6 +23,16 @@ struct QuadData
 
 StructuredBuffer<QuadData> quad_buffer;
 
+// ──────────────────────────────────────────────────────────────
+// Expanded vertex buffer (written by CSExpand)
+// ──────────────────────────────────────────────────────────────
+struct ExpandedVertex
+{
+    float3 positionOS;
+    float2 uv;
+    uint4 packed;
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Geometry stage input struct
 // ─────────────────────────────────────────────────────────────────────────────
@@ -32,6 +42,18 @@ struct GeomInput
     float3 positionOS : TEXCOORD0;
     uint4 packedUV0 : TEXCOORD1;   
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Buffer Helpers 
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Index pattern for two triangles from 4 quad verts:
+static const uint triangle_quad_indices[6] = {0, 1, 2, 2, 1, 3};
+
+uint get_vertex_buffer_index(uint vertex_id)
+{
+    return (vertex_id / 6) * 4 + triangle_quad_indices[vertex_id % 6];
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Packed data accessors
@@ -73,7 +95,7 @@ float get_glow(uint4 packed)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Vertex input structs (shared by all passes)
+// Vertex shaders (shared by all passes)
 // ─────────────────────────────────────────────────────────────────────────────
 
 struct Attributes
@@ -82,10 +104,6 @@ struct Attributes
     uint4 uv0 : TEXCOORD0;
     UNITY_VERTEX_INPUT_INSTANCE_ID
 };
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Vertex shaders (shared by all passes)
-// ─────────────────────────────────────────────────────────────────────────────
 
 GeomInput vert(Attributes IN)
 {
@@ -97,7 +115,7 @@ GeomInput vert(Attributes IN)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Frag helpers
+// AO helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
 int compute_ao_corner(const int s1, const int s2, const int c)
@@ -132,6 +150,10 @@ float4 calc_ao_color(const float4 ao_color, const float4 albedo, const float4 ao
     float t = lerp(lerp(dlc, drc, uv.x), lerp(ulc, urc, uv.x), uv.y);
     return lerp(ao_color, albedo, t);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Light helpers
+// ─────────────────────────────────────────────────────────────────────────────
 
 float calc_sun_light(const uint4 light_data, float2 uv)
 {

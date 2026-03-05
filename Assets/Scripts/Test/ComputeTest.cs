@@ -104,12 +104,12 @@ namespace Test
             ExpandedVertex[] result = new ExpandedVertex[PointCount * 4];
             _expandedBuffer.GetData(result);
 
-            for (int i = 0; i < 4; i++)
+            /*for (int i = 0; i < 4; i++)
             {
                 ExpandedVertex v = result[i];
                 Debug.Log($"[ComputeTest] Vertex {i}: pos={v.positionOS}  uv={v.uv}  " +
                           $"packedX=0x{v.packedX:X8} packedY=0x{v.packedY:X8}  packedZ=0x{v.packedZ:X8}  packedW=0x{v.packedW:X8}");
-            }
+            }*/
 
             _chunks.Add(new ChunkDrawCall()
             {
@@ -135,7 +135,7 @@ namespace Test
             foreach (var chunk in _chunks)
             {
                 if (!chunk.IsValid) continue;
-                Debug.Log($"[ComputeTest] Drawing chunk with Bounds={chunk.Bounds} using {chunk.ExpandedBuffer.count} expanded vertices");
+                //Debug.Log($"[ComputeTest] Drawing chunk with Bounds={chunk.Bounds} using {chunk.ExpandedBuffer.count} expanded vertices");
                 chunk.Material.SetBuffer(ExpandedBufferID, chunk.ExpandedBuffer);
                 Graphics.DrawProceduralIndirect(
                     chunk.Material,

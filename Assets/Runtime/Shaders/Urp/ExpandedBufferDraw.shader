@@ -18,10 +18,10 @@ Shader "Custom/ExpandedBufferDraw"
 {
     Properties
     {
-        _AOColor    ("AO Color",    Color)             = (0, 0, 0, 1)
-        _AOCurve    ("AO Curve",    Vector)            = (0.75, 0.825, 0.9, 1)
-        _AOIntensity("AO Intensity",Range(0, 1))       = 1
-        _AOPower    ("AO Power",    Range(1, 10))      = 1
+        _AOColor ("AO Color", Color) = (0, 0, 0, 1)
+        _AOCurve ("AO Curve", Vector) = (0.75, 0.825, 0.9, 1)
+        _AOIntensity("AO Intensity",Range(0, 1)) = 1
+        _AOPower ("AO Power", Range(1, 10)) = 1
         [NoScaleOffset] _Textures("Textures", 2DArray) = "" {}
     }
 
@@ -30,14 +30,49 @@ Shader "Custom/ExpandedBufferDraw"
         Tags
         {
             "RenderPipeline" = "UniversalPipeline"
-            "RenderType"     = "Opaque"
-            "Queue"          = "Geometry"
+            "RenderType" = "Opaque"
+            "Queue" = "Geometry"
         }
+
+        // ─────────────────────────────────────────────────────────────
+        // Shared data types used by every pass
+        // ─────────────────────────────────────────────────────────────
+
+        HLSLINCLUDE
+        #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+        #include "VoxelCommon.hlsl"
+
+        // ──────────────────────────────────────────────────────────────
+        // Vertex stage
+        // ──────────────────────────────────────────────────────────────
+        struct Varyings
+        {
+            float4 positionCS : SV_POSITION;
+            float2 uv : TEXCOORD0;
+            uint4 packed : TEXCOORD1;
+        };
+
+        StructuredBuffer<ExpandedVertex> _ExpandedBuffer;
+
+        Varyings vert(uint vertex_id : SV_VertexID)
+        {
+            ExpandedVertex ev = _ExpandedBuffer[get_vertex_buffer_index(vertex_id)];
+
+            Varyings o;
+            o.positionCS = TransformObjectToHClip(ev.positionOS);
+            o.uv = ev.uv;
+            o.packed = ev.packed;
+            return o;
+        }
+        ENDHLSL
 
         Pass
         {
             Name "Universal Forward"
-            Tags { "LightMode" = "UniversalForward" }
+            Tags
+            {
+                "LightMode" = "UniversalForward"
+            }
 
             Cull Back
             ZTest LEqual
@@ -52,73 +87,88 @@ Shader "Custom/ExpandedBufferDraw"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "VoxelCommon.hlsl"
 
-            // ──────────────────────────────────────────────────────────────
-            // Expanded vertex buffer (written by CSExpand)
-            // ──────────────────────────────────────────────────────────────
-            struct ExpandedVertex
-            {
-                float3 positionOS;
-                float2 uv;
-                uint4  packed;
-            };
-
-            StructuredBuffer<ExpandedVertex> _ExpandedBuffer;
-
-            // ──────────────────────────────────────────────────────────────
-            // Vert/Frag structs
-            // ──────────────────────────────────────────────────────────────
-            struct Varyings
-            {
-                float4 positionCS : SV_POSITION;
-                float2 uv         : TEXCOORD0;
-                uint4  packed     : TEXCOORD1;
-            };
-
-            // Index pattern for two triangles from 4 quad verts:
-            //   quad v0..v3 → indices 0,1,2  2,1,3
-            static const int QuadIndices[6] = { 0, 1, 2, 2, 1, 3 };
-
-            Varyings vert(uint vertexID : SV_VertexID)
-            {
-                // Which quad and which corner within it?
-                uint quadIdx    = vertexID / 6;          // one quad = 6 index entries
-                uint localIdx   = vertexID % 6;
-                uint cornerIdx  = QuadIndices[localIdx]; // 0..3
-                uint bufIdx     = quadIdx * 4 + cornerIdx;
-
-                ExpandedVertex ev = _ExpandedBuffer[bufIdx];
-
-                Varyings o;
-                o.positionCS = TransformObjectToHClip(ev.positionOS);
-                o.uv         = ev.uv;
-                o.packed     = ev.packed;
-                return o;
-            }
-
             // ── Material properties ───────────────────────────────────────
             CBUFFER_START(UnityPerMaterial)
                 float4 _AOColor;
-                float  _AOIntensity;
-                float  _AOPower;
+                float _AOIntensity;
+                float _AOPower;
                 float4 _AOCurve;
             CBUFFER_END
 
             TEXTURE2D_ARRAY(_Textures);
             SAMPLER(sampler_Textures);
 
+            struct UnpackedFragData
+            {
+                uint texture_index;
+                uint4 sun_light;
+                uint4 artificial_light;
+                uint ao;
+            };
+
+            UnpackedFragData unpack_frag_data(uint4 packed)
+            {
+                UnpackedFragData data;
+                data.texture_index = get_tex_index(packed);
+                data.sun_light = get_sun_light(packed);
+                data.artificial_light = get_artificial_light(packed);
+                data.ao = get_ao(packed);
+                return data;
+            }
+
             half4 frag(Varyings IN) : SV_Target
             {
-                uint texIdx         = get_tex_index(IN.packed);
-                uint4 sun_light     = get_sun_light(IN.packed);
-                uint ao             = get_ao(IN.packed);
+                // --- Texture array sample ---
+                UnpackedFragData extra = unpack_frag_data(IN.packed);
+                float2 uv = IN.uv;
+                float4 albedo = SAMPLE_TEXTURE2D_ARRAY(_Textures, sampler_Textures, uv, extra.texture_index);
 
-                float4 albedo = SAMPLE_TEXTURE2D_ARRAY(_Textures, sampler_Textures, IN.uv, texIdx);
-                float4 ao_color = calc_ao_color(_AOColor, albedo, _AOCurve, ao, _AOIntensity, _AOPower, IN.uv);
-                float  sun      = calc_sun_light(sun_light, IN.uv);
+                // --- Ambient occlusion ---
+                float4 ao_color = calc_ao_color(_AOColor, albedo, _AOCurve, extra.ao, _AOIntensity, _AOPower, uv);
 
-                return half4(ao_color.rgb * sun, 1);
+                // --- Sun light level ---
+                float sun_light = calc_sun_light(extra.sun_light, uv);
+
+                // --- Final colour ---
+                return half4(ao_color.rgb * sun_light, 1);
             }
             ENDHLSL
         }
+        // ═════════════════════════════════════════════════════════════
+        // Pass – Depth Only
+        // ═════════════════════════════════════════════════════════════
+        Pass
+        {
+            Name "DepthOnly"
+            Tags
+            {
+                "LightMode" = "DepthOnly"
+            }
+
+            Cull Back
+            ZTest LEqual
+            ZWrite On
+            ColorMask R
+
+            HLSLPROGRAM
+            #pragma target 4.5
+            #pragma vertex   vert
+            #pragma fragment frag_depth
+
+            #pragma multi_compile_instancing
+
+            CBUFFER_START(UnityPerMaterial)
+                float4 _AOColor;
+                float4 _AOCurve;
+                float _AOIntensity;
+                float _AOPower;
+            CBUFFER_END
+
+            half frag_depth(Varyings IN) : SV_Target
+            {
+                return 0;
+            }
+            ENDHLSL
+        }        
     }
 }
