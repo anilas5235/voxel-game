@@ -1,30 +1,8 @@
 ﻿#ifndef VOXEL_COMMON_INCLUDED
 #define VOXEL_COMMON_INCLUDED
 
-#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
-#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/UnityInstancing.hlsl"
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Quad buffer
-// ─────────────────────────────────────────────────────────────────────────────
-
-struct QuadData
-{
-    float3 position00; // vertex offset from voxel origin
-    float3 position01;
-    float3 position02;
-    float3 position03;
-    float3 normal;
-    float2 uv00;
-    float2 uv01;
-    float2 uv02;
-    float2 uv03;
-};
-
-StructuredBuffer<QuadData> quad_buffer;
-
 // ──────────────────────────────────────────────────────────────
-// Expanded vertex buffer (written by CSExpand)
+// structs
 // ──────────────────────────────────────────────────────────────
 struct ExpandedVertex
 {
@@ -33,14 +11,11 @@ struct ExpandedVertex
     uint4 packed;
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Geometry stage input struct
-// ─────────────────────────────────────────────────────────────────────────────
-
-struct GeomInput
+struct DefaultVoxelVaryings
 {
-    float3 positionOS : TEXCOORD0;
-    uint4 packedUV0 : TEXCOORD1;   
+    float4 positionCS : SV_POSITION;
+    float2 uv : TEXCOORD0;
+    uint4 packed : TEXCOORD1;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -95,26 +70,6 @@ float get_glow(uint4 packed)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Vertex shaders (shared by all passes)
-// ─────────────────────────────────────────────────────────────────────────────
-
-struct Attributes
-{
-    float3 positionOS : POSITION;
-    uint4 uv0 : TEXCOORD0;
-    UNITY_VERTEX_INPUT_INSTANCE_ID
-};
-
-GeomInput vert(Attributes IN)
-{
-    UNITY_SETUP_INSTANCE_ID(IN);
-    GeomInput o;
-    o.positionOS = IN.positionOS;
-    o.packedUV0 = IN.uv0;
-    return o;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // AO helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -161,7 +116,7 @@ float calc_sun_light(const uint4 light_data, float2 uv)
     float ur = lerp(0.05f, 1.0f, light_data.y / 15.0f);
     float dr = lerp(0.05f, 1.0f, light_data.z / 15.0f);
     float dl = lerp(0.05f, 1.0f, light_data.w / 15.0f);
-    
+
     return lerp(lerp(dl, dr, uv.x), lerp(ul, ur, uv.x), uv.y);
 }
 

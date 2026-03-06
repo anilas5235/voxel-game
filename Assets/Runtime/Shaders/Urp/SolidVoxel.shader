@@ -18,53 +18,20 @@ Shader "Custom/VoxelShader"
             "UniversalMaterialType" = "Unlit"
             "Queue" = "Geometry"
         }
-
         // ─────────────────────────────────────────────────────────────
         // Shared data types used by every pass
         // ─────────────────────────────────────────────────────────────
         HLSLINCLUDE
-        #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
         #include "VoxelCommon.hlsl"
 
-        struct Varyings
+        StructuredBuffer<ExpandedVertex> _ExpandedBuffer;
+
+        ExpandedVertex get_expanded_vertex(uint vertex_id)
         {
-            float4 positionCS : SV_POSITION;
-            float2 uv : TEXCOORD0; // xy = tile UV
-            uint4 packed : TEXCOORD1; // (texArrayIndex u16, sunLightLevel u4, 4 bit unused, ao u8)
-        };
-
-        // ── Geometry stage ────────────────────────────────────────────
-        // Expands a single point (one per quad) into a triangle strip (4 verts).
-        [maxvertexcount(4)]
-        void geom(point GeomInput IN[1], inout TriangleStream<Varyings> stream)
-        {
-            uint quad_index = get_quad_index(IN[0].packedUV0);
-            QuadData q = quad_buffer[quad_index];
-
-            float3 origin = IN[0].positionOS;
-
-            Varyings o;
-            o.packed = IN[0].packedUV0;
-
-            o.positionCS = TransformObjectToHClip(origin + q.position00);
-            o.uv = q.uv00;
-            stream.Append(o);
-
-            o.positionCS = TransformObjectToHClip(origin + q.position01);
-            o.uv = q.uv01;
-            stream.Append(o);
-
-            o.positionCS = TransformObjectToHClip(origin + q.position02);
-            o.uv = q.uv02;
-            stream.Append(o);
-
-            o.positionCS = TransformObjectToHClip(origin + q.position03);
-            o.uv = q.uv03;
-            stream.Append(o);
-
-            stream.RestartStrip();
+            return _ExpandedBuffer[get_vertex_buffer_index(vertex_id)];
         }
         ENDHLSL
+
 
         // ═════════════════════════════════════════════════════════════
         // Pass – Forward / Unlit
@@ -80,12 +47,10 @@ Shader "Custom/VoxelShader"
             Cull Back
             ZTest LEqual
             ZWrite On
-            Blend One Zero
 
             HLSLPROGRAM
             #pragma target 4.5
             #pragma vertex   vert
-            #pragma geometry geom
             #pragma fragment frag
 
             #pragma multi_compile_instancing
@@ -103,37 +68,45 @@ Shader "Custom/VoxelShader"
             TEXTURE2D_ARRAY(_Textures);
             SAMPLER(sampler_Textures);
 
-            struct FragExtraData
+            // ──────────────────────────────────────────────────────────────
+            // Vertex stage
+            // ──────────────────────────────────────────────────────────────
+            struct Varyings : DefaultVoxelVaryings
             {
-                uint texture_index;
-                uint4 sun_light;
-                uint4 artificial_light;
-                uint ao;
             };
 
-            FragExtraData unpack_frag_extra_data(uint4 packed)
+            Varyings vert(uint vertex_id : SV_VertexID)
             {
-                FragExtraData data;
-                data.texture_index = get_tex_index(packed);
-                data.sun_light = get_sun_light(packed);
-                data.artificial_light = get_artificial_light(packed);
-                data.ao = get_ao(packed);
-                return data;
+                ExpandedVertex ev = get_expanded_vertex(vertex_id);
+
+                Varyings o;
+                o.positionCS = TransformObjectToHClip(ev.positionOS);
+                o.uv = ev.uv;
+                o.packed = ev.packed;
+                return o;
             }
 
-            // ── Fragment shader ───────────────────────────────────────
+            // ──────────────────────────────────────────────────────────────
+            // Fragment stage
+            // ──────────────────────────────────────────────────────────────
+
             half4 frag(Varyings IN) : SV_Target
             {
-                // --- Texture array sample ---
-                FragExtraData extra = unpack_frag_extra_data(IN.packed);
+                // --- Unpack data ---
                 float2 uv = IN.uv;
-                float4 albedo = SAMPLE_TEXTURE2D_ARRAY(_Textures, sampler_Textures, uv, extra.texture_index);
+                uint tex_index = get_tex_index(IN.packed);
+                uint4 sun_light_data = get_sun_light(IN.packed);
+                uint4 artificial_light_data = get_artificial_light(IN.packed);
+                uint ao_data = get_ao(IN.packed);
+                
+                // --- Texture array sample ---
+                float4 albedo = SAMPLE_TEXTURE2D_ARRAY(_Textures, sampler_Textures, uv, tex_index);
 
                 // --- Ambient occlusion ---
-                float4 ao_color =  calc_ao_color(_AOColor, albedo, _AOCurve, extra.ao, _AOIntensity, _AOPower, uv);
+                float4 ao_color = calc_ao_color(_AOColor, albedo, _AOCurve, ao_data, _AOIntensity, _AOPower, uv);
 
                 // --- Sun light level ---
-                float sun_light = calc_sun_light(extra.sun_light, uv);
+                float sun_light = calc_sun_light(sun_light_data, uv);
 
                 // --- Final colour ---
                 return half4(ao_color.rgb * sun_light, 1);
@@ -159,107 +132,33 @@ Shader "Custom/VoxelShader"
 
             HLSLPROGRAM
             #pragma target 4.5
-            #pragma vertex   vert
-            #pragma geometry geom
+            #pragma vertex   vert_depth
             #pragma fragment frag_depth
 
             #pragma multi_compile_instancing
+            
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
-            CBUFFER_START(UnityPerMaterial)
-                float4 _AOColor;
-                float4 _AOCurve;
-                float _AOIntensity;
-                float _AOPower;
-            CBUFFER_END
+            // ──────────────────────────────────────────────────────────────
+            // Vertex stage
+            // ──────────────────────────────────────────────────────────────
+            struct DepthVaryings
+            {
+                float4 positionCS : SV_POSITION;
+            };
 
-            half frag_depth(Varyings IN) : SV_Target
+            DepthVaryings vert_depth(uint vertex_id : SV_VertexID)
+            {
+                ExpandedVertex ev = get_expanded_vertex(vertex_id);
+
+                DepthVaryings o;
+                o.positionCS = TransformObjectToHClip(ev.positionOS);
+                return o;
+            }
+
+            half frag_depth(DepthVaryings IN) : SV_Target
             {
                 return 0;
-            }
-            ENDHLSL
-        }
-
-        // ═════════════════════════════════════════════════════════════
-        // Pass – Scene Selection (editor highlight / outline)
-        // ═════════════════════════════════════════════════════════════
-        Pass
-        {
-            Name "SceneSelectionPass"
-            Tags
-            {
-                "LightMode" = "SceneSelectionPass"
-            }
-
-            Cull Off
-            ZTest LEqual
-            ZWrite On
-            ColorMask RGBA
-
-            HLSLPROGRAM
-            #pragma target 4.5
-            #pragma vertex   vert
-            #pragma geometry geom
-            #pragma fragment frag_sel
-
-            #pragma multi_compile_instancing
-
-            CBUFFER_START(UnityPerMaterial)
-                float4 _AOColor;
-                float4 _AOCurve;
-                float _AOIntensity;
-                float _AOPower;
-            CBUFFER_END
-
-            // Unity-supplied selection ID (injected by the editor)
-            int _ObjectId;
-            int _PassValue;
-
-            half4 frag_sel(Varyings IN) : SV_Target
-            {
-                // Encode the object/pass ID as required by the SceneSelectionPass protocol.
-                return half4(_ObjectId, _PassValue, 1, 1);
-            }
-            ENDHLSL
-        }
-
-        // ═════════════════════════════════════════════════════════════
-        // Pass – Scene Picking (editor GPU picking)
-        // ═════════════════════════════════════════════════════════════
-        Pass
-        {
-            Name "ScenePickingPass"
-            Tags
-            {
-                "LightMode" = "Picking"
-            }
-
-            Cull Off
-            ZTest LEqual
-            ZWrite On
-            ColorMask RGBA
-
-            HLSLPROGRAM
-            #pragma target 4.5
-            #pragma vertex   vert
-            #pragma geometry geom
-            #pragma fragment frag_pick
-
-            #pragma multi_compile_instancing
-
-            CBUFFER_START(UnityPerMaterial)
-                float4 _AOColor;
-                float4 _AOCurve;
-                float _AOIntensity;
-                float _AOPower;
-            CBUFFER_END
-
-            // Unity encodes the picking ID into this float4 via
-            // SceneView / HandleUtility.
-            float4 _SelectionID;
-
-            half4 frag_pick(Varyings IN) : SV_Target
-            {
-                return _SelectionID;
             }
             ENDHLSL
         }

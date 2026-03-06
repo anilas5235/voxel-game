@@ -24,7 +24,7 @@ namespace Runtime.Engine.VoxelConfig.Data
         private readonly TexRegistry _transparentTexRegistry = new();
         private bool _initialized;
 
-        private void Initialize()
+        internal void Initialize()
         {
             if (_initialized) return;
             _initialized = true;
@@ -77,7 +77,6 @@ namespace Runtime.Engine.VoxelConfig.Data
 
         private ushort Register(string name, VoxelRenderDef renderDef)
         {
-            Initialize();
             if (_nameToId.ContainsKey(name))
             {
                 Debug.LogWarning($"Voxel with name {name} is already registered.");
@@ -96,8 +95,8 @@ namespace Runtime.Engine.VoxelConfig.Data
             Texture2D tex = definition.GetTexture(dir);
             return RegisterTexture(tex, definition.meshLayer);
         }
-        
-        private ushort 
+
+        private ushort
             RegisterTexture(Texture2D tex, MeshLayer meshLayer)
         {
             return meshLayer switch

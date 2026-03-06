@@ -11,6 +11,7 @@ namespace Test
         private static readonly int PointBufferID = Shader.PropertyToID("_PointBuffer");
         private static readonly int QuadBufferID = Shader.PropertyToID("_QuadBuffer");
         private static readonly int ExpandedBufferID = Shader.PropertyToID("_ExpandedBuffer");
+        private static readonly int IndexOffset = Shader.PropertyToID("_IndexOffset");
 
         // ──────────────────────────────────────────────────────────────────────
         // Muss mit dem Vertex-Struct in VoxelExpand.compute übereinstimmen
@@ -43,17 +44,16 @@ namespace Test
 
         [SerializeField] private VoxelDataImporter _importer;
         [SerializeField] private ComputeShader _computeShader;
-        [SerializeField] private Material _material; // ExpandedBufferDraw
+        [SerializeField] private Material _material;
+        [SerializeField] private Material _Tmaterial;
 
         private const int PointCount = 6;
+        private const int TPointCount = 6;
         private const int ThreadGroupX = 64; // muss mit [numthreads(64,1,1)] in CSExpand übereinstimmen
 
         private ComputeBuffer _pointBuffer;
 
         private ComputeBuffer _expandedBuffer;
-
-        // DrawProceduralIndirect args: { indexCountPerInstance, instanceCount, startIndex, baseVertex, startInstance }
-        private ComputeBuffer _argsBuffer;
 
         private List<ChunkDrawCall> _chunks = new();
 
@@ -61,9 +61,9 @@ namespace Test
         {
             // ── Input-Buffer befüllen ──────────────────────────────────────────
             // stride = 28 bytes (3 floats + 4 uints)
-            _pointBuffer = new ComputeBuffer(PointCount, Marshal.SizeOf<Vertex>());
 
-            Vertex[] points = new Vertex[PointCount];
+            const int totalPoints = PointCount + TPointCount;
+            Vertex[] points = new Vertex[totalPoints];
             for (int i = 0; i < PointCount; i++)
             {
                 points[i] = new Vertex
@@ -77,17 +77,25 @@ namespace Test
                 };
             }
 
+            for (int i = 0; i < TPointCount; i++)
+            {
+                points[i + PointCount] = new Vertex
+                {
+                    position = new Vector3(-1, 1, 1),
+                    // quadIndex = 0 (lower 16 bits), texIndex = 1 (upper 16 bits)
+                    packedX = (uint)(i),
+                    packedY = 0xFFFFFFFF, // alle Licht-Nibbles auf max
+                    packedZ = 0,
+                    packedW = 0
+                };
+            }
+
+            _pointBuffer = new ComputeBuffer(totalPoints, Marshal.SizeOf<Vertex>());
             _pointBuffer.SetData(points);
 
             // ── Output-Buffer anlegen ─────────────────────────────────────────
             // stride = 36 bytes (3+2 floats + 4 uints)
-            _expandedBuffer = new ComputeBuffer(PointCount * 4, Marshal.SizeOf<ExpandedVertex>());
-
-            // ── Args-Buffer für DrawProceduralIndirect ────────────────────────
-            // Layout: { indexCountPerInstance, instanceCount, startIndex, baseVertex, startInstance }
-            int indexCount = PointCount * 6; // 2 Dreiecke × 3 Indices pro Quad
-            _argsBuffer = new ComputeBuffer(5, sizeof(uint), ComputeBufferType.IndirectArguments);
-            _argsBuffer.SetData(new uint[] { (uint)indexCount, 1u, 0u, 0u, 0u });
+            _expandedBuffer = new ComputeBuffer(totalPoints * 4, Marshal.SizeOf<ExpandedVertex>());
 
             // ── Shader-Ressourcen setzen ──────────────────────────────────────
             int kernelIndex = _computeShader.FindKernel("CSExpand");
@@ -97,26 +105,30 @@ namespace Test
             _computeShader.SetBuffer(kernelIndex, ExpandedBufferID, _expandedBuffer);
 
             // ── Dispatch: ceil(PointCount / 64) Gruppen ──────────────────────
-            int groups = (PointCount + ThreadGroupX - 1) / ThreadGroupX;
+            const int groups = (totalPoints + ThreadGroupX - 1) / ThreadGroupX;
             _computeShader.Dispatch(kernelIndex, groups, 1, 1);
 
-            // ── Readback und Debug-Ausgabe der ersten 4 Vertices ─────────────
-            ExpandedVertex[] result = new ExpandedVertex[PointCount * 4];
-            _expandedBuffer.GetData(result);
+            // ── Args-Buffer für DrawProceduralIndirect ────────────────────────
+            // Layout: { indexCountPerInstance, instanceCount, startIndex, baseVertex, startInstance }
+            const int indexCount = PointCount * 6; // 2 Dreiecke × 3 Indices pro Quad
+            ComputeBuffer argsBuffer = new ComputeBuffer(5, sizeof(uint), ComputeBufferType.IndirectArguments);
+            argsBuffer.SetData(new uint[] { (uint)indexCount, 1u, 0u, 0u, 0u });
 
-            /*for (int i = 0; i < 4; i++)
-            {
-                ExpandedVertex v = result[i];
-                Debug.Log($"[ComputeTest] Vertex {i}: pos={v.positionOS}  uv={v.uv}  " +
-                          $"packedX=0x{v.packedX:X8} packedY=0x{v.packedY:X8}  packedZ=0x{v.packedZ:X8}  packedW=0x{v.packedW:X8}");
-            }*/
+            // ── Args-T-Buffer für DrawProceduralIndirect ────────────────────────
+            // Layout: { indexCountPerInstance, instanceCount, startIndex, baseVertex, startInstance }
+            const uint indexTCount = TPointCount * 6; // 2 Dreiecke × 3 Indices pro Quad
+            ComputeBuffer argsTBuffer = new ComputeBuffer(5, sizeof(uint), ComputeBufferType.IndirectArguments);
+            argsTBuffer.SetData(new uint[] { (uint)indexTCount, 1u, 0u, 0u, 0u });
 
             _chunks.Add(new ChunkDrawCall()
             {
                 ExpandedBuffer = _expandedBuffer,
-                ArgsBuffer = _argsBuffer,
-                Bounds = new Bounds(Vector3.zero, Vector3.one * 1000f),
-                Material = _material
+                ArgsBuffer = argsBuffer,
+                SolidIndexCount = indexCount,
+                ArgsTBuffer = argsTBuffer,
+                Bounds = new Bounds(Vector3.zero, Vector3.one * 32f),
+                Material = _material,
+                TMaterial = _Tmaterial
             });
         }
 
@@ -135,14 +147,37 @@ namespace Test
             foreach (var chunk in _chunks)
             {
                 if (!chunk.IsValid) continue;
-                //Debug.Log($"[ComputeTest] Drawing chunk with Bounds={chunk.Bounds} using {chunk.ExpandedBuffer.count} expanded vertices");
-                chunk.Material.SetBuffer(ExpandedBufferID, chunk.ExpandedBuffer);
-                Graphics.DrawProceduralIndirect(
-                    chunk.Material,
-                    chunk.Bounds,
-                    MeshTopology.Triangles,
-                    chunk.ArgsBuffer
-                );
+                if (chunk.ArgsBuffer != null)
+                {
+                    var matProps = new MaterialPropertyBlock();
+                    matProps.SetInt(IndexOffset, chunk.SolidIndexCount);
+                    matProps.SetBuffer(ExpandedBufferID, chunk.ExpandedBuffer);
+                    Graphics.DrawProceduralIndirect(
+                        chunk.Material,
+                        chunk.Bounds,
+                        MeshTopology.Triangles,
+                        chunk.ArgsBuffer,
+                        0,
+                        cam,
+                        matProps
+                    );
+                }
+
+                if (chunk.ArgsTBuffer != null)
+                {
+                    var matProps = new MaterialPropertyBlock();
+                    matProps.SetInt(IndexOffset, chunk.SolidIndexCount);
+                    matProps.SetBuffer(ExpandedBufferID, chunk.ExpandedBuffer);
+                    Graphics.DrawProceduralIndirect(
+                        chunk.TMaterial,
+                        chunk.Bounds,
+                        MeshTopology.Triangles,
+                        chunk.ArgsTBuffer,
+                        0,
+                        cam,
+                        matProps
+                    );
+                }
             }
         }
 
@@ -150,7 +185,11 @@ namespace Test
         {
             _pointBuffer?.Release();
             _expandedBuffer?.Release();
-            _argsBuffer?.Release();
+            foreach (var chunk in _chunks)
+            {
+                chunk.ArgsBuffer?.Release();
+                chunk.ArgsTBuffer?.Release();
+            }
         }
     }
 
@@ -158,9 +197,12 @@ namespace Test
     {
         public ComputeBuffer ExpandedBuffer;
         public ComputeBuffer ArgsBuffer;
+        public int SolidIndexCount;
+        public ComputeBuffer ArgsTBuffer;
         public Bounds Bounds;
-        public Material Material; // eigene Material-Instanz (per chunk)
+        public Material Material;
+        public Material TMaterial;
 
-        public bool IsValid => ExpandedBuffer != null && ArgsBuffer != null && Material;
+        public bool IsValid => ExpandedBuffer != null && Material != null && TMaterial != null;
     }
 }

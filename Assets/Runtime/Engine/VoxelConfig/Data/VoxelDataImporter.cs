@@ -55,6 +55,7 @@ namespace Runtime.Engine.VoxelConfig.Data
         protected override void Awake()
         {
             base.Awake();
+            VoxelRegistry.Initialize();
             VoxelDataPackage[] voxelDataPackages = Resources.LoadAll<VoxelDataPackage>("VoxelDataPackages");
             if (voxelDataPackages == null || voxelDataPackages.Length == 0)
             {
@@ -167,11 +168,7 @@ namespace Runtime.Engine.VoxelConfig.Data
             };
 
             _quadDataBuffer = new ComputeBuffer(quadDataList.Count, Marshal.SizeOf<QuadData>());
-
             _quadDataBuffer.SetData(quadDataList);
-
-            voxelSolidMaterial.SetBuffer(QuadBufferID, _quadDataBuffer);
-            voxelTransparentMaterial.SetBuffer(QuadBufferID, _quadDataBuffer);
         }
 
         /// <summary>

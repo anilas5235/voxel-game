@@ -6,6 +6,7 @@
         _AOCurve("AOCurve", Vector, 4) = (0.75, 0.825, 0.9, 1)
         _AOIntensity("AOIntensity", Range(0, 1)) = 1
         _AOPower("AOPower", Range(1, 10)) = 1
+        _IndexOffset("Index Offset", Int) = 0
         [NoScaleOffset] _Textures ("Textures", 2DArray) = "" {}
     }
 
@@ -18,58 +19,17 @@
             "UniversalMaterialType" = "Unlit"
             "Queue" = "Transparent"
         }
-
         // ─────────────────────────────────────────────────────────────
         // Shared data types used by every pass
         // ─────────────────────────────────────────────────────────────
         HLSLINCLUDE
-        #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
         #include "VoxelCommon.hlsl"
 
-        struct Varyings
+        StructuredBuffer<ExpandedVertex> _ExpandedBuffer;
+
+        ExpandedVertex get_expanded_vertex(uint vertex_id)
         {
-            float4 positionCS : SV_POSITION;
-            float2 uv : TEXCOORD0; // xy = tile UV
-            uint4 packed : TEXCOORD1; // x: (texArrayIndex u16, sunLightLevel u4, 4 bit unused, ao u8)
-            // y:half16 , 16 bit unused
-            // z and w unused
-            float4 positionSS : TEXCOORD3;
-        };
-
-        // ── Geometry stage ────────────────────────────────────────────
-        // Expands a single point (one per quad) into a triangle strip (4 verts).
-        [maxvertexcount(4)]
-        void geom(point GeomInput IN[1], inout TriangleStream<Varyings> stream)
-        {
-            uint quad_index = get_quad_index(IN[0].packedUV0);
-            QuadData q = quad_buffer[quad_index];
-
-            float3 origin = IN[0].positionOS;
-
-            Varyings o;
-            o.packed = IN[0].packedUV0;
-
-            o.positionCS = TransformObjectToHClip(origin + q.position00);
-            o.uv = q.uv00;
-            o.positionSS = ComputeScreenPos(o.positionCS);
-            stream.Append(o);
-
-            o.positionCS = TransformObjectToHClip(origin + q.position01);
-            o.uv = q.uv01;
-            o.positionSS = ComputeScreenPos(o.positionCS);
-            stream.Append(o);
-
-            o.positionCS = TransformObjectToHClip(origin + q.position02);
-            o.uv = q.uv02;
-            o.positionSS = ComputeScreenPos(o.positionCS);
-            stream.Append(o);
-
-            o.positionCS = TransformObjectToHClip(origin + q.position03);
-            o.uv = q.uv03;
-            o.positionSS = ComputeScreenPos(o.positionCS);
-            stream.Append(o);
-
-            stream.RestartStrip();
+            return _ExpandedBuffer[get_vertex_buffer_index(vertex_id)];
         }
         ENDHLSL
 
@@ -92,7 +52,6 @@
             HLSLPROGRAM
             #pragma target 4.5
             #pragma vertex   vert
-            #pragma geometry geom
             #pragma fragment frag
 
             #pragma multi_compile_instancing
@@ -106,149 +65,77 @@
                 float _AOIntensity;
                 float _AOPower;
                 float4 _AOCurve;
+                int _IndexOffset;
             CBUFFER_END
 
             TEXTURE2D_ARRAY(_Textures);
             SAMPLER(sampler_Textures);
 
-            struct FragExtraData
+            // ──────────────────────────────────────────────────────────────
+            // Vertex stage
+            // ──────────────────────────────────────────────────────────────
+            struct Varyings : DefaultVoxelVaryings
             {
-                uint texture_index;
-                uint4 sun_light;
-                uint4 artificial_light;
-                uint ao;
-                float depth_fade_dist;
-                float glow;
+                float4 positionSS : TEXCOORD3;
             };
 
-            FragExtraData unpack_frag_extra_data(uint4 packed)
+
+            Varyings vert(uint vertex_id : SV_VertexID)
             {
-                FragExtraData data;
-                data.texture_index = get_tex_index(packed);
-                data.sun_light = get_sun_light(packed);
-                data.artificial_light = get_artificial_light(packed);
-                data.ao = get_ao(packed);
-                data.depth_fade_dist = get_depth_fade_dist(packed);
-                data.glow = get_glow(packed);
-                return data;
+                ExpandedVertex ev = get_expanded_vertex(vertex_id+_IndexOffset);
+
+                Varyings o;
+                o.positionCS = TransformObjectToHClip(ev.positionOS);
+                o.uv = ev.uv;
+                o.packed = ev.packed;
+                o.positionSS = ComputeScreenPos(o.positionCS);
+                return o;
             }
 
-            float depth_fade(const float4 positionSS, const float dist, const float texAlpha)
+            // ──────────────────────────────────────────────────────────────
+            // Fragment stage
+            // ──────────────────────────────────────────────────────────────
+            float depth_fade(const float4 positionSS, const float dist, const float alpha)
             {
-                if (dist <= 0.1f) return texAlpha;
+                if (dist <= 0.1f) return alpha;
 
                 float2 ndc = positionSS.xy / positionSS.w;
 
                 float raw_depth = SampleSceneDepth(ndc);
                 float scene_eye_depth = LinearEyeDepth(raw_depth, _ZBufferParams);
 
-                float inter = saturate((scene_eye_depth - positionSS.w) / dist);
-                return lerp(texAlpha, 1, inter);
+                float t = saturate((scene_eye_depth - positionSS.w) / dist);
+                return lerp(alpha, 1, t);
             }
 
-            // ── Fragment shader ───────────────────────────────────────
             half4 frag(Varyings IN) : SV_Target
             {
+                // --- Unpack data ---
+                float2 uv = IN.uv;
+                uint tex_index = get_tex_index(IN.packed);
+                uint4 sun_light_data = get_sun_light(IN.packed);
+                uint4 artificial_light_data = get_artificial_light(IN.packed);
+                uint ao_data = get_ao(IN.packed);
+                float depth_fade_dist = get_depth_fade_dist(IN.packed);
+                float glow_data = get_glow(IN.packed);
+
                 // --- Texture array sample ---
-                FragExtraData extra = unpack_frag_extra_data(IN.packed);
-                const float2 uv = IN.uv;
-                const float4 albedo = SAMPLE_TEXTURE2D_ARRAY(_Textures, sampler_Textures, uv, extra.texture_index);
+                const float4 albedo = SAMPLE_TEXTURE2D_ARRAY(_Textures, sampler_Textures, uv, tex_index);
 
                 // --- Ambient occlusion ---
-                const float4 ao_color = calc_ao_color(_AOColor, albedo, _AOCurve, extra.ao, _AOIntensity, _AOPower, uv);
+                const float4 ao_color = calc_ao_color(_AOColor, albedo, _AOCurve, ao_data, _AOIntensity, _AOPower, uv);
 
                 // --- Sun light level ---
-                const float sun_light = calc_sun_light(extra.sun_light, uv);
+                const float sun_light = calc_sun_light(sun_light_data, uv);
 
                 // --- Depth fade ---
-                const float alpha = depth_fade(IN.positionSS, extra.depth_fade_dist, albedo.w);
+                const float alpha = depth_fade(IN.positionSS, depth_fade_dist, albedo.w);
 
                 // --- Glow ---
-                const float glow = calc_glow(extra.glow);
+                const float glow = calc_glow(glow_data);
 
                 // --- Final colour ---
                 return half4(ao_color.rgb * sun_light * glow, alpha);
-            }
-            ENDHLSL
-        }
-
-        // ═════════════════════════════════════════════════════════════
-        // Pass – Scene Selection (editor highlight / outline)
-        // ═════════════════════════════════════════════════════════════
-        Pass
-        {
-            Name "SceneSelectionPass"
-            Tags
-            {
-                "LightMode" = "SceneSelectionPass"
-            }
-
-            Cull Off
-            ZTest LEqual
-            ZWrite On
-            ColorMask RGBA
-
-            HLSLPROGRAM
-            #pragma target 4.5
-            #pragma vertex   vert
-            #pragma geometry geom
-            #pragma fragment frag_sel
-
-            #pragma multi_compile_instancing
-
-            CBUFFER_START(UnityPerMaterial)
-                float4 _AOColor;
-                float4 _AOCurve;
-                float _AOIntensity;
-                float _AOPower;
-            CBUFFER_END
-
-            int _ObjectId;
-            int _PassValue;
-
-            half4 frag_sel(Varyings IN) : SV_Target
-            {
-                return half4(_ObjectId, _PassValue, 1, 1);
-            }
-            ENDHLSL
-        }
-
-        // ═════════════════════════════════════════════════════════════
-        // Pass – Scene Picking (editor GPU picking)
-        // ═════════════════════════════════════════════════════════════
-        Pass
-        {
-            Name "ScenePickingPass"
-            Tags
-            {
-                "LightMode" = "Picking"
-            }
-
-            Cull Off
-            ZTest LEqual
-            ZWrite On
-            ColorMask RGBA
-
-            HLSLPROGRAM
-            #pragma target 4.5
-            #pragma vertex   vert
-            #pragma geometry geom
-            #pragma fragment frag_pick
-
-            #pragma multi_compile_instancing
-
-            CBUFFER_START(UnityPerMaterial)
-                float4 _AOColor;
-                float4 _AOCurve;
-                float _AOIntensity;
-                float _AOPower;
-            CBUFFER_END
-
-            float4 _SelectionID;
-
-            half4 frag_pick(Varyings IN) : SV_Target
-            {
-                return _SelectionID;
             }
             ENDHLSL
         }
