@@ -15,7 +15,7 @@
 struct Vertex
 {
     float3 position;
-    uint4  packed;
+    uint4 packed;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -29,16 +29,17 @@ struct ExpandedVertex
 {
     float3 positionOS;
     float2 uv;
-    uint4  packed;
+    uint4 packed;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Buffers
 // ─────────────────────────────────────────────────────────────────────────────
 
-StructuredBuffer<Vertex>           _PointBuffer;
-StructuredBuffer<QuadData>         _QuadBuffer;
+StructuredBuffer<Vertex> _PointBuffer;
+StructuredBuffer<QuadData> _QuadBuffer;
 RWStructuredBuffer<ExpandedVertex> _ExpandedBuffer;
+float3 _PartitionWorldPos;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Kernel
@@ -50,38 +51,38 @@ void CSExpand(uint3 id : SV_DispatchThreadID)
 {
     uint pointIndex = id.x;
 
-    Vertex  p = _PointBuffer[pointIndex];
-    uint    quadIndex = p.packed.x & 0xFFFF;
+    Vertex p = _PointBuffer[pointIndex];
+    uint quadIndex = p.packed.x & 0xFFFF;
     QuadData q = _QuadBuffer[quadIndex];
 
-    float3 origin = p.position;
-    uint   outBase = pointIndex * 4;
+    float3 origin = p.position+ _PartitionWorldPos;
+    uint outBase = pointIndex * 4;
 
     // Corner 0 – upper-left  (uv00)
     ExpandedVertex v0;
     v0.positionOS = origin + q.position00;
-    v0.uv         = q.uv00;
-    v0.packed     = p.packed;
+    v0.uv = q.uv00;
+    v0.packed = p.packed;
     _ExpandedBuffer[outBase + 0] = v0;
 
     // Corner 1 – upper-right (uv01)
     ExpandedVertex v1;
     v1.positionOS = origin + q.position01;
-    v1.uv         = q.uv01;
-    v1.packed     = p.packed;
+    v1.uv = q.uv01;
+    v1.packed = p.packed;
     _ExpandedBuffer[outBase + 1] = v1;
 
     // Corner 2 – lower-left  (uv02)
     ExpandedVertex v2;
     v2.positionOS = origin + q.position02;
-    v2.uv         = q.uv02;
-    v2.packed     = p.packed;
+    v2.uv = q.uv02;
+    v2.packed = p.packed;
     _ExpandedBuffer[outBase + 2] = v2;
 
     // Corner 3 – lower-right (uv03)
     ExpandedVertex v3;
     v3.positionOS = origin + q.position03;
-    v3.uv         = q.uv03;
-    v3.packed     = p.packed;
+    v3.uv = q.uv03;
+    v3.packed = p.packed;
     _ExpandedBuffer[outBase + 3] = v3;
 }

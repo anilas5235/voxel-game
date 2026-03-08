@@ -1,4 +1,5 @@
-﻿using Unity.Mathematics;
+﻿using Runtime.Engine.Utils.Extensions;
+using Unity.Mathematics;
 using UnityEngine.Rendering;
 
 namespace Runtime.Engine.Utils
@@ -30,6 +31,7 @@ namespace Runtime.Engine.Utils
         internal const int MaxZPartitionPos = PartitionDepth - 1;
 
         internal static readonly int3 PartitionSize = new(PartitionWidth, PartitionHeight, PartitionDepth);
+        internal static readonly int3 PartitionCenterOffset = PartitionSize / 2;
 
         internal const int VoxelsPerPartition = PartitionWidth * PartitionHeight * PartitionDepth;
         internal const int PartitionsPerChunk = ChunkHeight / PartitionHeight;

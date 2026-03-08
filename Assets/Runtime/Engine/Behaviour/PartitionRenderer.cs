@@ -6,6 +6,7 @@ using Runtime.Engine.VoxelConfig.Data;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -16,10 +17,10 @@ namespace Runtime.Engine.Behaviour
         private const int ThreadGroupX = 64;
 
         private static readonly int IndexOffsetID = Shader.PropertyToID("_IndexOffset");
-        private static readonly int VertexBufferID = Shader.PropertyToID("_VertexBuffer");
         private static readonly int PointBufferID = Shader.PropertyToID("_PointBuffer");
         private static readonly int QuadBufferID = Shader.PropertyToID("_QuadBuffer");
         private static readonly int ExpandedBufferID = Shader.PropertyToID("_ExpandedBuffer");
+        private static readonly int PartitionWorldPosID = Shader.PropertyToID("_PartitionWorldPos");
 
         [SerializeField] private Material[] materials = new Material[3]; // 0: solid, 1: transparent, 2: foliage
         [SerializeField] private ComputeShader expandComputeShader;
@@ -27,7 +28,7 @@ namespace Runtime.Engine.Behaviour
         private PartitionMeshGPUData _gpuData;
         private readonly PartitionDrawCall[] _drawCalls = new PartitionDrawCall[3];
         private ComputeBuffer _expandedBuffer;
-        private bool _validForDraw;
+        [SerializeField] private bool _validForDraw;
 
         private VoxelDataImporter _importer;
 
@@ -40,8 +41,8 @@ namespace Runtime.Engine.Behaviour
                 _drawCalls[i] = new PartitionDrawCall
                 {
                     ArgsBuffer = new ComputeBuffer(5, sizeof(uint), ComputeBufferType.IndirectArguments),
-                    VertexOffset = 0,
                     Material = materials[i],
+                    MaterialPropertyBlock = new MaterialPropertyBlock(),
                 };
             }
         }
@@ -61,12 +62,6 @@ namespace Runtime.Engine.Behaviour
             if (!_validForDraw) return;
             foreach (PartitionDrawCall drawCall in _drawCalls)
             {
-                if (drawCall.ArgsBuffer == null) continue;
-
-                MaterialPropertyBlock matProps = new();
-                matProps.SetInt(IndexOffsetID, drawCall.VertexOffset);
-                matProps.SetBuffer(VertexBufferID, _expandedBuffer);
-
                 Graphics.DrawProceduralIndirect(
                     drawCall.Material,
                     drawCall.Bounds,
@@ -74,7 +69,9 @@ namespace Runtime.Engine.Behaviour
                     drawCall.ArgsBuffer,
                     0,
                     cam,
-                    matProps
+                    drawCall.MaterialPropertyBlock,
+                    ShadowCastingMode.Off,
+                    false
                 );
             }
         }
@@ -85,9 +82,9 @@ namespace Runtime.Engine.Behaviour
 
         public void Clear()
         {
+            _validForDraw = false;
             _expandedBuffer?.Release();
             _expandedBuffer = null;
-            _validForDraw = false;
             _gpuData.Vertices.Dispose();
         }
 
@@ -102,9 +99,11 @@ namespace Runtime.Engine.Behaviour
                 return;
             }
 
+            Bounds bounds = _gpuData.Bounds;
+            bounds.center += transform.position;
             foreach (PartitionDrawCall drawCall in _drawCalls)
             {
-                drawCall.Bounds = _gpuData.Bounds;
+                drawCall.Bounds = bounds;
             }
 
             StartCoroutine(RunComputeShader());
@@ -112,16 +111,13 @@ namespace Runtime.Engine.Behaviour
 
         private void OnDestroy()
         {
-            _expandedBuffer?.Release();
-            foreach (PartitionDrawCall drawCall in _drawCalls)
-            {
-                drawCall.ArgsBuffer?.Release();
-            }
+            Clear();
+            foreach (PartitionDrawCall drawCall in _drawCalls) drawCall.ArgsBuffer?.Release();
         }
 
         private IEnumerator RunComputeShader()
         {
-            ComputeBuffer pointBuffer = new(_gpuData.TotalVertexCount, Marshal.SizeOf<Vertex>());
+            ComputeBuffer pointBuffer = new(_gpuData.TotalVertexCount, Marshal.SizeOf<Vertex>(), ComputeBufferType.Structured, ComputeBufferMode.SubUpdates);
             UnsafeList<Vertex> vertices = _gpuData.Vertices;
             int vertexCount = _gpuData.TotalVertexCount;
 
@@ -130,38 +126,46 @@ namespace Runtime.Engine.Behaviour
             pointBuffer.EndWrite<Vertex>(vertexCount);
 
             // ── Output-Buffer anlegen ─────────────────────────────────────────
-            ComputeBuffer oldExpandedBuffer = _expandedBuffer;
-            _expandedBuffer = new ComputeBuffer(_gpuData.TotalVertexCount * 4, Marshal.SizeOf<ExpandedVertex>());
+            ComputeBuffer newExpandedBuffer = new(_gpuData.TotalVertexCount * 4, Marshal.SizeOf<ExpandedVertex>());
+
+            yield return new WaitForNextFrameUnit();
 
             // ── Shader-Ressourcen setzen ──────────────────────────────────────
             int kernelIndex = expandComputeShader.FindKernel("CSExpand");
 
             expandComputeShader.SetBuffer(kernelIndex, PointBufferID, pointBuffer);
             expandComputeShader.SetBuffer(kernelIndex, QuadBufferID, _importer.QuadDataBuffer);
-            expandComputeShader.SetBuffer(kernelIndex, ExpandedBufferID, _expandedBuffer);
+            expandComputeShader.SetBuffer(kernelIndex, ExpandedBufferID, newExpandedBuffer);
+            expandComputeShader.SetVector(PartitionWorldPosID,transform.position);
 
             // ── Dispatch ──────────────────────────────────────────────────────
             int groups = (_gpuData.TotalVertexCount + ThreadGroupX - 1) / ThreadGroupX;
             expandComputeShader.Dispatch(kernelIndex, groups, 1, 1);
 
             // ── ArgsBuffer ────────────────────────────────────────────────────
-            _drawCalls[0].ArgsBuffer.SetData(new[] { (uint)_gpuData.SolidVertexCount * 6, 1u, 0u, 0u, 0u });
-            _drawCalls[1].ArgsBuffer.SetData(new[] { (uint)_gpuData.TransparentVertexCount * 6, 1u, 0u, 0u, 0u });
-            _drawCalls[2].ArgsBuffer.SetData(new[] { (uint)_gpuData.FoliageVertexCount * 6, 1u, 0u, 0u, 0u });
+            _drawCalls[0].ArgsBuffer.SetData(new[] { (uint)_gpuData.SolidVertexCount * 6u, 1u, 0u, 0u, 0u });
+            _drawCalls[0].MaterialPropertyBlock.SetInt(IndexOffsetID, 0);
+            _drawCalls[1].ArgsBuffer.SetData(new[] { (uint)_gpuData.TransparentVertexCount * 6u, 1u, 0u, 0u, 0u });
+            _drawCalls[1].MaterialPropertyBlock.SetInt(IndexOffsetID, _gpuData.SolidVertexCount * 6); 
+            _drawCalls[2].ArgsBuffer.SetData(new[] { (uint)_gpuData.FoliageVertexCount * 6u, 1u, 0u, 0u, 0u });
+            _drawCalls[2].MaterialPropertyBlock.SetInt(IndexOffsetID, (_gpuData.SolidVertexCount + _gpuData.TransparentVertexCount) * 6);
 
             pointBuffer.Release();
-            _gpuData.Vertices.Dispose();
-            oldExpandedBuffer?.Release();
+            _expandedBuffer?.Release();
+            _expandedBuffer = newExpandedBuffer;
             _validForDraw = true;
-            yield return null;
+            foreach (PartitionDrawCall drawCall in _drawCalls)
+            {
+                drawCall.MaterialPropertyBlock.SetBuffer(ExpandedBufferID, _expandedBuffer);
+            }
         }
 
         private class PartitionDrawCall
         {
             public ComputeBuffer ArgsBuffer;
-            public int VertexOffset;
             public Bounds Bounds;
             public Material Material;
+            public MaterialPropertyBlock MaterialPropertyBlock;
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
