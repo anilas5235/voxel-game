@@ -931,6 +931,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1592505029}
   - component: {fileID: 1592505030}
+  - component: {fileID: 1592505031}
   m_Layer: 0
   m_Name: World
   m_TagString: Untagged
@@ -967,6 +968,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   focus: {fileID: 330585546}
   settings: {fileID: 11400000, guid: 455fa891937aa3143ab4d3735c5e538d, type: 2}
+--- !u!114 &1592505031
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1592505027}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3b10787236ef4198b30f009f0b32781b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Runtime.Engine.Behaviour.GlobalPartitionRenderer
 --- !u!1 &1610362568
 GameObject:
   m_ObjectHideFlags: 0

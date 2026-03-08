@@ -28,7 +28,7 @@ namespace Runtime.Engine.Behaviour
         private PartitionMeshGPUData _gpuData;
         private readonly PartitionDrawCall[] _drawCalls = new PartitionDrawCall[3];
         private ComputeBuffer _expandedBuffer;
-        [SerializeField] private bool _validForDraw;
+        [SerializeField] private bool validForDraw;
 
         private VoxelDataImporter _importer;
 
@@ -45,6 +45,8 @@ namespace Runtime.Engine.Behaviour
                     MaterialPropertyBlock = new MaterialPropertyBlock(),
                 };
             }
+
+            GlobalPartitionRenderer.Instance.RegisterRenderer(this);
         }
 
         private void OnEnable()
@@ -59,7 +61,7 @@ namespace Runtime.Engine.Behaviour
 
         private void Draw(ScriptableRenderContext ctx, Camera cam)
         {
-            if (!_validForDraw) return;
+            if (!validForDraw) return;
             foreach (PartitionDrawCall drawCall in _drawCalls)
             {
                 Graphics.DrawProceduralIndirect(
@@ -82,10 +84,27 @@ namespace Runtime.Engine.Behaviour
 
         public void Clear()
         {
-            _validForDraw = false;
+            validForDraw = false;
             _expandedBuffer?.Release();
             _expandedBuffer = null;
             _gpuData.Vertices.Dispose();
+        }
+
+        public void DrawForPass(int pass, Camera cam)
+        {
+            if (!validForDraw) return;
+            PartitionDrawCall drawCall = _drawCalls[pass];
+            Graphics.DrawProceduralIndirect(
+                drawCall.Material,
+                drawCall.Bounds,
+                MeshTopology.Triangles,
+                drawCall.ArgsBuffer,
+                0,
+                cam,
+                drawCall.MaterialPropertyBlock,
+                ShadowCastingMode.Off,
+                false
+            );
         }
 
         public void MeshUpdate(ref PartitionMeshGPUData data)
@@ -113,11 +132,13 @@ namespace Runtime.Engine.Behaviour
         {
             Clear();
             foreach (PartitionDrawCall drawCall in _drawCalls) drawCall.ArgsBuffer?.Release();
+            GlobalPartitionRenderer.Instance?.UnregisterRenderer(this);
         }
 
         private IEnumerator RunComputeShader()
         {
-            ComputeBuffer pointBuffer = new(_gpuData.TotalVertexCount, Marshal.SizeOf<Vertex>(), ComputeBufferType.Structured, ComputeBufferMode.SubUpdates);
+            ComputeBuffer pointBuffer = new(_gpuData.TotalVertexCount, Marshal.SizeOf<Vertex>(),
+                ComputeBufferType.Structured, ComputeBufferMode.SubUpdates);
             UnsafeList<Vertex> vertices = _gpuData.Vertices;
             int vertexCount = _gpuData.TotalVertexCount;
 
@@ -136,7 +157,7 @@ namespace Runtime.Engine.Behaviour
             expandComputeShader.SetBuffer(kernelIndex, PointBufferID, pointBuffer);
             expandComputeShader.SetBuffer(kernelIndex, QuadBufferID, _importer.QuadDataBuffer);
             expandComputeShader.SetBuffer(kernelIndex, ExpandedBufferID, newExpandedBuffer);
-            expandComputeShader.SetVector(PartitionWorldPosID,transform.position);
+            expandComputeShader.SetVector(PartitionWorldPosID, transform.position);
 
             // ── Dispatch ──────────────────────────────────────────────────────
             int groups = (_gpuData.TotalVertexCount + ThreadGroupX - 1) / ThreadGroupX;
@@ -146,14 +167,15 @@ namespace Runtime.Engine.Behaviour
             _drawCalls[0].ArgsBuffer.SetData(new[] { (uint)_gpuData.SolidVertexCount * 6u, 1u, 0u, 0u, 0u });
             _drawCalls[0].MaterialPropertyBlock.SetInt(IndexOffsetID, 0);
             _drawCalls[1].ArgsBuffer.SetData(new[] { (uint)_gpuData.TransparentVertexCount * 6u, 1u, 0u, 0u, 0u });
-            _drawCalls[1].MaterialPropertyBlock.SetInt(IndexOffsetID, _gpuData.SolidVertexCount * 6); 
+            _drawCalls[1].MaterialPropertyBlock.SetInt(IndexOffsetID, _gpuData.SolidVertexCount * 6);
             _drawCalls[2].ArgsBuffer.SetData(new[] { (uint)_gpuData.FoliageVertexCount * 6u, 1u, 0u, 0u, 0u });
-            _drawCalls[2].MaterialPropertyBlock.SetInt(IndexOffsetID, (_gpuData.SolidVertexCount + _gpuData.TransparentVertexCount) * 6);
+            _drawCalls[2].MaterialPropertyBlock.SetInt(IndexOffsetID,
+                (_gpuData.SolidVertexCount + _gpuData.TransparentVertexCount) * 6);
 
             pointBuffer.Release();
             _expandedBuffer?.Release();
             _expandedBuffer = newExpandedBuffer;
-            _validForDraw = true;
+            validForDraw = true;
             foreach (PartitionDrawCall drawCall in _drawCalls)
             {
                 drawCall.MaterialPropertyBlock.SetBuffer(ExpandedBufferID, _expandedBuffer);
