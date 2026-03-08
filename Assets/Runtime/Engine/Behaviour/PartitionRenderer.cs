@@ -2,6 +2,7 @@
 using System.Runtime.InteropServices;
 using Runtime.Engine.Jobs.Meshing;
 using Runtime.Engine.Settings;
+using Runtime.Engine.Unsafe;
 using Runtime.Engine.VoxelConfig.Data;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -88,18 +89,13 @@ namespace Runtime.Engine.Behaviour
             _expandedBuffer?.Release();
             _expandedBuffer = null;
             _validForDraw = false;
+            _gpuData.Vertices.Dispose();
         }
 
         public void MeshUpdate(ref PartitionMeshGPUData data)
         {
-            _gpuData = new PartitionMeshGPUData(
-                new NativeArray<Vertex>(data.Vertices, Allocator.Persistent),
-                data.SolidVertexCount,
-                data.TransparentVertexCount,
-                data.FoliageVertexCount,
-                data.Bounds
-            );
-            data.Vertices.Dispose();
+            _gpuData.Vertices.Dispose();
+            _gpuData = data;
             
             if (_gpuData.TotalVertexCount == 0)
             {
@@ -127,7 +123,7 @@ namespace Runtime.Engine.Behaviour
         private IEnumerator RunComputeShader()
         {
             ComputeBuffer pointBuffer = new(_gpuData.TotalVertexCount, Marshal.SizeOf<Vertex>());
-            pointBuffer.SetData(_gpuData.Vertices);
+            pointBuffer.SetData(_gpuData.Vertices.AsNativeArray());
 
             // ── Output-Buffer anlegen ─────────────────────────────────────────
             ComputeBuffer oldExpandedBuffer = _expandedBuffer;
@@ -178,14 +174,14 @@ namespace Runtime.Engine.Behaviour
     
     public struct PartitionMeshGPUData
     {
-        public NativeArray<Vertex> Vertices;
+        public UnsafeArray<Vertex> Vertices;
         public readonly int SolidVertexCount;
         public readonly int TransparentVertexCount;
         public readonly int FoliageVertexCount;
         public readonly int TotalVertexCount;
         public readonly Bounds Bounds;
 
-        public PartitionMeshGPUData(NativeArray<Vertex> vertices, int solidVertexCount, int transparentVertexCount,
+        public PartitionMeshGPUData(UnsafeArray<Vertex> vertices, int solidVertexCount, int transparentVertexCount,
             int foliageVertexCount, Bounds bounds)
         {
             Vertices = vertices;

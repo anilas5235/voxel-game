@@ -57,9 +57,20 @@ namespace Runtime.Engine.Jobs
         /// <param name="focus">Fokusposition (z.B. Spieler Chunk Root).</param>
         internal void ScheduleUpdate(int3 focus)
         {
-            _dataJobHandler.Update(focus);
-            _meshJobHandler.Update(focus);
-            _colliderJobHandler.Update(focus);
+            switch (_currentUpdate)
+            {
+                case SchedulerUpdate.Data:
+                    _dataJobHandler.Update(focus);
+                    break;
+                case SchedulerUpdate.Mesh:
+                    _meshJobHandler.Update(focus);
+                    break;
+                case SchedulerUpdate.Collider:
+                    _colliderJobHandler.Update(focus);
+                    break;
+            }
+
+            _currentUpdate = (SchedulerUpdate)(((byte)_currentUpdate + 1) % 3);
         }
 
         private enum SchedulerUpdate : byte

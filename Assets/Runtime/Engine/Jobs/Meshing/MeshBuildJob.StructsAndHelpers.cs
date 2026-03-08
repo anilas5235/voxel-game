@@ -1,5 +1,6 @@
 ﻿using System;
 using Runtime.Engine.Data;
+using Runtime.Engine.Unsafe;
 using Runtime.Engine.VoxelConfig.Data;
 using Unity.Burst;
 using Unity.Collections;
@@ -30,7 +31,7 @@ namespace Runtime.Engine.Jobs.Meshing
             public Bounds ColliderBounds;
             
             [NativeDisableContainerSafetyRestriction]
-            public NativeArray<Vertex> MeshVertices;
+            public UnsafeArray<Vertex> MeshVertices;
             public uint SolidVertexCount;
             public uint TransparentVertexCount;
             public uint FoliageVertexCount;

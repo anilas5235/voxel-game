@@ -1,10 +1,8 @@
 ﻿using System;
-using Runtime.Engine.Jobs.Meshing;
 using Runtime.Engine.Settings;
 using Runtime.Engine.Utils.Extensions;
-using Unity.Collections;
+using UnityEditor;
 using UnityEngine;
-using UnityEngine.Serialization;
 using static Runtime.Engine.Utils.VoxelConstants;
 
 namespace Runtime.Engine.Behaviour
@@ -62,7 +60,7 @@ namespace Runtime.Engine.Behaviour
             Collider.sharedMesh = null;
             partitionRenderer.Clear();
         }
-        
+
         public bool HasValidColliderMesh() => ColliderMesh && ColliderMesh.vertexCount > 2;
 
 #if UNITY_EDITOR
@@ -87,7 +85,7 @@ namespace Runtime.Engine.Behaviour
 
             // Draw partition ID
             Gizmos.color = Color.white;
-            UnityEditor.Handles.Label(
+            Handles.Label(
                 transform.position + PartitionSize.GetVector3() * 0.5f,
                 $"Id:{PartitionId}",
                 new GUIStyle()
