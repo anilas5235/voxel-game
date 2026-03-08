@@ -55,6 +55,7 @@ namespace Runtime.Engine.VoxelConfig.Data
         protected override void Awake()
         {
             base.Awake();
+            VoxelRegistry.Initialize();
             VoxelDataPackage[] voxelDataPackages = Resources.LoadAll<VoxelDataPackage>("VoxelDataPackages");
             if (voxelDataPackages == null || voxelDataPackages.Length == 0)
             {

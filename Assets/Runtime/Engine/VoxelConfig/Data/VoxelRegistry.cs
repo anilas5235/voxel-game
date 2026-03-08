@@ -24,7 +24,7 @@ namespace Runtime.Engine.VoxelConfig.Data
         private readonly TexRegistry _transparentTexRegistry = new();
         private bool _initialized;
 
-        private void Initialize()
+        public void Initialize()
         {
             if (_initialized) return;
             _initialized = true;
