@@ -1,11 +1,24 @@
-﻿using System;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Mathematics;
 
 namespace Runtime.Engine.Jobs.Meshing
 {
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    public struct QuadData
+    {
+        public float3 position00;
+        public float3 position01;
+        public float3 position02;
+        public float3 position03;
+        public float3 normal;
+        public float2 uv00;
+        public float2 uv01;
+        public float2 uv02;
+        public float2 uv03;
+    };
+
     [BurstCompile, StructLayout(LayoutKind.Sequential, Pack = 1)]
     public struct Vertex
     {
@@ -16,7 +29,7 @@ namespace Runtime.Engine.Jobs.Meshing
         {
             Position = position;
             PackedData = uint4.zero;
-            
+
             SetQuadIndex(quadIndex);
             SetTextureIndex(textureIndex);
         }
@@ -73,9 +86,9 @@ namespace Runtime.Engine.Jobs.Meshing
     internal struct MeshBuffer
     {
         public NativeList<Vertex> VertexBuffer;
-        public NativeList<ushort> SolidIndexBuffer;
-        public NativeList<ushort> TransparentIndexBuffer;
-        public NativeList<ushort> FoliageIndexBuffer;
+        public uint SolidVertexCount;
+        public uint TransparentVertexCount;
+        public uint FoliageVertexCount;
 
         public NativeList<CVertex> CVertexBuffer;
         public NativeList<ushort> CIndexBuffer;
@@ -86,42 +99,32 @@ namespace Runtime.Engine.Jobs.Meshing
         internal void Dispose()
         {
             VertexBuffer.Dispose();
-            SolidIndexBuffer.Dispose();
-            TransparentIndexBuffer.Dispose();
-            FoliageIndexBuffer.Dispose();
             CVertexBuffer.Dispose();
             CIndexBuffer.Dispose();
         }
 
-        public void AddVertex(ref Vertex vertex)
+        public void AddVertex(ref Vertex vertex, SubMeshType type)
         {
             EnsureCapacity(VertexBuffer, 1);
             VertexBuffer.AddNoResize(vertex);
-        }
-
-        public void AddIndex(int index, SubMeshType subMeshType)
-        {
-            switch (subMeshType)
+            switch (type)
             {
                 case SubMeshType.Solid:
-                    EnsureCapacity(SolidIndexBuffer, 1);
-                    SolidIndexBuffer.AddNoResize((ushort)index);
+                    SolidVertexCount++;
                     break;
                 case SubMeshType.Transparent:
-                    EnsureCapacity(TransparentIndexBuffer, 1);
-                    TransparentIndexBuffer.AddNoResize((ushort)index);
+                    TransparentVertexCount++;
                     break;
                 case SubMeshType.Foliage:
-                    EnsureCapacity(FoliageIndexBuffer, 1);
-                    FoliageIndexBuffer.AddNoResize((ushort)index);
+                    FoliageVertexCount++;
                     break;
-                case SubMeshType.Collider:
-                    EnsureCapacity(CIndexBuffer, 1);
-                    CIndexBuffer.AddNoResize((ushort)index);
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(subMeshType), subMeshType, null);
             }
+        }
+
+        public void AddCIndex(int index)
+        {
+            EnsureCapacity(CIndexBuffer, 1);
+            CIndexBuffer.AddNoResize((ushort)index);
         }
 
         public void AddCVertex(CVertex vertex)
@@ -129,7 +132,7 @@ namespace Runtime.Engine.Jobs.Meshing
             EnsureCapacity(CVertexBuffer, 1);
             CVertexBuffer.AddNoResize(vertex);
         }
-        
+
         private void EnsureCapacity<T>(NativeList<T> list, int add) where T : unmanaged
         {
             int need = list.Length + add;
@@ -144,6 +147,5 @@ namespace Runtime.Engine.Jobs.Meshing
         Solid = 0,
         Transparent = 1,
         Foliage = 2,
-        Collider = 3
     }
 }

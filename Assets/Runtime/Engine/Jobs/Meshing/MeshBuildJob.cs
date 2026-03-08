@@ -2,6 +2,7 @@
 using Runtime.Engine.VoxelConfig.Data;
 using Unity.Burst;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
@@ -17,15 +18,13 @@ namespace Runtime.Engine.Jobs.Meshing
     [BurstCompile]
     internal partial struct MeshBuildJob : IJobParallelFor
     {
-        [ReadOnly] public NativeArray<VertexAttributeDescriptor> VertexParams;
+        [ReadOnly] public NativeArray<QuadData> QuadBuffer;
         [ReadOnly] public NativeArray<VertexAttributeDescriptor> ColliderVertexParams;
         [ReadOnly] public ChunkAccessor Accessor;
         [ReadOnly] public NativeList<int3> Jobs;
         [ReadOnly] public VoxelEngineRenderGenData RenderGenData;
 
-
-        [WriteOnly] public NativeParallelHashMap<int3, PartitionJobResult>.ParallelWriter Results;
-        public Mesh.MeshDataArray MeshDataArray;
+        [WriteOnly,NativeDisableContainerSafetyRestriction] public NativeParallelHashMap<int3, PartitionJobResult>.ParallelWriter Results;
         public Mesh.MeshDataArray ColliderMeshDataArray;
 
         /// <summary>
@@ -40,8 +39,7 @@ namespace Runtime.Engine.Jobs.Meshing
             int3 position = Jobs[index];
             Accessor.TryGetLightData(position, out PartitionLightData lightData);
             Accessor.TryGetChunk(position.xz, out ChunkVoxelData chunk);
-            PartitionJobData jobData = new(MeshDataArray[index], ColliderMeshDataArray[index], position,
-                lightData, chunk);
+            PartitionJobData jobData = new(index, ColliderMeshDataArray[index], position, lightData, chunk);
 
             SortVoxels(ref jobData);
 

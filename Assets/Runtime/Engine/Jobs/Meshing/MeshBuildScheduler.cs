@@ -35,11 +35,11 @@ namespace Runtime.Engine.Jobs.Meshing
         private ChunkAccessor _chunkAccessor;
         private NativeParallelHashMap<int3, MeshBuildJob.PartitionJobResult> _results;
 
-        private Mesh.MeshDataArray _meshDataArray;
         private Mesh.MeshDataArray _colliderMeshDataArray;
 
-        private NativeArray<VertexAttributeDescriptor> _vertexParams;
         private NativeArray<VertexAttributeDescriptor> _colliderVertexParams;
+
+        private readonly VoxelDataImporter _importer;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="MeshBuildScheduler"/> class.
@@ -48,22 +48,19 @@ namespace Runtime.Engine.Jobs.Meshing
         /// <param name="chunkManager">Chunk manager used to access chunk data and state.</param>
         /// <param name="chunkPool">Pool providing reusable chunk behaviours and meshes.</param>
         /// <param name="voxelRegistry">Voxel registry providing render generation data for blocks.</param>
+        /// <param name="importer">Voxel data importer supplying native buffers for meshing algorithms.</param>
         internal MeshBuildScheduler(
             VoxelEngineSettings settings,
             ChunkManager chunkManager,
             ChunkPool chunkPool,
-            VoxelRegistry voxelRegistry
+            VoxelRegistry voxelRegistry,
+            VoxelDataImporter importer
         )
         {
             _chunkManager = chunkManager;
             _chunkPool = chunkPool;
             _voxelRegistry = voxelRegistry;
-
-            _vertexParams = new NativeArray<VertexAttributeDescriptor>(2, Allocator.Persistent)
-            {
-                [0] = new VertexAttributeDescriptor(VertexAttribute.Position),
-                [1] = new VertexAttributeDescriptor(VertexAttribute.TexCoord0, VertexAttributeFormat.UInt32, 4),
-            };
+            _importer = importer;
 
             // Collider uses only Position and Normal from CVertex
             _colliderVertexParams = new NativeArray<VertexAttributeDescriptor>(2, Allocator.Persistent)
@@ -105,16 +102,14 @@ namespace Runtime.Engine.Jobs.Meshing
                 _jobs.Add(j);
             }
 
-            _meshDataArray = Mesh.AllocateWritableMeshData(_jobs.Length);
             _colliderMeshDataArray = Mesh.AllocateWritableMeshData(_jobs.Length);
 
             MeshBuildJob job = new()
             {
                 Accessor = _chunkAccessor,
                 Jobs = _jobs,
-                VertexParams = _vertexParams,
+                QuadBuffer = _importer.NativeQuadDataBuffer,
                 ColliderVertexParams = _colliderVertexParams,
-                MeshDataArray = _meshDataArray,
                 ColliderMeshDataArray = _colliderMeshDataArray,
                 RenderGenData = _voxelRegistry.GetVoxelGenData(),
                 Results = _results.AsParallelWriter()
@@ -132,7 +127,6 @@ namespace Runtime.Engine.Jobs.Meshing
             double start = Time.realtimeSinceStartupAsDouble;
             _handle.Complete();
 
-            Mesh[] meshes = new Mesh[_jobs.Length];
             Mesh[] colliderMeshes = new Mesh[_jobs.Length];
 
             List<ChunkPartition> changedPartitions = new();
@@ -146,17 +140,17 @@ namespace Runtime.Engine.Jobs.Meshing
 
                 MeshBuildJob.PartitionJobResult result = _results[pos];
 
-                meshes[result.Index] = partition.Mesh;
                 colliderMeshes[result.Index] = partition.ColliderMesh;
-                partition.Mesh.bounds = result.MeshBounds;
                 partition.ColliderMesh.bounds = result.ColliderBounds;
+                PartitionMeshGPUData data = new(
+                    result.MeshVertices,
+                    (int)result.SolidVertexCount,
+                    (int)result.TransparentVertexCount,
+                    (int)result.FoliageVertexCount,
+                    result.MeshBounds
+                );
+                partition.MeshUpdate(ref data);
             }
-
-            Mesh.ApplyAndDisposeWritableMeshData(
-                _meshDataArray,
-                meshes,
-                MeshFlags
-            );
 
             Mesh.ApplyAndDisposeWritableMeshData(
                 _colliderMeshDataArray,
@@ -164,16 +158,11 @@ namespace Runtime.Engine.Jobs.Meshing
                 MeshFlags
             );
 
-            foreach (ChunkPartition partition in changedPartitions)
-            {
-                partition.UpdateRenderStatus();
-            }
-
-            double totalTime = (Time.realtimeSinceStartupAsDouble - start) * 1000;
-            if (totalTime >= 4)
+            double totalCollectionTime = (Time.realtimeSinceStartupAsDouble - start) * 1000;
+            if (totalCollectionTime >= 4)
             {
                 VoxelEngineLogger.Warn<MeshBuildScheduler>(
-                    $"Built {_jobs.Length} meshes, Collected Results in <color=red>{totalTime:0.000}</color>ms"
+                    $"Built {changedPartitions.Count} meshes, Collected Results in <color=red>{totalCollectionTime:0.000}</color>ms"
                 );
             }
 
@@ -185,7 +174,7 @@ namespace Runtime.Engine.Jobs.Meshing
             if (totalJobTime > 100)
             {
                 VoxelEngineLogger.Warn<MeshBuildScheduler>(
-                    $"Total Mesh Build Time for {_jobs.Length} jobs: <color=red>{totalJobTime:0.000}</color>ms"
+                    $"Total Mesh Build Time for {changedPartitions.Count} jobs: <color=red>{totalJobTime:0.000}</color>ms"
                 );
             }
         }
@@ -197,7 +186,6 @@ namespace Runtime.Engine.Jobs.Meshing
         {
             _handle.Complete();
 
-            _vertexParams.Dispose();
             _colliderVertexParams.Dispose();
             _results.Dispose();
             _jobs.Dispose();

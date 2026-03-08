@@ -1,8 +1,10 @@
 ﻿using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using Runtime.Engine.Jobs.Chunk;
+using Runtime.Engine.Jobs.Meshing;
 using Runtime.Engine.Utils;
 using Runtime.Engine.Utils.Extensions;
+using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
 
@@ -33,21 +35,8 @@ namespace Runtime.Engine.VoxelConfig.Data
         /// </summary>
         public VoxelRegistry VoxelRegistry { get; } = new();
 
-        public ComputeBuffer _quadDataBuffer;
-
-        [StructLayout(LayoutKind.Sequential, Pack = 1)]
-        private struct QuadData
-        {
-            public float3 position00;
-            public float3 position01;
-            public float3 position02;
-            public float3 position03;
-            public float3 normal;
-            public float2 uv00;
-            public float2 uv01;
-            public float2 uv02;
-            public float2 uv03;
-        };
+        public ComputeBuffer QuadDataBuffer;
+        public NativeArray<QuadData> NativeQuadDataBuffer;
 
         /// <summary>
         /// Loads packages, registers voxels and updates materials when the importer is created.
@@ -167,8 +156,9 @@ namespace Runtime.Engine.VoxelConfig.Data
                 },
             };
 
-            _quadDataBuffer = new ComputeBuffer(quadDataList.Count, Marshal.SizeOf<QuadData>());
-            _quadDataBuffer.SetData(quadDataList);
+            NativeQuadDataBuffer = new NativeArray<QuadData>(quadDataList.ToArray(), Allocator.Persistent);
+            QuadDataBuffer = new ComputeBuffer(NativeQuadDataBuffer.Length, Marshal.SizeOf<QuadData>());
+            QuadDataBuffer.SetData(NativeQuadDataBuffer);
         }
 
         /// <summary>

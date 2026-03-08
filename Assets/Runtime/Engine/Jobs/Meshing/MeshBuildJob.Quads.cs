@@ -10,8 +10,7 @@ namespace Runtime.Engine.Jobs.Meshing
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
         private void AddVertex(ref PartitionJobData jobData, SubMeshType subMeshType, ref Vertex v)
         {
-            jobData.MeshBuffer.AddVertex(ref v);
-            jobData.MeshBuffer.AddIndex(jobData.RenderVertexCount, subMeshType);
+            jobData.MeshBuffer.AddVertex(ref v, subMeshType);
             jobData.RenderVertexCount++;
         }
 
@@ -22,20 +21,16 @@ namespace Runtime.Engine.Jobs.Meshing
 
             AddColliderVertices(ref jobData.MeshBuffer, in verts, normal);
 
-            // Use AO zeros for a deterministic diagonal, reuse existing helper for correct winding
-            int4 ao = int4.zero;
-
             int baseVertexIndex = jobData.CollisionVertexCount;
-            const SubMeshType subMeshType = SubMeshType.Collider;
             ref MeshBuffer meshBuffer = ref jobData.MeshBuffer;
 
-            meshBuffer.AddIndex(baseVertexIndex + 1, subMeshType);
-            meshBuffer.AddIndex(baseVertexIndex + 1 + mask.Normal, subMeshType);
-            meshBuffer.AddIndex(baseVertexIndex + 1 - mask.Normal, subMeshType);
+            meshBuffer.AddCIndex(baseVertexIndex + 1);
+            meshBuffer.AddCIndex(baseVertexIndex + 1 + mask.Normal);
+            meshBuffer.AddCIndex(baseVertexIndex + 1 - mask.Normal);
 
-            meshBuffer.AddIndex(baseVertexIndex + 2, subMeshType);
-            meshBuffer.AddIndex(baseVertexIndex + 2 - mask.Normal, subMeshType);
-            meshBuffer.AddIndex(baseVertexIndex + 2 + mask.Normal, subMeshType);
+            meshBuffer.AddCIndex(baseVertexIndex + 2);
+            meshBuffer.AddCIndex(baseVertexIndex + 2 - mask.Normal);
+            meshBuffer.AddCIndex(baseVertexIndex + 2 + mask.Normal);
 
             jobData.CollisionVertexCount += 4;
         }

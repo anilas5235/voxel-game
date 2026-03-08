@@ -9,25 +9,28 @@ namespace Runtime.Engine.Jobs.Meshing
 {
     internal partial struct MeshBuildJob
     {
-        private static readonly  Bounds Bounds = new((PartitionSize / (int3)2).GetVector3(), PartitionSize.GetVector3());
+        private static readonly Bounds Bounds = new((PartitionSize / (int3)2).GetVector3(), PartitionSize.GetVector3());
+
         private void WriteResults(int index, ref PartitionJobData jobData)
         {
-            FillRenderMeshData(in jobData);
+            var result = new PartitionJobResult
+            {
+                Index = index,
+                PartitionPos = jobData.PartitionPos,
+                MeshBounds = Bounds,
+                ColliderBounds = Bounds,
+            };
+
+            FillRenderMeshData(ref result, ref jobData);
 
             FillColliderMeshData(in jobData);
 
             Results.TryAdd(
                 jobData.PartitionPos,
-                new PartitionJobResult
-                {
-                    Index = index,
-                    PartitionPos = jobData.PartitionPos,
-                    MeshBounds = Bounds,
-                    ColliderBounds = Bounds
-                }
+                result
             );
         }
-        
+
         private void FillColliderMeshData(in PartitionJobData jobData)
         {
             MeshBuffer meshBuffer = jobData.MeshBuffer;
@@ -48,43 +51,12 @@ namespace Runtime.Engine.Jobs.Meshing
             colliderMesh.SetSubMesh(0, cDesc, MeshFlags);
         }
 
-        private void FillRenderMeshData(in PartitionJobData jobData)
+        private void FillRenderMeshData(ref PartitionJobResult result, ref PartitionJobData jobData)
         {
-            MeshBuffer meshBuffer = jobData.MeshBuffer;
-            Mesh.MeshData mesh = jobData.Mesh;
-
-            int vertexCount = meshBuffer.VertexBuffer.Length;
-            mesh.SetVertexBufferParams(vertexCount, VertexParams);
-            mesh.GetVertexData<Vertex>().CopyFrom(meshBuffer.VertexBuffer.AsArray());
-
-            int solidIndexes = meshBuffer.SolidIndexBuffer.Length;
-            int transparentIndexes = meshBuffer.TransparentIndexBuffer.Length;
-            int foliageIndexes = meshBuffer.FoliageIndexBuffer.Length;
-
-            mesh.SetIndexBufferParams(solidIndexes + transparentIndexes + foliageIndexes, IndexFormat.UInt16);
-            NativeArray<ushort> indexBuffer = mesh.GetIndexData<ushort>();
-            NativeArray<ushort>.Copy(meshBuffer.SolidIndexBuffer.AsArray(), 0, indexBuffer, 0, solidIndexes);
-            if (transparentIndexes > 1)
-            {
-                NativeArray<ushort>.Copy(meshBuffer.TransparentIndexBuffer.AsArray(), 0, indexBuffer, solidIndexes,
-                    transparentIndexes);
-            }
-
-            if (foliageIndexes > 1)
-            {
-                NativeArray<ushort>.Copy(meshBuffer.FoliageIndexBuffer.AsArray(), 0, indexBuffer,
-                    solidIndexes + transparentIndexes,
-                    foliageIndexes);
-            }
-
-            mesh.subMeshCount = 3;
-            SubMeshDescriptor solidSubMesh = new(0, solidIndexes, MeshTopology.Points);
-            SubMeshDescriptor transparentSubMesh = new(solidIndexes, transparentIndexes, MeshTopology.Points);
-            SubMeshDescriptor foliageSubMesh = new(solidIndexes + transparentIndexes, foliageIndexes, MeshTopology.Points);
-
-            mesh.SetSubMesh(0, solidSubMesh, MeshFlags);
-            mesh.SetSubMesh(1, transparentSubMesh, MeshFlags);
-            mesh.SetSubMesh(2, foliageSubMesh, MeshFlags);
+            result.MeshVertices = new NativeArray<Vertex>(jobData.MeshBuffer.VertexBuffer.AsArray(), Allocator.Temp);
+            result.SolidVertexCount = jobData.MeshBuffer.SolidVertexCount;
+            result.TransparentVertexCount = jobData.MeshBuffer.TransparentVertexCount;
+            result.FoliageVertexCount = jobData.MeshBuffer.FoliageVertexCount;
         }
     }
 }

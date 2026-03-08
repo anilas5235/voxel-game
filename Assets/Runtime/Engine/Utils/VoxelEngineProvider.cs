@@ -78,6 +78,6 @@ namespace Runtime.Engine.Utils
             ChunkManager chunkManager,
             ChunkPool chunkPool,
             VoxelRegistry voxelRegistry
-        ) => new(Settings, chunkManager, chunkPool, voxelRegistry);
+        ) => new(Settings, chunkManager, chunkPool, voxelRegistry,VoxelDataImporter.Instance);
     }
 }

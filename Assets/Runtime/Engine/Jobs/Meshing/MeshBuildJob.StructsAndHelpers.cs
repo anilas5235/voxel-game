@@ -3,6 +3,7 @@ using Runtime.Engine.Data;
 using Runtime.Engine.VoxelConfig.Data;
 using Unity.Burst;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 using UnityEngine;
 using static Runtime.Engine.Utils.VoxelConstants;
@@ -27,12 +28,17 @@ namespace Runtime.Engine.Jobs.Meshing
             public int3 PartitionPos;
             public Bounds MeshBounds;
             public Bounds ColliderBounds;
+            
+            [NativeDisableContainerSafetyRestriction]
+            public NativeArray<Vertex> MeshVertices;
+            public uint SolidVertexCount;
+            public uint TransparentVertexCount;
+            public uint FoliageVertexCount;
         }
 
         [BurstCompile]
         private struct PartitionJobData : IDisposable
         {
-            public readonly Mesh.MeshData Mesh;
             public readonly Mesh.MeshData ColliderMesh;
             public readonly int2 ChunkPos;
             public readonly int3 PartitionPos;
@@ -57,10 +63,9 @@ namespace Runtime.Engine.Jobs.Meshing
             public bool HasNoSolid => SolidVoxels.IsEmpty;
             public bool HasNoVoxels => HasNoFoliage && HasNoTransparent && HasNoSolid;
 
-            internal PartitionJobData(Mesh.MeshData mesh, Mesh.MeshData colliderMesh, int3 partitionPos,
+            internal PartitionJobData(int jobIndex,Mesh.MeshData colliderMesh, int3 partitionPos,
                 PartitionLightData partitionLightData, ChunkVoxelData chunkVoxelData)
             {
-                Mesh = mesh;
                 ColliderMesh = colliderMesh;
                 PartitionPos = partitionPos;
                 PartitionLightData = partitionLightData;
@@ -70,9 +75,6 @@ namespace Runtime.Engine.Jobs.Meshing
                 {
                     VertexBuffer = new NativeList<Vertex>(VoxelCount4, Allocator.Temp),
                     CVertexBuffer = new NativeList<CVertex>(VoxelCount4, Allocator.Temp),
-                    SolidIndexBuffer = new NativeList<ushort>(VoxelCount6, Allocator.Temp),
-                    TransparentIndexBuffer = new NativeList<ushort>(VoxelCount6, Allocator.Temp),
-                    FoliageIndexBuffer = new NativeList<ushort>(VoxelCount6, Allocator.Temp),
                     CIndexBuffer = new NativeList<ushort>(VoxelCount6, Allocator.Temp)
                 };
 

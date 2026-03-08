@@ -275,7 +275,7 @@ namespace Runtime.Engine.Jobs
             }
 
             private bool ShouldScheduleForBaking(int3 position) =>
-                ChunkPool.PartitionMeshNotEmpty(position) &&
+                ChunkPool.PartitionColliderMeshNotEmpty(position) &&
                 (!ChunkPool.IsCollidable(position) || ChunkManager.ShouldReCollide(position)) &&
                 !Set.Contains(position);
 

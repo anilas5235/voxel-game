@@ -168,15 +168,9 @@ namespace Runtime.Engine.Components
         /// </summary>
         internal void ColliderBaked(int3 position) => _colliderSet.Add(position);
 
-        public bool PartitionMeshNotEmpty(int3 position) =>
-            _meshMap.TryGetValue(position, out ChunkPartition partition) && partition.HasValidMesh();
+        public bool PartitionColliderMeshNotEmpty(int3 position) =>
+            _meshMap.TryGetValue(position, out ChunkPartition partition) && partition.HasValidColliderMesh();
 
-        internal void UpdateAllVisibilities(HashSet<int3> visiblePartitions)
-        {
-            foreach ((int3 pos, ChunkPartition partition) in _meshMap)
-            {
-                partition.ShouldBeVisible = visiblePartitions.Contains(pos);
-            }
-        }
+        
     }
 }

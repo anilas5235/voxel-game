@@ -101,7 +101,7 @@ namespace Test
             int kernelIndex = _computeShader.FindKernel("CSExpand");
 
             _computeShader.SetBuffer(kernelIndex, PointBufferID, _pointBuffer);
-            _computeShader.SetBuffer(kernelIndex, QuadBufferID, _importer._quadDataBuffer);
+            _computeShader.SetBuffer(kernelIndex, QuadBufferID, _importer.QuadDataBuffer);
             _computeShader.SetBuffer(kernelIndex, ExpandedBufferID, _expandedBuffer);
 
             // ── Dispatch: ceil(PointCount / 64) Gruppen ──────────────────────
