@@ -1,6 +1,5 @@
 ﻿using System;
 using Runtime.Engine.Data;
-using Runtime.Engine.Unsafe;
 using Runtime.Engine.VoxelConfig.Data;
 using Unity.Burst;
 using Unity.Collections;
@@ -29,9 +28,10 @@ namespace Runtime.Engine.Jobs.Meshing
             public int3 PartitionPos;
             public Bounds MeshBounds;
             public Bounds ColliderBounds;
-            
+
             [NativeDisableContainerSafetyRestriction]
-            public UnsafeArray<Vertex> MeshVertices;
+            public UnsafeList<Vertex> MeshVertices;
+
             public uint SolidVertexCount;
             public uint TransparentVertexCount;
             public uint FoliageVertexCount;
@@ -64,7 +64,7 @@ namespace Runtime.Engine.Jobs.Meshing
             public bool HasNoSolid => SolidVoxels.IsEmpty;
             public bool HasNoVoxels => HasNoFoliage && HasNoTransparent && HasNoSolid;
 
-            internal PartitionJobData(int jobIndex,Mesh.MeshData colliderMesh, int3 partitionPos,
+            internal PartitionJobData(int jobIndex, Mesh.MeshData colliderMesh, int3 partitionPos,
                 PartitionLightData partitionLightData, ChunkVoxelData chunkVoxelData)
             {
                 ColliderMesh = colliderMesh;

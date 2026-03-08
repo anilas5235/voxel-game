@@ -2,7 +2,6 @@
 using System.Runtime.InteropServices;
 using Runtime.Engine.Jobs.Meshing;
 using Runtime.Engine.Settings;
-using Runtime.Engine.Unsafe;
 using Runtime.Engine.VoxelConfig.Data;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -96,7 +95,7 @@ namespace Runtime.Engine.Behaviour
         {
             _gpuData.Vertices.Dispose();
             _gpuData = data;
-            
+
             if (_gpuData.TotalVertexCount == 0)
             {
                 Clear();
@@ -123,7 +122,12 @@ namespace Runtime.Engine.Behaviour
         private IEnumerator RunComputeShader()
         {
             ComputeBuffer pointBuffer = new(_gpuData.TotalVertexCount, Marshal.SizeOf<Vertex>());
-            pointBuffer.SetData(_gpuData.Vertices.AsNativeArray());
+            UnsafeList<Vertex> vertices = _gpuData.Vertices;
+            int vertexCount = _gpuData.TotalVertexCount;
+
+            NativeArray<Vertex> mapped = pointBuffer.BeginWrite<Vertex>(0, vertexCount);
+            for (int i = 0; i < vertexCount; i++) mapped[i] = vertices[i];
+            pointBuffer.EndWrite<Vertex>(vertexCount);
 
             // ── Output-Buffer anlegen ─────────────────────────────────────────
             ComputeBuffer oldExpandedBuffer = _expandedBuffer;
@@ -171,17 +175,17 @@ namespace Runtime.Engine.Behaviour
             public uint packedW; //  4 bytes
         }
     }
-    
+
     public struct PartitionMeshGPUData
     {
-        public UnsafeArray<Vertex> Vertices;
+        public UnsafeList<Vertex> Vertices;
         public readonly int SolidVertexCount;
         public readonly int TransparentVertexCount;
         public readonly int FoliageVertexCount;
         public readonly int TotalVertexCount;
         public readonly Bounds Bounds;
 
-        public PartitionMeshGPUData(UnsafeArray<Vertex> vertices, int solidVertexCount, int transparentVertexCount,
+        public PartitionMeshGPUData(UnsafeList<Vertex> vertices, int solidVertexCount, int transparentVertexCount,
             int foliageVertexCount, Bounds bounds)
         {
             Vertices = vertices;

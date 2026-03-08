@@ -1,6 +1,6 @@
-﻿using Runtime.Engine.Unsafe;
-using Runtime.Engine.Utils.Extensions;
+﻿using Runtime.Engine.Utils.Extensions;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -54,7 +54,11 @@ namespace Runtime.Engine.Jobs.Meshing
 
         private void FillRenderMeshData(ref PartitionJobResult result, ref PartitionJobData jobData)
         {
-            result.MeshVertices = new UnsafeArray<Vertex>(jobData.MeshBuffer.VertexBuffer.AsArray(), Allocator.Persistent);
+            result.MeshVertices = new UnsafeList<Vertex>(
+                jobData.MeshBuffer.VertexBuffer.Length,
+                Allocator.Persistent
+            );
+            result.MeshVertices.CopyFrom(jobData.MeshBuffer.VertexBuffer.AsArray());
             result.SolidVertexCount = jobData.MeshBuffer.SolidVertexCount;
             result.TransparentVertexCount = jobData.MeshBuffer.TransparentVertexCount;
             result.FoliageVertexCount = jobData.MeshBuffer.FoliageVertexCount;
