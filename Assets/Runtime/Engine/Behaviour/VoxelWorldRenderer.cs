@@ -32,19 +32,36 @@ namespace Runtime.Engine.Behaviour
         private ComputeBuffer _visibleChunksBuffer; // AppendStructuredBuffer<uint>
         private ComputeBuffer _visiblePartitionsBuffer; // AppendStructuredBuffer<uint>
         private ComputeBuffer _indirectArgsBuffer; // uint[5]
-        private ComputeBuffer _counterBuffer; // uint[4] for append counters
+        private ComputeBuffer _counterBuffer; // uint[4] debug counters, must be Raw/IndirectArguments for CopyCount
 
         // State
         private int _maxActivePartitions;
         private int _maxActiveChunks;
+        private int _maxPointsPerPartition;
         private ChunkManager _chunkManager;
         private Plane[] _frustumPlanes = new Plane[6];
         private Vector4[] _frustumPlanesData = new Vector4[6];
         private Dictionary<int3, int> _partitionIndexMap = new();
         private int _nextPartitionIndex;
 
+        // Debug
+        [Header("Debug")] [SerializeField] private bool debugBypassCulling = true;
+        [SerializeField] private bool debugBootstrapDirtyPartition = true;
+        private readonly uint[] _debugCounterReadback = new uint[4];
+        private readonly uint[] _debugIndirectArgs = new uint[5];
+        private int _debugFrameCounter;
+
+        // Keep a safety margin below Unity's hard 2 GB ComputeBuffer limit.
+        private const long SolidPointsBufferBudgetBytes = 1L << 30; // 1 GiB
+
         private void Awake()
         {
+            // Use importer material as default to ensure required global buffers (e.g. quad_buffer) are bound.
+            if (solidMaterial == null && Runtime.Engine.VoxelConfig.Data.VoxelDataImporter.Instance != null)
+            {
+                solidMaterial = Runtime.Engine.VoxelConfig.Data.VoxelDataImporter.Instance.voxelSolidMaterial;
+            }
+
             // Get ChunkManager reference from VoxelWorld
             _chunkManager = VoxelWorld.Instance?.ChunkManager;
             if (_chunkManager == null)
@@ -55,15 +72,40 @@ namespace Runtime.Engine.Behaviour
             }
 
             // Calculate max capacities based on draw distance
-            int drawDist = 8; // TODO: Get from settings
+            int drawDist = ResolveDrawDistance();
             _maxActiveChunks = VoxelRenderConstants.MaxActiveChunks(drawDist);
             _maxActivePartitions = VoxelRenderConstants.MaxActivePartitions(drawDist);
+            _maxPointsPerPartition = ResolveMaxPointsPerPartition(_maxActivePartitions);
 
             InitializeBuffers();
             InitializeKernels();
 
             // Hook GPU rebuild trigger
             _chunkManager.OnGpuRebuildReady += OnGpuRebuildReady;
+
+            if (debugBootstrapDirtyPartition)
+            {
+                int3 bootstrapPartition = int3.zero;
+                Camera mainCam = Camera.main;
+                if (mainCam != null)
+                    bootstrapPartition = VoxelUtils.GetPartitionCoords(mainCam.transform.position);
+
+                _chunkManager.MarkPartitionDirty(bootstrapPartition);
+                OnGpuRebuildReady();
+            }
+
+            if (solidMaterial == null)
+            {
+                Debug.LogError("VoxelWorldRenderer: Solid material is null. Assign a material based on Custom/VoxelShader.");
+                enabled = false;
+                return;
+            }
+
+            if (Runtime.Engine.VoxelConfig.Data.VoxelDataImporter.Instance != null &&
+                solidMaterial != Runtime.Engine.VoxelConfig.Data.VoxelDataImporter.Instance.voxelSolidMaterial)
+            {
+                Debug.LogWarning("VoxelWorldRenderer: Using a different solid material than VoxelDataImporter.voxelSolidMaterial. Ensure quad_buffer is bound on this material.");
+            }
         }
 
         private void InitializeBuffers()
@@ -83,8 +125,9 @@ namespace Runtime.Engine.Behaviour
                 _maxActiveChunks,
                 VoxelRenderConstants.ChunkMetadataStride);
 
+            int solidPointCount = _maxActivePartitions * _maxPointsPerPartition;
             _solidPointsBuffer = new ComputeBuffer(
-                _maxActivePartitions * VoxelRenderConstants.MaxPointsPerPartition,
+                solidPointCount,
                 VoxelRenderConstants.PointDataStride,
                 ComputeBufferType.Append);
 
@@ -103,10 +146,38 @@ namespace Runtime.Engine.Behaviour
                 sizeof(uint),
                 ComputeBufferType.IndirectArguments);
 
-            _counterBuffer = new ComputeBuffer(4, sizeof(uint));
+            // DX11: CopyCount destination must be Raw or IndirectArguments.
+            _counterBuffer = new ComputeBuffer(4, sizeof(uint), ComputeBufferType.Raw);
 
+            long solidBytes = (long)solidPointCount * VoxelRenderConstants.PointDataStride;
             Debug.Log(
-                $"VoxelWorldRenderer: Initialized buffers for {_maxActivePartitions} partitions, {_maxActiveChunks} chunks");
+                $"VoxelWorldRenderer: Initialized buffers for {_maxActivePartitions} partitions, {_maxActiveChunks} chunks, {_maxPointsPerPartition} max points/partition ({solidBytes / (1024f * 1024f):F1} MiB solid buffer)");
+        }
+
+        private int ResolveDrawDistance()
+        {
+            int configured = VoxelEngineProvider.Current?.Settings?.Chunk?.DrawDistance ?? 2;
+            return Mathf.Max(1, configured);
+        }
+
+        private int ResolveMaxPointsPerPartition(int activePartitions)
+        {
+            if (activePartitions <= 0)
+                return VoxelRenderConstants.MaxPointsPerPartition;
+
+            long bytesPerPartitionAtMax = (long)VoxelRenderConstants.MaxPointsPerPartition * VoxelRenderConstants.PointDataStride;
+            long maxBytesAtCurrentDistance = bytesPerPartitionAtMax * activePartitions;
+            if (maxBytesAtCurrentDistance <= SolidPointsBufferBudgetBytes)
+                return VoxelRenderConstants.MaxPointsPerPartition;
+
+            int clamped = Mathf.Max(1,
+                (int)(SolidPointsBufferBudgetBytes / ((long)activePartitions * VoxelRenderConstants.PointDataStride)));
+
+            Debug.LogWarning(
+                $"VoxelWorldRenderer: Clamping max points per partition from {VoxelRenderConstants.MaxPointsPerPartition} to {clamped} " +
+                $"to stay within {SolidPointsBufferBudgetBytes / (1024f * 1024f):F0} MiB solid buffer budget at draw distance capacity.");
+
+            return clamped;
         }
 
         private void InitializeKernels()
@@ -152,7 +223,20 @@ namespace Runtime.Engine.Behaviour
         {
             // Fetch dirty partitions (max 16/frame)
             List<int3> dirtyPartitions = _chunkManager.FlushGpuDirtyPartitions();
-            if (dirtyPartitions.Count == 0) return;
+            if (dirtyPartitions.Count == 0)
+            {
+                if (debugBootstrapDirtyPartition && _partitionIndexMap.Count == 0)
+                {
+                    _chunkManager.MarkPartitionDirty(int3.zero);
+                    dirtyPartitions = _chunkManager.FlushGpuDirtyPartitions();
+                }
+
+                if (dirtyPartitions.Count == 0)
+                    return;
+            }
+
+            // Current pipeline appends globally; reset once per rebuild batch for deterministic debug output.
+            _solidPointsBuffer.SetCounterValue(0);
 
             // Upload voxel data for dirty partitions
             UploadVoxelData(dirtyPartitions);
@@ -161,9 +245,14 @@ namespace Runtime.Engine.Behaviour
             foreach (int3 partPos in dirtyPartitions)
             {
                 int partIdx = GetOrCreatePartitionIndex(partPos);
+                int3 partitionWorldOffset = new int3(
+                    partPos.x * VoxelConstants.PartitionWidth,
+                    partPos.y * VoxelConstants.PartitionHeight,
+                    partPos.z * VoxelConstants.PartitionDepth);
 
                 meshBuilderCompute.SetInt("_PartitionIndex", partIdx);
-                meshBuilderCompute.SetInt("_MaxPointsPerPartition", VoxelRenderConstants.MaxPointsPerPartition);
+                meshBuilderCompute.SetInt("_MaxPointsPerPartition", _maxPointsPerPartition);
+                meshBuilderCompute.SetInts("_PartitionWorldOffset", partitionWorldOffset.x, partitionWorldOffset.y, partitionWorldOffset.z);
                 meshBuilderCompute.SetBuffer(_kernelRebuild, "_VoxelData", _voxelDataUploadBuffer);
                 meshBuilderCompute.SetBuffer(_kernelRebuild, "_PointsOut", _solidPointsBuffer);
                 meshBuilderCompute.SetBuffer(_kernelRebuild, "_Metadata", _partitionMetadataBuffer);
@@ -203,6 +292,12 @@ namespace Runtime.Engine.Behaviour
         {
             if (meshBuilderCompute == null || solidMaterial == null) return;
 
+            if (debugBypassCulling)
+            {
+                DrawWithoutCulling(ctx);
+                return;
+            }
+
             // Extract frustum planes
             GeometryUtility.CalculateFrustumPlanes(cam, _frustumPlanes);
             for (int i = 0; i < 6; i++)
@@ -214,7 +309,7 @@ namespace Runtime.Engine.Behaviour
                     _frustumPlanes[i].distance);
             }
 
-            meshBuilderCompute.SetVectorArray("_FrustumPlanes", _frustumPlanesData);
+            meshBuilderCompute.SetVectorArray("_VoxelFrustumPlanes", _frustumPlanesData);
 
             // Stage 1: Cull chunks (coarse)
             _visibleChunksBuffer.SetCounterValue(0);
@@ -260,5 +355,36 @@ namespace Runtime.Engine.Behaviour
             ctx.ExecuteCommandBuffer(cmd);
             CommandBufferPool.Release(cmd);
         }
+
+        private void DrawWithoutCulling(ScriptableRenderContext ctx)
+        {
+            // Build indirect args from the append counter so we can validate mesh generation independent of culling/metadata.
+            ComputeBuffer.CopyCount(_solidPointsBuffer, _counterBuffer, 0);
+            _counterBuffer.GetData(_debugCounterReadback, 0, 0, 1);
+
+            uint pointCount = _debugCounterReadback[0];
+            _debugIndirectArgs[0] = pointCount * 6;
+            _debugIndirectArgs[1] = pointCount > 0 ? 1u : 0u;
+            _debugIndirectArgs[2] = 0;
+            _debugIndirectArgs[3] = 0;
+            _debugIndirectArgs[4] = 0;
+            _indirectArgsBuffer.SetData(_debugIndirectArgs);
+
+            if ((++_debugFrameCounter % 120) == 0)
+                Debug.Log($"VoxelWorldRenderer(Debug): points={pointCount}, partitions={_partitionIndexMap.Count}");
+
+            CommandBuffer cmd = CommandBufferPool.Get("VoxelSolidDrawDebug");
+            cmd.SetGlobalBuffer("_PointData", _solidPointsBuffer);
+            cmd.DrawProceduralIndirect(
+                Matrix4x4.identity,
+                solidMaterial,
+                0,
+                MeshTopology.Triangles,
+                _indirectArgsBuffer,
+                0);
+            ctx.ExecuteCommandBuffer(cmd);
+            CommandBufferPool.Release(cmd);
+        }
     }
 }
+

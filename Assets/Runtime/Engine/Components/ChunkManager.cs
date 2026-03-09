@@ -231,6 +231,14 @@ namespace Runtime.Engine.Components
             foreach (int3 pos in batch) _gpuDirtyPartitions.Remove(pos);
             return batch;
         }
+        
+        /// <summary>
+        /// Manually marks a partition as dirty for GPU rebuild (for testing).
+        /// </summary>
+        public void MarkPartitionDirty(int3 partitionPos)
+        {
+            _gpuDirtyPartitions.Add(partitionPos);
+        }
 
         /// <summary>
         /// Flags all neighbor partitions (including own) for remeshing.

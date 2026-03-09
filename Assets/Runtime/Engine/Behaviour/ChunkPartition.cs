@@ -68,7 +68,8 @@ namespace Runtime.Engine.Behaviour
         {
             if (!_initialized) return;
             bool isRendered = Mesh && Mesh.vertexCount > 2 && ShouldBeVisible;
-            _renderer.enabled = isRendered;
+            _renderer.enabled = false;
+             //isRendered;
         }
         
         public void ApplyColliderMesh()

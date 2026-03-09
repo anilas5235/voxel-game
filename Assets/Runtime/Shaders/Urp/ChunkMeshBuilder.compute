@@ -15,6 +15,7 @@ AppendStructuredBuffer<PointData> _PointsOut;
 
 uint _PartitionIndex;
 uint _MaxPointsPerPartition;
+int3 _PartitionWorldOffset;
 
 // Helper: Get voxel from flat buffer safely
 uint GetVoxelSafe(int3 pos)
@@ -67,15 +68,15 @@ void RebuildSolidPoints(uint3 id : SV_DispatchThreadID)
         
         if (!ShouldRenderFace(voxelId, neighborId)) continue;
         
-        // Generate point
-        PointData point;
-        point.position = (float3)pos;
-        
+        // Generate point in world voxel space.
+        PointData pointData;
+        pointData.position = (float3)(pos + _PartitionWorldOffset);
+
         // Pack data: quadIndex | texIndex in x, lights in y, ao in z.x
-        point.packed.x = dir | (1 << 16); // quadIndex in lower 16 bits, dummy texIndex
-        point.packed.y = 0xFFFFFFFF;       // Full brightness for now
-        point.packed.z = 0;                // No AO for now
-        point.packed.w = 0;                // Unused
+        pointData.packed.x = dir;            // texIndex = 0 for debug-safe rendering
+        pointData.packed.y = 0xFFFFFFFF;     // Full brightness for now
+        pointData.packed.z = 0;              // No AO for now
+        pointData.packed.w = 0;              // Unused
         
         // Atomic increment point count
         uint oldCount;
@@ -84,7 +85,7 @@ void RebuildSolidPoints(uint3 id : SV_DispatchThreadID)
         // Only append if within budget
         if (oldCount < _MaxPointsPerPartition)
         {
-            _PointsOut.Append(point);
+            _PointsOut.Append(pointData);
         }
     }
 }
@@ -95,7 +96,7 @@ void RebuildSolidPoints(uint3 id : SV_DispatchThreadID)
 
 StructuredBuffer<ChunkMetadata> _ChunkMetadata;
 AppendStructuredBuffer<uint> _VisibleChunks;
-float4 _FrustumPlanes[6];
+float4 _VoxelFrustumPlanes[6];
 uint _ActiveChunkCount;
 
 // AABB-Frustum intersection test
@@ -126,7 +127,7 @@ void CullChunks(uint3 id : SV_DispatchThreadID)
     
     ChunkMetadata chunk = _ChunkMetadata[id.x];
     
-    if (IsFrustumVisible(chunk.boundsMin, chunk.boundsMax, _FrustumPlanes))
+    if (IsFrustumVisible(chunk.boundsMin, chunk.boundsMax, _VoxelFrustumPlanes))
     {
         _VisibleChunks.Append(id.x);
     }
@@ -154,7 +155,7 @@ void CullPartitions(uint3 tid : SV_GroupThreadID)
     if (part.pointCount == 0) return; // Empty partition
     
     // Fine frustum test
-    if (IsFrustumVisible(part.boundsMin, part.boundsMax, _FrustumPlanes))
+    if (IsFrustumVisible(part.boundsMin, part.boundsMax, _VoxelFrustumPlanes))
     {
         _VisiblePartitions.Append(partIdx);
     }
@@ -191,4 +192,3 @@ void BuildIndirectArgs(uint3 id : SV_DispatchThreadID)
     // args[4] = baseVertexLocation (not used for non-indexed draws)
     _IndirectArgs[4] = 0;
 }
-

@@ -27,8 +27,6 @@ Shader "Custom/VoxelShader"
         #include "VoxelCommon.hlsl"
 
         StructuredBuffer<PointData> _PointData;
-        StructuredBuffer<uint> _VisiblePartitions;
-        
 
         struct Varyings
         {
@@ -44,7 +42,7 @@ Shader "Custom/VoxelShader"
             uint pointID = vertexID / 6;
             uint cornerID = vertexID % 6;
             
-            // Fetch point data
+            // Fetch point data directly
             PointData p = _PointData[pointID];
             
             uint quadIndex = get_quad_index(p.packed);
