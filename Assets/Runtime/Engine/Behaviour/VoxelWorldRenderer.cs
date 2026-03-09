@@ -349,7 +349,7 @@ namespace Runtime.Engine.Behaviour
                 Matrix4x4.identity,
                 solidMaterial,
                 0,
-                MeshTopology.Triangles,
+                MeshTopology.Points,
                 _indirectArgsBuffer,
                 0);
             ctx.ExecuteCommandBuffer(cmd);
