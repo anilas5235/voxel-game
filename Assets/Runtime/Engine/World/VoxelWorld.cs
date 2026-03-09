@@ -1,5 +1,4 @@
-﻿using System;
-using Runtime.Engine.Components;
+﻿using Runtime.Engine.Components;
 using Runtime.Engine.Jobs;
 using Runtime.Engine.Jobs.Chunk;
 using Runtime.Engine.Jobs.Meshing;
@@ -29,7 +28,7 @@ namespace Runtime.Engine.World
         /// The partition coordinates of the current focus position.
         /// </summary>
         private int3 FocusPartitionCoords { get; set; }
-        
+
         private int3 FocusPosition { get; set; }
 
         /// <summary>
@@ -45,7 +44,7 @@ namespace Runtime.Engine.World
         /// <summary>
         /// Gets the chunk manager that stores and accesses chunk data.
         /// </summary>
-        private ChunkManager ChunkManager { get; set; }
+        public ChunkManager ChunkManager { get; private set; }
 
         #endregion
 
@@ -105,8 +104,8 @@ namespace Runtime.Engine.World
 
         private void FixedUpdate()
         {
-            if(!_isFocused) return;
-            
+            if (!_isFocused) return;
+
             FocusPosition = focus.position.Int3();
             //_occlusionCuller.OccUpdate(FocusPartitionCoords, FocusPosition,focus.forward.Float3());
         }

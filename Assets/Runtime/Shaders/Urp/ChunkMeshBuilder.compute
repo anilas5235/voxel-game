@@ -1,0 +1,194 @@
+﻿#pragma kernel RebuildSolidPoints
+#pragma kernel CullChunks
+#pragma kernel CullPartitions
+#pragma kernel BuildIndirectArgs
+
+#include "VoxelCommon.hlsl"
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Rebuild Kernel - Generate solid point data per partition
+// ─────────────────────────────────────────────────────────────────────────────
+
+StructuredBuffer<uint> _VoxelData;              // [32×32×32] per partition
+RWStructuredBuffer<PartitionMetadata> _Metadata;
+AppendStructuredBuffer<PointData> _PointsOut;
+
+uint _PartitionIndex;
+uint _MaxPointsPerPartition;
+
+// Helper: Get voxel from flat buffer safely
+uint GetVoxelSafe(int3 pos)
+{
+    if (any(pos < 0) || any(pos >= 32)) return 0; // Air outside bounds
+    return _VoxelData[pos.x + pos.y * 32 + pos.z * 32 * 32];
+}
+
+// Helper: Get direction offset
+int3 GetDirectionOffset(uint dir)
+{
+    int3 offsets[6] = {
+        int3(1, 0, 0),   // Right
+        int3(-1, 0, 0),  // Left
+        int3(0, 1, 0),   // Up
+        int3(0, -1, 0),  // Down
+        int3(0, 0, 1),   // Forward
+        int3(0, 0, -1)   // Backward
+    };
+    return offsets[dir];
+}
+
+// Helper: Check if face should be rendered
+bool ShouldRenderFace(uint currentVoxel, uint neighborVoxel)
+{
+    // TODO: Implement proper face culling logic based on VoxelRenderDef
+    // For now: render if neighbor is air (0) or current is non-air
+    if (currentVoxel == 0) return false; // Current is air, don't render
+    if (neighborVoxel == 0) return true;  // Neighbor is air, render face
+    // TODO: Add transparency and layer checks
+    return false;
+}
+
+[numthreads(8, 8, 8)]
+void RebuildSolidPoints(uint3 id : SV_DispatchThreadID)
+{
+    if (any(id >= uint3(32, 32, 32))) return;
+    
+    int3 pos = (int3)id;
+    uint flatIndex = id.x + id.y * 32 + id.z * 32 * 32;
+    uint voxelId = _VoxelData[flatIndex];
+    
+    if (voxelId == 0) return; // Skip air
+    
+    // Check 6 neighbors for face exposure
+    for (uint dir = 0; dir < 6; dir++)
+    {
+        int3 neighborPos = pos + GetDirectionOffset(dir);
+        uint neighborId = GetVoxelSafe(neighborPos);
+        
+        if (!ShouldRenderFace(voxelId, neighborId)) continue;
+        
+        // Generate point
+        PointData point;
+        point.position = (float3)pos;
+        
+        // Pack data: quadIndex | texIndex in x, lights in y, ao in z.x
+        point.packed.x = dir | (1 << 16); // quadIndex in lower 16 bits, dummy texIndex
+        point.packed.y = 0xFFFFFFFF;       // Full brightness for now
+        point.packed.z = 0;                // No AO for now
+        point.packed.w = 0;                // Unused
+        
+        // Atomic increment point count
+        uint oldCount;
+        InterlockedAdd(_Metadata[_PartitionIndex].pointCount, 1, oldCount);
+        
+        // Only append if within budget
+        if (oldCount < _MaxPointsPerPartition)
+        {
+            _PointsOut.Append(point);
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Chunk Culling - Coarse frustum culling per chunk
+// ─────────────────────────────────────────────────────────────────────────────
+
+StructuredBuffer<ChunkMetadata> _ChunkMetadata;
+AppendStructuredBuffer<uint> _VisibleChunks;
+float4 _FrustumPlanes[6];
+uint _ActiveChunkCount;
+
+// AABB-Frustum intersection test
+bool IsFrustumVisible(float3 bmin, float3 bmax, float4 planes[6])
+{
+    for (int i = 0; i < 6; i++)
+    {
+        float3 normal = planes[i].xyz;
+        float dist = planes[i].w;
+        
+        // Get positive vertex (farthest along plane normal)
+        float3 pVertex = bmax;
+        if (normal.x < 0) pVertex.x = bmin.x;
+        if (normal.y < 0) pVertex.y = bmin.y;
+        if (normal.z < 0) pVertex.z = bmin.z;
+        
+        // Test if positive vertex is outside
+        if (dot(normal, pVertex) + dist < 0)
+            return false;
+    }
+    return true;
+}
+
+[numthreads(64, 1, 1)]
+void CullChunks(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= _ActiveChunkCount) return;
+    
+    ChunkMetadata chunk = _ChunkMetadata[id.x];
+    
+    if (IsFrustumVisible(chunk.boundsMin, chunk.boundsMax, _FrustumPlanes))
+    {
+        _VisibleChunks.Append(id.x);
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Partition Culling - Fine frustum culling per partition
+// ─────────────────────────────────────────────────────────────────────────────
+
+ConsumeStructuredBuffer<uint> _VisibleChunksIn;
+AppendStructuredBuffer<uint> _VisiblePartitions;
+
+[numthreads(8, 1, 1)]
+void CullPartitions(uint3 tid : SV_GroupThreadID)
+{
+    uint chunkIdx = _VisibleChunksIn.Consume();
+    ChunkMetadata chunk = _ChunkMetadata[chunkIdx];
+    
+    uint partY = tid.x; // 0..7
+    if ((chunk.partitionMask & (1u << partY)) == 0) return; // Partition inactive
+    
+    uint partIdx = chunkIdx * 8 + partY;
+    PartitionMetadata part = _Metadata[partIdx];
+    
+    if (part.pointCount == 0) return; // Empty partition
+    
+    // Fine frustum test
+    if (IsFrustumVisible(part.boundsMin, part.boundsMax, _FrustumPlanes))
+    {
+        _VisiblePartitions.Append(partIdx);
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Indirect Args Builder - Build DrawProceduralIndirect arguments
+// ─────────────────────────────────────────────────────────────────────────────
+
+StructuredBuffer<uint> _VisiblePartitionsIn;
+RWStructuredBuffer<uint> _IndirectArgs;
+uint _VisiblePartitionCount;
+
+[numthreads(1, 1, 1)]
+void BuildIndirectArgs(uint3 id : SV_DispatchThreadID)
+{
+    uint totalPoints = 0;
+    
+    // Sum points from all visible partitions
+    for (uint i = 0; i < _VisiblePartitionCount; i++)
+    {
+        uint partIdx = _VisiblePartitionsIn[i];
+        totalPoints += _Metadata[partIdx].pointCount;
+    }
+    
+    // args[0] = vertexCountPerInstance (6 vertices per point for 2 triangles)
+    _IndirectArgs[0] = totalPoints * 6;
+    // args[1] = instanceCount
+    _IndirectArgs[1] = 1;
+    // args[2] = startVertexLocation
+    _IndirectArgs[2] = 0;
+    // args[3] = startInstanceLocation
+    _IndirectArgs[3] = 0;
+    // args[4] = baseVertexLocation (not used for non-indexed draws)
+    _IndirectArgs[4] = 0;
+}
+

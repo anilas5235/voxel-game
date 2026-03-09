@@ -188,6 +188,9 @@ namespace Runtime.Engine.Jobs.Meshing
                     $"Total Mesh Build Time for {_jobs.Length} jobs: <color=red>{totalJobTime:0.000}</color>ms"
                 );
             }
+            
+            // Trigger GPU rebuild after collider processing
+            _chunkManager.OnGpuRebuildReady?.Invoke();
         }
 
         /// <summary>

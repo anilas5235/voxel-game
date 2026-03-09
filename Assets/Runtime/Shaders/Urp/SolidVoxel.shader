@@ -26,6 +26,10 @@ Shader "Custom/VoxelShader"
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
         #include "VoxelCommon.hlsl"
 
+        StructuredBuffer<PointData> _PointData;
+        StructuredBuffer<uint> _VisiblePartitions;
+        
+
         struct Varyings
         {
             float4 positionCS : SV_POSITION;
@@ -33,36 +37,35 @@ Shader "Custom/VoxelShader"
             uint4 packed : TEXCOORD1; // (texArrayIndex u16, sunLightLevel u4, 4 bit unused, ao u8)
         };
 
-        // ── Geometry stage ────────────────────────────────────────────
-        // Expands a single point (one per quad) into a triangle strip (4 verts).
-        [maxvertexcount(4)]
-        void geom(point GeomInput IN[1], inout TriangleStream<Varyings> stream)
+        // ── Vertex shader with expansion ─────────────────────────────
+        Varyings vert(uint vertexID : SV_VertexID)
         {
-            uint quad_index = get_quad_index(IN[0].packedUV0);
-            QuadData q = quad_buffer[quad_index];
-
-            float3 origin = IN[0].positionOS;
-
+            // Calculate point and corner indices
+            uint pointID = vertexID / 6;
+            uint cornerID = vertexID % 6;
+            
+            // Fetch point data
+            PointData p = _PointData[pointID];
+            
+            uint quadIndex = get_quad_index(p.packed);
+            QuadData quad = quad_buffer[quadIndex];
+            
+            // Triangle strip corners: two triangles forming a quad
+            // Triangle 1: 00-01-02, Triangle 2: 02-01-03
+            float3 corners[6] = {
+                quad.position00, quad.position01, quad.position02,
+                quad.position02, quad.position01, quad.position03
+            };
+            float2 uvs[6] = {
+                quad.uv00, quad.uv01, quad.uv02,
+                quad.uv02, quad.uv01, quad.uv03
+            };
+            
             Varyings o;
-            o.packed = IN[0].packedUV0;
-
-            o.positionCS = TransformObjectToHClip(origin + q.position00);
-            o.uv = q.uv00;
-            stream.Append(o);
-
-            o.positionCS = TransformObjectToHClip(origin + q.position01);
-            o.uv = q.uv01;
-            stream.Append(o);
-
-            o.positionCS = TransformObjectToHClip(origin + q.position02);
-            o.uv = q.uv02;
-            stream.Append(o);
-
-            o.positionCS = TransformObjectToHClip(origin + q.position03);
-            o.uv = q.uv03;
-            stream.Append(o);
-
-            stream.RestartStrip();
+            o.positionCS = TransformObjectToHClip(p.position + corners[cornerID]);
+            o.uv = uvs[cornerID];
+            o.packed = p.packed;
+            return o;
         }
         ENDHLSL
 
@@ -85,7 +88,6 @@ Shader "Custom/VoxelShader"
             HLSLPROGRAM
             #pragma target 4.5
             #pragma vertex   vert
-            #pragma geometry geom
             #pragma fragment frag
 
             #pragma multi_compile_instancing
@@ -160,7 +162,6 @@ Shader "Custom/VoxelShader"
             HLSLPROGRAM
             #pragma target 4.5
             #pragma vertex   vert
-            #pragma geometry geom
             #pragma fragment frag_depth
 
             #pragma multi_compile_instancing
@@ -198,7 +199,6 @@ Shader "Custom/VoxelShader"
             HLSLPROGRAM
             #pragma target 4.5
             #pragma vertex   vert
-            #pragma geometry geom
             #pragma fragment frag_sel
 
             #pragma multi_compile_instancing
@@ -241,7 +241,6 @@ Shader "Custom/VoxelShader"
             HLSLPROGRAM
             #pragma target 4.5
             #pragma vertex   vert
-            #pragma geometry geom
             #pragma fragment frag_pick
 
             #pragma multi_compile_instancing

@@ -5,6 +5,45 @@
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/UnityInstancing.hlsl"
 
 // ─────────────────────────────────────────────────────────────────────────────
+// GPU Rendering Constants
+// ─────────────────────────────────────────────────────────────────────────────
+
+#define MAX_POINTS_PER_PARTITION 98304
+#define MESH_LAYER_SOLID 0
+#define MESH_LAYER_TRANSPARENT 1
+#define MESH_LAYER_AIR 255
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Point Data (GPU rendering)
+// ─────────────────────────────────────────────────────────────────────────────
+
+struct PointData
+{
+    float3 position;    // Voxel position in partition local space
+    uint4 packed;       // quadIndex(u16) | texIndex(u16), lights(4×u4 each), ao(u8) | depthFade(f16) | glow(u8), unused
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Metadata Structures
+// ─────────────────────────────────────────────────────────────────────────────
+
+struct PartitionMetadata
+{
+    int3 partitionPos;   // World partition coordinates
+    uint pointCount;     // Actual points generated
+    float3 boundsMin;    // AABB min for frustum culling
+    float3 boundsMax;    // AABB max
+};
+
+struct ChunkMetadata
+{
+    int2 chunkPos;       // World chunk XZ coordinates
+    float3 boundsMin;    // AABB min for coarse culling
+    float3 boundsMax;    // AABB max
+    uint partitionMask;  // Bitmask: which of 8 partitions are active (bit Y)
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Quad buffer
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -23,15 +62,6 @@ struct QuadData
 
 StructuredBuffer<QuadData> quad_buffer;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Geometry stage input struct
-// ─────────────────────────────────────────────────────────────────────────────
-
-struct GeomInput
-{
-    float3 positionOS : TEXCOORD0;
-    uint4 packedUV0 : TEXCOORD1;   
-};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Packed data accessors
@@ -73,28 +103,15 @@ float get_glow(uint4 packed)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Vertex input structs (shared by all passes)
+// Vertex input structs (for GPU rendering - kept for compatibility)
 // ─────────────────────────────────────────────────────────────────────────────
 
 struct Attributes
 {
-    float3 positionOS : POSITION;
-    uint4 uv0 : TEXCOORD0;
+    uint vertexID : SV_VertexID;
     UNITY_VERTEX_INPUT_INSTANCE_ID
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Vertex shaders (shared by all passes)
-// ─────────────────────────────────────────────────────────────────────────────
-
-GeomInput vert(Attributes IN)
-{
-    UNITY_SETUP_INSTANCE_ID(IN);
-    GeomInput o;
-    o.positionOS = IN.positionOS;
-    o.packedUV0 = IN.uv0;
-    return o;
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Frag helpers

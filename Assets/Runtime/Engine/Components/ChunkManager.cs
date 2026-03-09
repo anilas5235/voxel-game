@@ -1,4 +1,4 @@
-﻿using System;
+﻿﻿using System;
 using System.Collections.Generic;
 using Runtime.Engine.Data;
 using Runtime.Engine.Jobs;
@@ -20,7 +20,7 @@ namespace Runtime.Engine.Components
     /// Manages chunk data in memory. Maintains a limited pool of loaded chunks prioritized by focus position.
     /// Tracks remesh / recollider flags and provides voxel access.
     /// </summary>
-    internal class ChunkManager
+    public class ChunkManager
     {
         private readonly Dictionary<int2, Chunk> _chunks;
         private readonly SimpleFastPriorityQueue<int2, int> _queue;
@@ -29,11 +29,13 @@ namespace Runtime.Engine.Components
 
         private readonly HashSet<int3> _reMeshPartitions;
         private readonly HashSet<int3> _reCollidePartitions;
+        private readonly HashSet<int3> _gpuDirtyPartitions;
 
         private int3 _focus;
         private readonly int _chunkStoreSize;
 
         internal Action OnChunkRemeshRequested;
+        internal Action OnGpuRebuildReady;
 
         /// <summary>
         /// Creates a new manager with capacities from <paramref name="settings"/>.
@@ -44,6 +46,7 @@ namespace Runtime.Engine.Components
 
             _reMeshPartitions = new HashSet<int3>();
             _reCollidePartitions = new HashSet<int3>();
+            _gpuDirtyPartitions = new HashSet<int3>();
 
             _chunks = new Dictionary<int2, Chunk>(_chunkStoreSize);
             _queue = new SimpleFastPriorityQueue<int2, int>();
@@ -213,6 +216,23 @@ namespace Runtime.Engine.Components
         }
 
         /// <summary>
+        /// Flushes GPU dirty partitions for rebuild (max batch size).
+        /// </summary>
+        /// <param name="maxCount">Maximum partitions to return per flush.</param>
+        /// <returns>List of dirty partition positions.</returns>
+        internal List<int3> FlushGpuDirtyPartitions(int maxCount = Utils.VoxelRenderConstants.MaxDirtyUploadsPerFrame)
+        {
+            List<int3> batch = new(math.min(maxCount, _gpuDirtyPartitions.Count));
+            foreach (int3 pos in _gpuDirtyPartitions)
+            {
+                batch.Add(pos);
+                if (batch.Count >= maxCount) break;
+            }
+            foreach (int3 pos in batch) _gpuDirtyPartitions.Remove(pos);
+            return batch;
+        }
+
+        /// <summary>
         /// Flags all neighbor partitions (including own) for remeshing.
         /// </summary>
         /// <param name="blockPosition">World block position that changed.</param>
@@ -220,14 +240,17 @@ namespace Runtime.Engine.Components
         {
             int3 pCoords = GetPartitionCoords(blockPosition);
             _reMeshPartitions.Add(pCoords);
+            _gpuDirtyPartitions.Add(pCoords);
             int3 localPos = GetPartitionLocalVoxelCoords(pCoords, blockPosition);
             switch (localPos.x % PartitionWidth)
             {
                 case MinPartitionPosXYZ:
                     _reMeshPartitions.Add(pCoords + Int3Left);
+                    _gpuDirtyPartitions.Add(pCoords + Int3Left);
                     break;
                 case MaxXPartitionPos:
                     _reMeshPartitions.Add(pCoords + Int3Right);
+                    _gpuDirtyPartitions.Add(pCoords + Int3Right);
                     break;
             }
 
@@ -235,9 +258,11 @@ namespace Runtime.Engine.Components
             {
                 case MinPartitionPosXYZ:
                     _reMeshPartitions.Add(pCoords + Int3Backward);
+                    _gpuDirtyPartitions.Add(pCoords + Int3Backward);
                     break;
                 case MaxZPartitionPos:
                     _reMeshPartitions.Add(pCoords + Int3Forward);
+                    _gpuDirtyPartitions.Add(pCoords + Int3Forward);
                     break;
             }
 
@@ -245,9 +270,11 @@ namespace Runtime.Engine.Components
             {
                 case MinPartitionPosXYZ:
                     _reMeshPartitions.Add(pCoords + Int3Down);
+                    _gpuDirtyPartitions.Add(pCoords + Int3Down);
                     break;
                 case MaxYPartitionPos:
                     _reMeshPartitions.Add(pCoords + Int3Up);
+                    _gpuDirtyPartitions.Add(pCoords + Int3Up);
                     break;
             }
 
