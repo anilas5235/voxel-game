@@ -34,9 +34,11 @@ namespace Runtime.Engine.Jobs.Meshing
         }
 
         public void SetQuadIndex(ushort quadIndex) => PackedData.x |= quadIndex;
+        public ushort GetQuadIndex() => (ushort)(PackedData.x & 0xFFFF);
 
         public void SetTextureIndex(ushort textureIndex) => PackedData.x |= (uint)textureIndex << 16;
-
+        public ushort GetTextureIndex() => (ushort)((PackedData.x >> 16) & 0xFFFF);
+        
         public void SetLight(byte sunlight, LightIndex index) =>
             PackedData.y |= (uint)(sunlight & 0b1111) << (int)index;
 

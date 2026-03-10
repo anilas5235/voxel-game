@@ -59,8 +59,10 @@ Shader "Custom/VoxelShader"
                 quad.uv02, quad.uv01, quad.uv03
             };
             
+            float3 objectPos = p.position + corners[cornerID];
+            
             Varyings o;
-            o.positionCS = TransformObjectToHClip(p.position + corners[cornerID]);
+            o.positionCS = TransformObjectToHClip(objectPos);
             o.uv = uvs[cornerID];
             o.packed = p.packed;
             return o;

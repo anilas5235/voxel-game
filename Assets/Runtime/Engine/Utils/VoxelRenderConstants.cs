@@ -1,4 +1,6 @@
-﻿namespace Runtime.Engine.Utils
+﻿using static Runtime.Engine.Utils.VoxelConstants;
+
+namespace Runtime.Engine.Utils
 {
     /// <summary>
     /// Constants for GPU-based voxel rendering pipeline.
@@ -8,8 +10,8 @@
         /// <summary>
         /// Max points per partition: 32^3 voxels × 3 worst-case faces per voxel.
         /// </summary>
-        public const int MaxPointsPerPartition = 32 * 32 * 32 * 3; // 98304
-
+        public const int MaxPointsPerPartition = PartitionWidth * PartitionHeight * PartitionDepth *3;
+        
         /// <summary>
         /// Max dirty partitions uploaded per frame for GPU rebuild.
         /// </summary>
@@ -36,7 +38,7 @@
         /// Calculates max active partitions based on draw distance.
         /// </summary>
         public static int MaxActivePartitions(int drawDistance) =>
-            (2 * drawDistance + 1) * (2 * drawDistance + 1) * VoxelConstants.PartitionsPerChunk;
+            (2 * drawDistance + 1) * (2 * drawDistance + 1) * PartitionsPerChunk;
 
         /// <summary>
         /// Calculates max active chunks based on draw distance.
