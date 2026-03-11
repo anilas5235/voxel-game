@@ -1,4 +1,5 @@
 ﻿#pragma kernel RebuildSolidPoints
+#pragma kernel CopyPoints
 #pragma kernel CullChunks
 #pragma kernel CullPartitions
 #pragma kernel BuildIndirectArgs
@@ -9,7 +10,7 @@
 // Rebuild Kernel - Generate solid point data per partition
 // ─────────────────────────────────────────────────────────────────────────────
 
-StructuredBuffer<uint> _VoxelData; // [32×32×32] per partition
+StructuredBuffer<uint> _VoxelData;
 RWStructuredBuffer<PartitionMetadata> _Metadata;
 AppendStructuredBuffer<PointData> _PointsOut;
 
@@ -17,7 +18,7 @@ uint _PartitionIndex;
 
 uint GetVoxelArrayIndex(in int3 pos)
 {
-    return pos.x + pos.y * 32u + pos.z * 1024u;
+    return pos.x * 1024u + pos.z * 32u + pos.y ;
 }
 
 // Helper: Get voxel from flat buffer safely
@@ -85,6 +86,22 @@ void RebuildSolidPoints(uint3 id : SV_DispatchThreadID)
 
         _PointsOut.Append(p);
     }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Copy Points Kernel - Copy points to final buffer for rendering
+// ─────────────────────────────────────────────────────────────────────────────
+StructuredBuffer<PointData> _PointsIn;
+RWStructuredBuffer<PointData> _PointsCopyOut;
+uint _PointCount;
+uint _PointOffset;
+
+[numthreads(64, 1, 1)]
+void CopyPoints(uint3 id : SV_DispatchThreadID)
+{    
+    uint idx = id.x;
+    if (idx >= _PointCount) return;
+    _PointsCopyOut[(_PointOffset + idx)] = _PointsIn[idx];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
