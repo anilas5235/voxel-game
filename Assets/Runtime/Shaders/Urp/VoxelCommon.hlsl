@@ -1,20 +1,8 @@
 ﻿#ifndef VOXEL_COMMON_INCLUDED
 #define VOXEL_COMMON_INCLUDED
 
-#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
-#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/UnityInstancing.hlsl"
-
 // ─────────────────────────────────────────────────────────────────────────────
-// GPU Rendering Constants
-// ─────────────────────────────────────────────────────────────────────────────
-
-#define MAX_POINTS_PER_PARTITION 98304
-#define MESH_LAYER_SOLID 0
-#define MESH_LAYER_TRANSPARENT 1
-#define MESH_LAYER_AIR 255
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Point Data (GPU rendering)
+// Structs
 // ─────────────────────────────────────────────────────────────────────────────
 
 struct PointData
@@ -24,77 +12,70 @@ struct PointData
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Metadata Structures
-// ─────────────────────────────────────────────────────────────────────────────
-
-struct PartitionMetadata
-{
-    int3 partitionPos;   // World partition coordinates
-    uint pointCount;     // Actual points generated
-    float3 boundsMin;    // AABB min for frustum culling
-    float3 boundsMax;    // AABB max
-};
-
-struct ChunkMetadata
-{
-    int2 chunkPos;       // World chunk XZ coordinates
-    float3 boundsMin;    // AABB min for coarse culling
-    float3 boundsMax;    // AABB max
-    uint partitionMask;  // Bitmask: which of 8 partitions are active (bit Y)
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Quad buffer
-// ─────────────────────────────────────────────────────────────────────────────
-
-struct QuadData
-{
-    float3 position00; // vertex offset from voxel origin
-    float3 position01;
-    float3 position02;
-    float3 position03;
-    float3 normal;
-    float2 uv00;
-    float2 uv01;
-    float2 uv02;
-    float2 uv03;
-};
-
-StructuredBuffer<QuadData> quad_buffer;
-
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Packed data accessors
 // ─────────────────────────────────────────────────────────────────────────────
 
-uint get_quad_index(uint4 packed)
+uint get_quad_index(in uint4 packed)
 {
     return packed.x & 0xFFFF;
 }
 
-uint get_tex_index(uint4 packed)
+void set_quad_index(inout uint4 packed, uint quad_index)
+{
+    packed.x = (packed.x & 0xFFFF0000) | (quad_index & 0xFFFF);
+}
+
+uint get_tex_index(in uint4 packed)
 {
     return packed.x >> 16 & 0xFFFF;
 }
 
-uint4 get_sun_light(uint4 packed)
+void set_tex_index(inout uint4 packed, uint tex_index)
+{
+    packed.x = (packed.x & 0x0000FFFF) | ((tex_index & 0xFFFF) << 16);
+}
+
+uint4 get_sun_light(in uint4 packed)
 {
     return uint4(packed.y & 0xF, packed.y >> 4 & 0xF, packed.y >> 8 & 0xF, packed.y >> 12 & 0xF);
 }
 
-uint4 get_artificial_light(uint4 packed)
+void set_sun_light(inout uint4 packed, in uint4 sun_light)
+{
+    packed.y = (packed.y & 0xFFFF0000) | (sun_light.x & 0xF) | ((sun_light.y & 0xF) << 4) |
+               ((sun_light.z & 0xF) << 8) | ((sun_light.w & 0xF) << 12);
+}
+
+uint4 get_artificial_light(in uint4 packed)
 {
     return uint4(packed.y >> 16 & 0xF, packed.y >> 20 & 0xF, packed.y >> 24 & 0xF, packed.y >> 28 & 0xF);
 }
 
-uint get_ao(uint4 packed)
+void set_artificial_light(inout uint4 packed, in uint4 artificial_light)
+{
+    packed.y = (packed.y & 0x0000FFFF) | ((artificial_light.x & 0xF) << 16) |
+               ((artificial_light.y & 0xF) << 20) | ((artificial_light.z & 0xF) << 24) |
+               ((artificial_light.w & 0xF) << 28);
+}
+
+uint get_ao(in uint4 packed)
 {
     return packed.z & 0xFF;
 }
 
-float get_depth_fade_dist(uint4 packed)
+void set_ao(inout uint4 packed, uint ao)
+{
+    packed.z = (packed.z & 0xFFFFFF00) | (ao & 0xFF);
+}
+
+float get_depth_fade_dist(in uint4 packed)
 {
     return f16tof32(packed.z >> 8 & 0xFFFF);
+}
+
+void set_depth_fade_dist(inout uint4 packed, in float depth_fade_dist)
+{
+    packed.z = (packed.z & 0xFFFF00FF) | (f32tof16(depth_fade_dist) << 8);
 }
 
 float get_glow(uint4 packed)
@@ -102,67 +83,9 @@ float get_glow(uint4 packed)
     return (float)(packed.z >> 24 & 0xFF);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Vertex input structs (for GPU rendering - kept for compatibility)
-// ─────────────────────────────────────────────────────────────────────────────
-
-struct Attributes
+void set_glow(inout uint4 packed, in float glow)
 {
-    uint vertexID : SV_VertexID;
-    UNITY_VERTEX_INPUT_INSTANCE_ID
-};
-
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Frag helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
-int compute_ao_corner(const int s1, const int s2, const int c)
-{
-    return s1 == 1 && s2 == 1 ? 0 : 3 - (s1 + s2 + c);
+    packed.z = (packed.z & 0x00FFFFFF) | ((uint)(glow) << 24);
 }
 
-float scale_ao(const float4 curve, const int index, const float intensity, const float power)
-{
-    return pow(abs(curve[index] * intensity), power);
-}
-
-float4 calc_ao_color(const float4 ao_color, const float4 albedo, const float4 ao_curve, const int ao_data,
-                     const float ao_intensity, const float ao_power, const float2 uv)
-{
-    // Bits: 0=up (UV.y=1), 1=up-right (UV=1,1), 2=right (UV.x=1), 3=down-right (UV=1,0),
-    //       4=down (UV.y=0), 5=down-left (UV=0,0), 6=left (UV.x=0), 7=up-left (UV=0,1)
-    int u = ao_data >> 0 & 1;
-    int ur = ao_data >> 1 & 1;
-    int r = ao_data >> 2 & 1;
-    int dr = ao_data >> 3 & 1;
-    int d = ao_data >> 4 & 1;
-    int dl = ao_data >> 5 & 1;
-    int l = ao_data >> 6 & 1;
-    int ul = ao_data >> 7 & 1;
-
-    float dlc = scale_ao(ao_color, compute_ao_corner(l, d, dl), ao_intensity, ao_power);
-    float ulc = scale_ao(ao_color, compute_ao_corner(l, u, ul), ao_intensity, ao_power);
-    float drc = scale_ao(ao_color, compute_ao_corner(r, d, dr), ao_intensity, ao_power);
-    float urc = scale_ao(ao_color, compute_ao_corner(r, u, ur), ao_intensity, ao_power);
-
-    float t = lerp(lerp(dlc, drc, uv.x), lerp(ulc, urc, uv.x), uv.y);
-    return lerp(ao_color, albedo, t);
-}
-
-float calc_sun_light(const uint4 light_data, float2 uv)
-{
-    float ul = lerp(0.05f, 1.0f, light_data.x / 15.0f);
-    float ur = lerp(0.05f, 1.0f, light_data.y / 15.0f);
-    float dr = lerp(0.05f, 1.0f, light_data.z / 15.0f);
-    float dl = lerp(0.05f, 1.0f, light_data.w / 15.0f);
-    
-    return lerp(lerp(dl, dr, uv.x), lerp(ul, ur, uv.x), uv.y);
-}
-
-float calc_glow(const float glow_data)
-{
-    return 1.0f + glow_data / 8.0f;
-}
-
-#endif // VOXEL_COMMON_INCLUDED
+#endif

@@ -4,16 +4,16 @@
 #pragma kernel CullPartitions
 #pragma kernel BuildIndirectArgs
 
-#include "VoxelCommon.hlsl"
+#include "VoxelComputeCommon.hlsl"
+#include "../VoxelCommon.hlsl"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Rebuild Kernel - Generate solid point data per partition
 // ─────────────────────────────────────────────────────────────────────────────
 
-StructuredBuffer<uint> _VoxelData;
+StructuredBuffer<uint> _RawVoxels;
 RWStructuredBuffer<PartitionMetadata> _Metadata;
 AppendStructuredBuffer<PointData> _PointsOut;
-
 uint _PartitionIndex;
 
 uint GetVoxelArrayIndex(in int3 pos)
@@ -25,7 +25,7 @@ uint GetVoxelArrayIndex(in int3 pos)
 uint GetVoxelSafe(in int3 pos)
 {
     if (any(pos < 0) || any(pos >= 32)) return 0; // Air outside bounds
-    return _VoxelData[GetVoxelArrayIndex(pos)];
+    return _RawVoxels[GetVoxelArrayIndex(pos)];
 }
 
 // Helper: Get direction offset
@@ -60,7 +60,7 @@ void RebuildSolidPoints(uint3 id : SV_DispatchThreadID)
 
     int3 pos = (int3)id;
     uint flatIndex = GetVoxelArrayIndex(pos);
-    uint voxelId = _VoxelData[flatIndex];
+    uint voxelId = _RawVoxels[flatIndex];
     PartitionMetadata metadata = _Metadata[_PartitionIndex];
     float3 partitionPos = metadata.partitionPos;
 

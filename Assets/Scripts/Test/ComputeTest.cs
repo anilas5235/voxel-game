@@ -11,6 +11,15 @@ namespace Test
 {
     public class ComputeTest : MonoBehaviour
     {
+        private static readonly int VoxelDataNameID = Shader.PropertyToID("_RawVoxels");
+        private static readonly int MetadataNameID = Shader.PropertyToID("_Metadata");
+        private static readonly int PointsOutNameID = Shader.PropertyToID("_PointsOut");
+        private static readonly int PartitionIndexNameID = Shader.PropertyToID("_PartitionIndex");
+        private static readonly int PointsCopyOutNameID = Shader.PropertyToID("_PointsCopyOut");
+        private static readonly int PointsInNameID = Shader.PropertyToID("_PointsIn");
+        private static readonly int PointCountNameID = Shader.PropertyToID("_PointCount");
+        private static readonly int PointOffsetNameID = Shader.PropertyToID("_PointOffset");
+
         struct PartitionMetadata
         {
             int3 partitionPos; // World partition coordinates
@@ -89,10 +98,10 @@ namespace Test
             _VoxelData.SetData(dummyData);
 
             int kernel = computeShader.FindKernel("RebuildSolidPoints");
-            computeShader.SetBuffer(kernel, "_VoxelData", _VoxelData);
-            computeShader.SetBuffer(kernel, "_Metadata", _Metadata);
-            computeShader.SetBuffer(kernel, "_PointsOut", _PointsOut);
-            computeShader.SetInt("_PartitionIndex", 0);
+            computeShader.SetBuffer(kernel, VoxelDataNameID, _VoxelData);
+            computeShader.SetBuffer(kernel, MetadataNameID, _Metadata);
+            computeShader.SetBuffer(kernel, PointsOutNameID, _PointsOut);
+            computeShader.SetInt(PartitionIndexNameID, 0);
             computeShader.Dispatch(kernel, 4, 4, 4);
 
             //copy counter value to arg buffer for indirect draw
@@ -108,10 +117,10 @@ namespace Test
             _PointsOut.SetCounterValue(0);
 
             kernel = computeShader.FindKernel("CopyPoints");
-            computeShader.SetBuffer(kernel, "_PointsCopyOut", _BigVertexBuffer);
-            computeShader.SetBuffer(kernel, "_PointsIn", _PointsOut);
-            computeShader.SetInt("_PointCount", realPointCount);
-            computeShader.SetInt("_PointOffset", 0);
+            computeShader.SetBuffer(kernel, PointsCopyOutNameID, _BigVertexBuffer);
+            computeShader.SetBuffer(kernel, PointsInNameID, _PointsOut);
+            computeShader.SetInt(PointCountNameID, realPointCount);
+            computeShader.SetInt(PointOffsetNameID, 0);
             computeShader.Dispatch(kernel, Mathf.CeilToInt(realPointCount / 64f), 1, 1);
             Vertex[] Bigpoints = new Vertex[100];
             _BigVertexBuffer.GetData(Bigpoints);

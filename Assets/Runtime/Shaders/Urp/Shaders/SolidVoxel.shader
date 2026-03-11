@@ -1,4 +1,4 @@
-﻿Shader "Custom/TransparentVoxel"
+Shader "Custom/VoxelShader"
 {
     Properties
     {
@@ -14,9 +14,9 @@
         Tags
         {
             "RenderPipeline" = "UniversalPipeline"
-            "RenderType" = "Transparent"
+            "RenderType" = "Opaque"
             "UniversalMaterialType" = "Unlit"
-            "Queue" = "Transparent"
+            "Queue" = "Geometry"
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -24,19 +24,16 @@
         // ─────────────────────────────────────────────────────────────
         HLSLINCLUDE
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
-        #include "VoxelCommon.hlsl"
+        #include "VoxelShaderCommon.hlsl"
+        #include "../VoxelCommon.hlsl"
 
         StructuredBuffer<PointData> _PointData;
-        StructuredBuffer<uint> _VisiblePartitions;
 
         struct Varyings
         {
             float4 positionCS : SV_POSITION;
             float2 uv : TEXCOORD0; // xy = tile UV
-            uint4 packed : TEXCOORD1; // x: (texArrayIndex u16, sunLightLevel u4, 4 bit unused, ao u8)
-            // y:half16 , 16 bit unused
-            // z and w unused
-            float4 positionSS : TEXCOORD3;
+            uint4 packed : TEXCOORD1; // (texArrayIndex u16, sunLightLevel u4, 4 bit unused, ao u8)
         };
 
         // ── Vertex shader with expansion ─────────────────────────────
@@ -46,7 +43,7 @@
             uint pointID = vertexID / 6;
             uint cornerID = vertexID % 6;
             
-            // Fetch point data
+            // Fetch point data directly
             PointData p = _PointData[pointID];
             
             uint quadIndex = get_quad_index(p.packed);
@@ -63,12 +60,12 @@
                 quad.uv02, quad.uv01, quad.uv03
             };
             
+            float3 objectPos = p.position + corners[cornerID];
+            
             Varyings o;
-            float4 worldPos = float4(p.position + corners[cornerID], 1.0);
-            o.positionCS = TransformObjectToHClip(worldPos.xyz);
+            o.positionCS = TransformObjectToHClip(objectPos);
             o.uv = uvs[cornerID];
             o.packed = p.packed;
-            o.positionSS = ComputeScreenPos(o.positionCS);
             return o;
         }
         ENDHLSL
@@ -84,10 +81,10 @@
                 "LightMode" = "UniversalForward"
             }
 
-            Cull Off
+            Cull Back
             ZTest LEqual
             ZWrite On
-            Blend SrcAlpha OneMinusSrcAlpha
+            Blend One Zero
 
             HLSLPROGRAM
             #pragma target 4.5
@@ -97,7 +94,6 @@
             #pragma multi_compile_instancing
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
-            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
 
             // ── Material properties ───────────────────────────────────
             CBUFFER_START(UnityPerMaterial)
@@ -116,8 +112,6 @@
                 uint4 sun_light;
                 uint4 artificial_light;
                 uint ao;
-                float depth_fade_dist;
-                float glow;
             };
 
             FragExtraData unpack_frag_extra_data(uint4 packed)
@@ -127,22 +121,7 @@
                 data.sun_light = get_sun_light(packed);
                 data.artificial_light = get_artificial_light(packed);
                 data.ao = get_ao(packed);
-                data.depth_fade_dist = get_depth_fade_dist(packed);
-                data.glow = get_glow(packed);
                 return data;
-            }
-
-            float depth_fade(const float4 positionSS, const float dist, const float texAlpha)
-            {
-                if (dist <= 0.1f) return texAlpha;
-
-                float2 ndc = positionSS.xy / positionSS.w;
-
-                float raw_depth = SampleSceneDepth(ndc);
-                float scene_eye_depth = LinearEyeDepth(raw_depth, _ZBufferParams);
-
-                float inter = saturate((scene_eye_depth - positionSS.w) / dist);
-                return lerp(texAlpha, 1, inter);
             }
 
             // ── Fragment shader ───────────────────────────────────────
@@ -150,23 +129,54 @@
             {
                 // --- Texture array sample ---
                 FragExtraData extra = unpack_frag_extra_data(IN.packed);
-                const float2 uv = IN.uv;
-                const float4 albedo = SAMPLE_TEXTURE2D_ARRAY(_Textures, sampler_Textures, uv, extra.texture_index);
+                float2 uv = IN.uv;
+                float4 albedo = SAMPLE_TEXTURE2D_ARRAY(_Textures, sampler_Textures, uv, extra.texture_index);
 
                 // --- Ambient occlusion ---
-                const float4 ao_color = calc_ao_color(_AOColor, albedo, _AOCurve, extra.ao, _AOIntensity, _AOPower, uv);
+                float4 ao_color =  calc_ao_color(_AOColor, albedo, _AOCurve, extra.ao, _AOIntensity, _AOPower, uv);
 
                 // --- Sun light level ---
-                const float sun_light = calc_sun_light(extra.sun_light, uv);
-
-                // --- Depth fade ---
-                const float alpha = depth_fade(IN.positionSS, extra.depth_fade_dist, albedo.w);
-
-                // --- Glow ---
-                const float glow = calc_glow(extra.glow);
+                float sun_light = calc_sun_light(extra.sun_light, uv);
 
                 // --- Final colour ---
-                return half4(ao_color.rgb * sun_light * glow, alpha);
+                return half4(ao_color.rgb * sun_light, 1);
+            }
+            ENDHLSL
+        }
+
+        // ═════════════════════════════════════════════════════════════
+        // Pass – Depth Only
+        // ═════════════════════════════════════════════════════════════
+        Pass
+        {
+            Name "DepthOnly"
+            Tags
+            {
+                "LightMode" = "DepthOnly"
+            }
+
+            Cull Back
+            ZTest LEqual
+            ZWrite On
+            ColorMask R
+
+            HLSLPROGRAM
+            #pragma target 4.5
+            #pragma vertex   vert
+            #pragma fragment frag_depth
+
+            #pragma multi_compile_instancing
+
+            CBUFFER_START(UnityPerMaterial)
+                float4 _AOColor;
+                float4 _AOCurve;
+                float _AOIntensity;
+                float _AOPower;
+            CBUFFER_END
+
+            half frag_depth(Varyings IN) : SV_Target
+            {
+                return 0;
             }
             ENDHLSL
         }
@@ -201,11 +211,13 @@
                 float _AOPower;
             CBUFFER_END
 
+            // Unity-supplied selection ID (injected by the editor)
             int _ObjectId;
             int _PassValue;
 
             half4 frag_sel(Varyings IN) : SV_Target
             {
+                // Encode the object/pass ID as required by the SceneSelectionPass protocol.
                 return half4(_ObjectId, _PassValue, 1, 1);
             }
             ENDHLSL
@@ -241,6 +253,8 @@
                 float _AOPower;
             CBUFFER_END
 
+            // Unity encodes the picking ID into this float4 via
+            // SceneView / HandleUtility.
             float4 _SelectionID;
 
             half4 frag_pick(Varyings IN) : SV_Target
