@@ -18,7 +18,7 @@ namespace Runtime.Engine.Utils.Collections
         /// <summary>
         /// Internal node representing an interval until inclusive end position (Count viewed as cumulative length).
         /// </summary>
-        private struct Node
+        internal struct Node
         {
             public T Value;
             public int Count;
@@ -140,7 +140,8 @@ namespace Runtime.Engine.Utils.Collections
                 node.Count--;
                 _internal[nodeIndex] = node;
 
-                if (leftNodeIndex >= 0 && leftNode.Count == node.Count) _internal.RemoveRange(nodeIndex, 1); // [X,A,Y] -> [X,Y,Y]
+                if (leftNodeIndex >= 0 && leftNode.Count == node.Count)
+                    _internal.RemoveRange(nodeIndex, 1); // [X,A,Y] -> [X,Y,Y]
             }
             else
             {
@@ -175,7 +176,7 @@ namespace Runtime.Engine.Utils.Collections
 
                     Node node = _internal[nodeIndex];
                     node.Value = value;
-                    node.Count = _internal[leftNodeIndex].Count + 1;
+                    node.Count = nodeIndex > 0 ? _internal[leftNodeIndex].Count + 1 : 1;
                     _internal[nodeIndex] = node;
                 }
                 else if (eqCurrentLeft)
@@ -296,6 +297,7 @@ namespace Runtime.Engine.Utils.Collections
             _internal.Clear();
             Length = 0;
         }
+
+        internal UnsafeList<Node>.ReadOnly Internal => _internal.AsReadOnly();
     }
 }
-

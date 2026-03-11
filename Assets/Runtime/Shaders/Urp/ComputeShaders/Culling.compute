@@ -1,113 +1,13 @@
-﻿#pragma kernel RebuildSolidPoints
-#pragma kernel CopyPoints
-#pragma kernel CullChunks
+﻿#pragma kernel CullChunks
 #pragma kernel CullPartitions
 #pragma kernel BuildIndirectArgs
 
 #include "VoxelComputeCommon.hlsl"
-#include "../VoxelCommon.hlsl"
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Rebuild Kernel - Generate solid point data per partition
-// ─────────────────────────────────────────────────────────────────────────────
-
-StructuredBuffer<uint> _RawVoxels;
-RWStructuredBuffer<PartitionMetadata> _Metadata;
-AppendStructuredBuffer<PointData> _PointsOut;
-uint _PartitionIndex;
-
-uint GetVoxelArrayIndex(in int3 pos)
-{
-    return pos.x * 1024u + pos.z * 32u + pos.y ;
-}
-
-// Helper: Get voxel from flat buffer safely
-uint GetVoxelSafe(in int3 pos)
-{
-    if (any(pos < 0) || any(pos >= 32)) return 0; // Air outside bounds
-    return _RawVoxels[GetVoxelArrayIndex(pos)];
-}
-
-// Helper: Get direction offset
-int3 GetDirectionOffset(uint dir)
-{
-    int3 offsets[6] = {
-        int3(1, 0, 0), // Right
-        int3(-1, 0, 0), // Left
-        int3(0, 1, 0), // Up
-        int3(0, -1, 0), // Down
-        int3(0, 0, 1), // Forward
-        int3(0, 0, -1) // Backward
-    };
-    return offsets[dir];
-}
-
-// Helper: Check if face should be rendered
-bool ShouldRenderFace(uint currentVoxel, uint neighborVoxel)
-{
-    // TODO: Implement proper face culling logic based on VoxelRenderDef
-    // For now: render if neighbor is air (0) or current is non-air
-    if (currentVoxel == 0) return false; // Current is air, don't render
-    if (neighborVoxel == 0) return true; // Neighbor is air, render face
-    // TODO: Add transparency and layer checks
-    return false;
-}
-
-[numthreads(8, 8, 8)]
-void RebuildSolidPoints(uint3 id : SV_DispatchThreadID)
-{
-    if (any(id >= uint3(32, 32, 32))) return;
-
-    int3 pos = (int3)id;
-    uint flatIndex = GetVoxelArrayIndex(pos);
-    uint voxelId = _RawVoxels[flatIndex];
-    PartitionMetadata metadata = _Metadata[_PartitionIndex];
-    float3 partitionPos = metadata.partitionPos;
-
-    if (voxelId == 0) return; // Skip air
-
-    // Check 6 neighbors for face exposure
-    for (uint dir = 0; dir < 6; dir++)
-    {
-        int3 neighborPos = pos + GetDirectionOffset(dir);
-        uint neighborId = GetVoxelSafe(neighborPos);
-
-        if (!ShouldRenderFace(voxelId, neighborId)) continue;
-
-        // Generate point in world voxel space.
-        PointData p;
-        p.position = (float3)pos + partitionPos;
-
-        // Pack data: quadIndex | texIndex in x, lights in y, ao in z.x
-        p.packed.x = dir | 1 << 16; // texIndex = 0 for debug-safe rendering
-        p.packed.y = 0xFFFFFFFF; // Full brightness for now
-        p.packed.z = 0; // No AO for now
-        p.packed.w = 0; // Unused
-
-        _PointsOut.Append(p);
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Copy Points Kernel - Copy points to final buffer for rendering
-// ─────────────────────────────────────────────────────────────────────────────
-StructuredBuffer<PointData> _PointsIn;
-RWStructuredBuffer<PointData> _PointsCopyOut;
-uint _PointCount;
-uint _PointOffset;
-
-[numthreads(64, 1, 1)]
-void CopyPoints(uint3 id : SV_DispatchThreadID)
-{    
-    uint idx = id.x;
-    if (idx >= _PointCount) return;
-    _PointsCopyOut[(_PointOffset + idx)] = _PointsIn[idx];
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Chunk Culling - Coarse frustum culling per chunk
 // ─────────────────────────────────────────────────────────────────────────────
-
+StructuredBuffer<PartitionMetadata> _Metadata;
 StructuredBuffer<ChunkMetadata> _ChunkMetadata;
 AppendStructuredBuffer<uint> _VisibleChunks;
 float4 _VoxelFrustumPlanes[6];

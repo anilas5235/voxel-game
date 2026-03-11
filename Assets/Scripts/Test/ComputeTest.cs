@@ -1,5 +1,8 @@
+using System;
 using System.Runtime.InteropServices;
 using Runtime.Engine.Jobs.Meshing;
+using Runtime.Engine.Utils.Collections;
+using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -15,10 +18,13 @@ namespace Test
         private static readonly int MetadataNameID = Shader.PropertyToID("_Metadata");
         private static readonly int PointsOutNameID = Shader.PropertyToID("_PointsOut");
         private static readonly int PartitionIndexNameID = Shader.PropertyToID("_PartitionIndex");
+        
         private static readonly int PointsCopyOutNameID = Shader.PropertyToID("_PointsCopyOut");
         private static readonly int PointsInNameID = Shader.PropertyToID("_PointsIn");
         private static readonly int PointCountNameID = Shader.PropertyToID("_PointCount");
         private static readonly int PointOffsetNameID = Shader.PropertyToID("_PointOffset");
+        
+        private static readonly int PointDataNameID = Shader.PropertyToID("_PointData");
 
         struct PartitionMetadata
         {
@@ -40,31 +46,51 @@ namespace Test
         [SerializeField] private Material material;
 
 
-        private ComputeBuffer _VoxelData;
-        private ComputeBuffer _Metadata;
-        private GraphicsBuffer _PointsOut;
+        private ComputeBuffer _voxelData;
+        private ComputeBuffer _metadata;
+        private GraphicsBuffer _pointsOut;
 
-        private ComputeBuffer _ArgBuffer;
-        private MaterialPropertyBlock _MaterialPropertyBlock;
+        private ComputeBuffer _argBuffer;
+        private MaterialPropertyBlock _materialPropertyBlock;
 
+        private GraphicsBuffer _bigVertexBuffer;
 
-        private GraphicsBuffer _BigVertexBuffer;
+        private int _buildPointsKernel;
+        private int _copyPointsKernel;
+
+        private UnsafeIntervalList<ushort> _voxels;
 
 
         private void Awake()
         {
-            _VoxelData = new ComputeBuffer(VoxelsPerPartition, sizeof(uint));
-            _Metadata = new ComputeBuffer(1, Marshal.SizeOf<PartitionMetadata>());
-            _PointsOut = new GraphicsBuffer(Target.Append, MaxPointsPerPartition,
+            _buildPointsKernel = computeShader.FindKernel("RebuildPoints");
+            _copyPointsKernel = computeShader.FindKernel("CopyPoints");
+            _voxels = new UnsafeIntervalList<ushort>(10, Allocator.Domain);
+            _voxels.AddInterval(0,VoxelsPerPartition);
+            for (int j = 0; j < 32; j++)
+            {
+                _voxels.Set(j,1);
+            }
+            var intervalData = new uint2[_voxels.CompressedLength];
+            int i = 0;
+            foreach (UnsafeIntervalList<ushort>.Node n in _voxels.Internal)
+            {
+                intervalData[i++] = new uint2(n.Value, (uint) n.Count);
+            }
+            if(_voxels.Length != VoxelsPerPartition) throw new Exception("Voxel data length mismatch!");
+            _voxelData = new ComputeBuffer(_voxels.CompressedLength, Marshal.SizeOf<uint2>());
+            _voxelData.SetData(intervalData);
+            _metadata = new ComputeBuffer(1, Marshal.SizeOf<PartitionMetadata>());
+            _pointsOut = new GraphicsBuffer(Target.Append, MaxPointsPerPartition,
                 Marshal.SizeOf<Vertex>());
 
-            _BigVertexBuffer =
+            _bigVertexBuffer =
                 new GraphicsBuffer(Target.Structured, 1000000, Marshal.SizeOf<Vertex>());
 
-            _ArgBuffer = new ComputeBuffer(5, sizeof(uint), ComputeBufferType.IndirectArguments);
-            _ArgBuffer.SetData(new uint[]
+            _argBuffer = new ComputeBuffer(5, sizeof(uint), ComputeBufferType.IndirectArguments);
+            _argBuffer.SetData(new uint[]
                 { 0u, 1u, 0u, 0u, 0u }); // vertex count, instance count, start vertex, start instance
-            _MaterialPropertyBlock = new MaterialPropertyBlock();
+            _materialPropertyBlock = new MaterialPropertyBlock();
         }
 
         private void OnEnable()
@@ -79,70 +105,52 @@ namespace Test
 
         private void OnDestroy()
         {
-            _VoxelData.Dispose();
-            _Metadata.Dispose();
-            _PointsOut.Dispose();
-            _ArgBuffer.Dispose();
-            _BigVertexBuffer.Dispose();
+            _voxels.Dispose();
+            _voxelData.Dispose();
+            _metadata.Dispose();
+            _pointsOut.Dispose();
+            _argBuffer.Dispose();
+            _bigVertexBuffer.Dispose();
         }
 
         private void Start()
         {
-            uint[] dummyData = new uint[VoxelsPerPartition];
-
-            for (int i = 0; i < VoxelsPerPartition; i++)
-            {
-                dummyData[i] = (uint)(i % 40);
-            }
-
-            _VoxelData.SetData(dummyData);
-
-            int kernel = computeShader.FindKernel("RebuildSolidPoints");
-            computeShader.SetBuffer(kernel, VoxelDataNameID, _VoxelData);
-            computeShader.SetBuffer(kernel, MetadataNameID, _Metadata);
-            computeShader.SetBuffer(kernel, PointsOutNameID, _PointsOut);
+            computeShader.SetBuffer(_buildPointsKernel, VoxelDataNameID, _voxelData);
+            computeShader.SetBuffer(_buildPointsKernel, MetadataNameID, _metadata);
+            computeShader.SetBuffer(_buildPointsKernel, PointsOutNameID, _pointsOut);
             computeShader.SetInt(PartitionIndexNameID, 0);
-            computeShader.Dispatch(kernel, 4, 4, 4);
+            computeShader.Dispatch(_buildPointsKernel, 4, 4, 4);
 
             //copy counter value to arg buffer for indirect draw
-            CopyCount(_PointsOut, _ArgBuffer, 0);
+            CopyCount(_pointsOut, _argBuffer, 0);
             uint[] argData = new uint[5];
-            _ArgBuffer.GetData(argData);
+            _argBuffer.GetData(argData);
             int realPointCount = (int)argData[0];
             argData[0] *= 6u;
-            _ArgBuffer.SetData(argData);
+            _argBuffer.SetData(argData);
             Debug.Log($"Indirect args: {string.Join(", ", argData)}");
             Debug.Log($"Real point count: {realPointCount}");
 
-            _PointsOut.SetCounterValue(0);
+            _pointsOut.SetCounterValue(0);
 
-            kernel = computeShader.FindKernel("CopyPoints");
-            computeShader.SetBuffer(kernel, PointsCopyOutNameID, _BigVertexBuffer);
-            computeShader.SetBuffer(kernel, PointsInNameID, _PointsOut);
+            computeShader.SetBuffer(_copyPointsKernel, PointsCopyOutNameID, _bigVertexBuffer);
+            computeShader.SetBuffer(_copyPointsKernel, PointsInNameID, _pointsOut);
             computeShader.SetInt(PointCountNameID, realPointCount);
             computeShader.SetInt(PointOffsetNameID, 0);
-            computeShader.Dispatch(kernel, Mathf.CeilToInt(realPointCount / 64f), 1, 1);
-            Vertex[] Bigpoints = new Vertex[100];
-            _BigVertexBuffer.GetData(Bigpoints);
-            for (int i = 0; i < 10; i++)
-            {
-                Vertex vertex = Bigpoints[i];
-                Debug.Log(
-                    $"Copied Vertex: {vertex.Position}, TextureIndex: {vertex.GetTextureIndex()}, QuadIndex: {vertex.GetQuadIndex()}");
-            }
+            computeShader.Dispatch(_copyPointsKernel, Mathf.CeilToInt(realPointCount / 64f), 1, 1);
         }
 
         private void Draw(ScriptableRenderContext context, Camera cam)
         {
-            _MaterialPropertyBlock.SetBuffer("_PointData", _BigVertexBuffer);
+            _materialPropertyBlock.SetBuffer(PointDataNameID, _bigVertexBuffer);
             Graphics.DrawProceduralIndirect(
                 material,
                 new Bounds(Vector3.zero, Vector3.one * 100),
                 MeshTopology.Triangles,
-                _ArgBuffer,
+                _argBuffer,
                 0,
                 cam,
-                _MaterialPropertyBlock,
+                _materialPropertyBlock,
                 ShadowCastingMode.Off,
                 false,
                 gameObject.layer
