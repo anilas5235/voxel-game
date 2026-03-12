@@ -176,7 +176,7 @@ namespace Runtime.Engine.Utils.Collections
 
                     Node node = _internal[nodeIndex];
                     node.Value = value;
-                    node.Count = nodeIndex > 0 ? _internal[leftNodeIndex].Count + 1 : 1;
+                    node.Count = hasLeft ? _internal[leftNodeIndex].Count + 1 : 1;
                     _internal[nodeIndex] = node;
                 }
                 else if (eqCurrentLeft)

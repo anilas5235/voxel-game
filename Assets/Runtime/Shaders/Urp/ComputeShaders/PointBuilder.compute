@@ -31,7 +31,7 @@ uint get_voxel(in int3 pos)
         accumulated_count += raw.y;
         search_index++;
     }
-    while (accumulated_count < index);
+    while (accumulated_count <= index);
     return voxel_id;
 }
 

@@ -77,9 +77,11 @@ namespace Test
             {
                 intervalData[i++] = new uint2(n.Value, (uint) n.Count);
             }
+            
             if(_voxels.Length != VoxelsPerPartition) throw new Exception("Voxel data length mismatch!");
             _voxelData = new ComputeBuffer(_voxels.CompressedLength, Marshal.SizeOf<uint2>());
             _voxelData.SetData(intervalData);
+            Debug.Log("Voxel data uploaded to GPU.: " +String.Join(", ", intervalData));
             _metadata = new ComputeBuffer(1, Marshal.SizeOf<PartitionMetadata>());
             _pointsOut = new GraphicsBuffer(Target.Append, MaxPointsPerPartition,
                 Marshal.SizeOf<Vertex>());
