@@ -218,6 +218,7 @@ namespace Runtime.Engine.VoxelConfig.Data
         {
             base.OnDestroy();
             VoxelRegistry.Dispose();
+            _quadDataBuffer.Dispose();
         }
 
         /// <summary>

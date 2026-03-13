@@ -127,6 +127,7 @@ Shader "Custom/VoxelShader"
             // ── Fragment shader ───────────────────────────────────────
             half4 frag(Varyings IN) : SV_Target
             {
+                //return half4(1, 0, 1, 1); // Debug magenta to verify shader is running
                 // --- Texture array sample ---
                 FragExtraData extra = unpack_frag_extra_data(IN.packed);
                 float2 uv = IN.uv;

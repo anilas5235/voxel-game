@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
@@ -23,6 +24,10 @@ namespace Runtime.Engine.VoxelConfig.Data
         private readonly TexRegistry _solidTexRegistry = new();
         private readonly TexRegistry _transparentTexRegistry = new();
         private bool _initialized;
+        
+        private GraphicsBuffer _voxelRenderDefBuffer;
+        
+        public GraphicsBuffer VoxelRenderDefBuffer => _voxelRenderDefBuffer;
 
         public void Initialize()
         {
@@ -155,11 +160,53 @@ namespace Runtime.Engine.VoxelConfig.Data
                 _voxelEngineRenderGenData.VoxelRenderDefs.Dispose();
             _voxelEngineRenderGenData.VoxelRenderDefs =
                 new NativeArray<VoxelRenderDef>(_idToVoxel.Count, Allocator.Persistent);
+
+            _voxelRenderDefBuffer?.Dispose();
+            _voxelRenderDefBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Constant, _idToVoxel.Count,
+                Marshal.SizeOf<GPUVoxelDef>());
+            GPUVoxelDef[] GPUVoxelDefData = new GPUVoxelDef[_idToVoxel.Count];
+            
             for (int i = 0; i < _idToVoxel.Count; i++)
             {
-                _voxelEngineRenderGenData.VoxelRenderDefs[i] = _idToVoxel[(ushort)i];
+                var def  = _idToVoxel[(ushort)i];
+                _voxelEngineRenderGenData.VoxelRenderDefs[i] = def;
+                GPUVoxelDefData[i] = new GPUVoxelDef(def);
             }
+            
+            _voxelRenderDefBuffer.SetData(GPUVoxelDefData);
         }
+        
+        struct GPUVoxelDef
+        {
+            uint MeshLayer;
+            uint AlwaysRenderAllFaces;
+            uint VoxelType;
+            half DepthFadeDistance;
+            uint Glow;
+            uint Collision;
+            uint TexUp;
+            uint TexDown;
+            uint TexLeft;
+            uint TexRight;
+            uint TexFront;
+            uint TexBack;
+
+            public GPUVoxelDef(VoxelRenderDef def)
+            {
+                MeshLayer = (uint)def.MeshLayer;
+                AlwaysRenderAllFaces = def.AlwaysRenderAllFaces ? 1u : 0u;
+                VoxelType = (uint)def.VoxelType;
+                DepthFadeDistance = def.DepthFadeDistance;
+                Glow = def.Glow;
+                Collision = def.Collision ? 1u : 0u;
+                TexUp = def.TexUp;
+                TexDown = def.TexDown;
+                TexLeft = def.TexLeft;
+                TexRight = def.TexRight;
+                TexFront = def.TexFront;
+                TexBack = def.TexBack;
+            }
+        };
 
         /// <summary>
         /// Retrieves the data package used for meshing and rendering.
@@ -193,6 +240,7 @@ namespace Runtime.Engine.VoxelConfig.Data
         {
             if (_voxelEngineRenderGenData.VoxelRenderDefs.IsCreated)
                 _voxelEngineRenderGenData.VoxelRenderDefs.Dispose();
+            _voxelRenderDefBuffer.Dispose();
         }
 
         /// <summary>

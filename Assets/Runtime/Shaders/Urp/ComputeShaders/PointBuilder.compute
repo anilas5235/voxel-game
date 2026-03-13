@@ -7,11 +7,11 @@
 struct VoxelDef
 {
     uint MeshLayer;
-    bool AlwaysRenderAllFaces;
+    uint AlwaysRenderAllFaces;
     uint VoxelType;
     half DepthFadeDistance;
     uint Glow;
-    bool Collision;
+    uint Collision;
     uint TexUp;
     uint TexDown;
     uint TexLeft;
@@ -38,7 +38,7 @@ uint get_texture_id(in VoxelDef def, uint dir)
 // Rebuild Kernel - Generate solid point data per partition
 // ─────────────────────────────────────────────────────────────────────────────
 
-//StructuredBuffer<VoxelDef> _VoxelRenderDefs;
+StructuredBuffer<VoxelDef> _VoxelRenderDefs;
 StructuredBuffer<uint2> _RawVoxels;
 RWStructuredBuffer<PartitionMetadata> _Metadata;
 AppendStructuredBuffer<PointData> _PointsOut;
