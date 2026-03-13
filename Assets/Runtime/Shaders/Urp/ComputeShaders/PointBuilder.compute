@@ -44,7 +44,9 @@ uint _VoxelRenderDefsCount;
 StructuredBuffer<uint2> _RawVoxels;
 uint _RawVoxelsCompressedCount;
 RWStructuredBuffer<PartitionMetadata> _Metadata;
-AppendStructuredBuffer<PointData> _PointsOut;
+AppendStructuredBuffer<PointData> _SolidPointsOut;
+AppendStructuredBuffer<PointData> _TransparentPointsOut;
+AppendStructuredBuffer<PointData> _FoliagePointsOut;
 uint _PartitionIndex;
 
 VoxelDef get_voxel_def(uint voxelId)
@@ -64,10 +66,10 @@ uint get_voxel(in int3 pos)
 {
     uint index = get_voxel_array_index(pos);
     if (index >= _RawVoxels[_RawVoxelsCompressedCount - 1].y) return 0;
-    
+
     //binary search
     uint min = 0;
-    uint max = _RawVoxelsCompressedCount - 1;    
+    uint max = _RawVoxelsCompressedCount - 1;
 
     while (min <= max)
     {
@@ -133,6 +135,7 @@ void RebuildPoints(uint3 id : SV_DispatchThreadID)
     {
         int3 neighborPos = pos + get_direction_offset(dir);
         uint neighborId = get_voxel_safe(neighborPos);
+        VoxelDef otherDef = _VoxelRenderDefs[neighborId];
 
         if (!should_render_face(voxelId, neighborId)) continue;
 
@@ -146,7 +149,16 @@ void RebuildPoints(uint3 id : SV_DispatchThreadID)
         p.packed.z = 0; // No AO for now
         p.packed.w = 0; // Unused
 
-        _PointsOut.Append(p);
+        switch (myDef.MeshLayer)
+        {
+        case 0: _SolidPointsOut.Append(p);
+            break;
+        case 1: _TransparentPointsOut.Append(p);
+            break;
+        case 2: _FoliagePointsOut.Append(p);
+            break;
+        default: break;
+        }
     }
 }
 

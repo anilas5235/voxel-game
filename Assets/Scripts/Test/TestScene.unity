@@ -579,7 +579,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ComputeTest
   pointBuilder: {fileID: 7200000, guid: b253108f447042e389630ea3cd8affd1, type: 3}
-  material: {fileID: 2100000, guid: b6215133664aff74dad83d56615f47d0, type: 2}
+  solidMaterial: {fileID: 2100000, guid: b6215133664aff74dad83d56615f47d0, type: 2}
+  transparentMaterial: {fileID: 2100000, guid: e8e8dbf7c2062df49bf757b4e9d3a636, type: 2}
+  foliageMaterial: {fileID: 2100000, guid: e8e8dbf7c2062df49bf757b4e9d3a636, type: 2}
 --- !u!4 &1878458634
 Transform:
   m_ObjectHideFlags: 0
