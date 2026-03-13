@@ -4,10 +4,55 @@
 #include "VoxelComputeCommon.hlsl"
 #include "../VoxelCommon.hlsl"
 
+enum MeshLayer : uint
+{
+    Solid = 0,
+    Transparent = 1,
+    Air = 255
+};
+
+enum VoxelType : uint
+{
+    Full,
+    Liquid,
+    Flora,
+};
+
+struct VoxelRenderDef
+{
+    MeshLayer MeshLayer;
+    bool AlwaysRenderAllFaces;
+    VoxelType VoxelType;
+    half DepthFadeDistance;
+    uint Glow;
+    bool Collision;
+    uint TexUp;
+    uint TexDown;
+    uint TexLeft;
+    uint TexRight;
+    uint TexFront;
+    uint TexBack;
+};
+
+uint GetTextureId(in VoxelRenderDef def, uint dir)
+{
+    switch (dir)
+    {
+    case 0: return def.TexUp;
+    case 1: return def.TexDown;
+    case 2: return def.TexLeft;
+    case 3: return def.TexRight;
+    case 4: return def.TexFront;
+    case 5: return def.TexBack;
+    default: return 0;
+    }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Rebuild Kernel - Generate solid point data per partition
 // ─────────────────────────────────────────────────────────────────────────────
 
+StructuredBuffer<VoxelRenderDef> _VoxelRenderDefs;
 StructuredBuffer<uint2> _RawVoxels;
 RWStructuredBuffer<PartitionMetadata> _Metadata;
 AppendStructuredBuffer<PointData> _PointsOut;
@@ -15,7 +60,7 @@ uint _PartitionIndex;
 
 uint get_voxel_array_index(in int3 pos)
 {
-    return pos.x * 1024u + pos.z * 32u + pos.y ;
+    return pos.x * 1024u + pos.z * 32u + pos.y;
 }
 
 uint get_voxel(in int3 pos)
@@ -111,7 +156,7 @@ uint _PointOffset;
 
 [numthreads(64, 1, 1)]
 void CopyPoints(uint3 id : SV_DispatchThreadID)
-{    
+{
     uint idx = id.x;
     if (idx >= _PointCount) return;
     _PointsCopyOut[(_PointOffset + idx)] = _PointsIn[idx];
