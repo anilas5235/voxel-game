@@ -189,23 +189,28 @@ namespace Test
             pointBuilder.SetInt(PartitionIndexNameID, 0);
 
             pointBuilder.Dispatch(_buildPointsKernel, 4, 4, 4);
+            var buildFinished = Time.realtimeSinceStartupAsDouble;
 
             ArgsAndCopy(_solidPointsOut, _bigSolidVertexBuffer, _solidArgBuffer, out int solidCount);
             _drawCalls[0].DrawCalls[0].VertexCount = solidCount;
+            var copy1 = Time.realtimeSinceStartupAsDouble;
             ArgsAndCopy(_transparentPointsOut, _bigTransparentVertexBuffer, _transparentArgBuffer,
                 out int transparentCount);
             _drawCalls[1].DrawCalls[0].VertexCount = transparentCount;
+            var copy2 = Time.realtimeSinceStartupAsDouble;
             ArgsAndCopy(_foliagePointsOut, _bigFoliageVertexBuffer, _foliageArgBuffer, out int foliageCount);
             _drawCalls[2].DrawCalls[0].VertexCount = foliageCount;
-
+            var copy3 = Time.realtimeSinceStartupAsDouble;
             _dataInitialized = true;
 
-            Debug.Log($"Point building and copy took {(Time.realtimeSinceStartupAsDouble - start) * 1000.0} ms");
+            var done =  Time.realtimeSinceStartupAsDouble;
+            Debug.Log($"Build time: {(buildFinished - start)*1000:F3}ms, Copy times: Solid {(copy1 - buildFinished)*1000:F3}ms, Transparent {(copy2 - copy1)*1000:F3}ms, Foliage {(copy3 - copy2)*1000:F3}ms, Total: {(done - start)*1001:F3}ms");
         }
 
         private bool ArgsAndCopy(GraphicsBuffer source, GraphicsBuffer destination, GraphicsBuffer argBuffer,
             out int count)
         {
+            var readBackStart = Time.realtimeSinceStartupAsDouble;
             CopyCount(source, argBuffer, 0);
             uint[] argData = new uint[5];
             argBuffer.GetData(argData);
@@ -215,6 +220,7 @@ namespace Test
             argBuffer.SetData(argData);
             //Debug.Log($"Indirect args: {string.Join(", ", argData)}");
             //Debug.Log($"Real point count: {count}");
+            Debug.Log($"Count readback time: {(Time.realtimeSinceStartupAsDouble - readBackStart)*1000:F3}ms");
 
             source.SetCounterValue(0);
 
@@ -228,7 +234,7 @@ namespace Test
             pointBuilder.SetBuffer(_copyPointsKernel, PointsInNameID, source);
             pointBuilder.SetInt(PointCountNameID, count);
             pointBuilder.SetInt(PointOffsetNameID, offset);
-            pointBuilder.Dispatch(_copyPointsKernel, Mathf.CeilToInt(count / 64f), 1, 1);
+            pointBuilder.Dispatch(_copyPointsKernel, Mathf.CeilToInt(count / 256f), 1, 1);
         }
 
         private void Draw(ScriptableRenderContext context, Camera cam)

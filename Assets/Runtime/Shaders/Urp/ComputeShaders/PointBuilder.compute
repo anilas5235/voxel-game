@@ -173,7 +173,16 @@ uint _PointOffset;
 [numthreads(64, 1, 1)]
 void CopyPoints(uint3 id : SV_DispatchThreadID)
 {
-    uint idx = id.x;
-    if (idx >= _PointCount) return;
-    _PointsCopyOut[(_PointOffset + idx)] = _PointsIn[idx];
+    uint baseIdx = id.x * 4u;
+    if (baseIdx >= _PointCount) return;
+
+    [unroll]
+    for (uint i = 0u; i < 4u; i++)
+    {
+        uint idx = baseIdx + i;
+        if (idx < _PointCount)
+        {
+            _PointsCopyOut[_PointOffset + idx] = _PointsIn[idx];
+        }
+    }
 }
