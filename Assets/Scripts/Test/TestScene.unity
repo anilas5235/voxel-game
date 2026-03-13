@@ -578,7 +578,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0d3d70ccc78388b439e37201ab9dbddf, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ComputeTest
-  computeShader: {fileID: 7200000, guid: b253108f447042e389630ea3cd8affd1, type: 3}
+  pointBuilder: {fileID: 7200000, guid: b253108f447042e389630ea3cd8affd1, type: 3}
   material: {fileID: 2100000, guid: b6215133664aff74dad83d56615f47d0, type: 2}
 --- !u!4 &1878458634
 Transform:

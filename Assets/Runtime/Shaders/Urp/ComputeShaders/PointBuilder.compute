@@ -34,36 +34,52 @@ uint get_texture_id(in VoxelDef def, uint dir)
     }
 }
 
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Rebuild Kernel - Generate solid point data per partition
 // ─────────────────────────────────────────────────────────────────────────────
 
 StructuredBuffer<VoxelDef> _VoxelRenderDefs;
+uint _VoxelRenderDefsCount;
 StructuredBuffer<uint2> _RawVoxels;
+uint _RawVoxelsCompressedCount;
 RWStructuredBuffer<PartitionMetadata> _Metadata;
 AppendStructuredBuffer<PointData> _PointsOut;
 uint _PartitionIndex;
+
+VoxelDef get_voxel_def(uint voxelId)
+{
+    if (voxelId >= _VoxelRenderDefsCount) return (VoxelDef)0; // Invalid
+    return _VoxelRenderDefs[voxelId];
+}
 
 uint get_voxel_array_index(in int3 pos)
 {
     return pos.x * 1024u + pos.z * 32u + pos.y;
 }
 
+#define MAX_INDEX_IN_PARTITION 32*32*32
+
 uint get_voxel(in int3 pos)
 {
     uint index = get_voxel_array_index(pos);
-    uint accumulated_count = 0;
-    uint search_index = 0;
-    uint voxel_id;
-    do
+    if (index >= _RawVoxels[_RawVoxelsCompressedCount - 1].y) return 0;
+    
+    //binary search
+    uint min = 0;
+    uint max = _RawVoxelsCompressedCount - 1;    
+
+    while (min <= max)
     {
-        uint2 raw = _RawVoxels[search_index];
-        voxel_id = raw.x;
-        accumulated_count += raw.y;
-        search_index++;
+        uint mid = (max + min) >> 1;
+        uint count = _RawVoxels[mid].y;
+
+        if (index == count) return _RawVoxels[mid + 1].x;
+
+        if (index < count) max = mid - 1;
+        else min = mid + 1;
     }
-    while (accumulated_count <= index);
-    return voxel_id;
+    return _RawVoxels[min].x;
 }
 
 // Helper: Get voxel from flat buffer safely
@@ -110,6 +126,8 @@ void RebuildPoints(uint3 id : SV_DispatchThreadID)
 
     if (voxelId == 0) return; // Skip air
 
+    VoxelDef myDef = _VoxelRenderDefs[voxelId];
+
     // Check 6 neighbors for face exposure
     for (uint dir = 0; dir < 6; dir++)
     {
@@ -123,7 +141,7 @@ void RebuildPoints(uint3 id : SV_DispatchThreadID)
         p.position = (float3)pos + partitionPos;
 
         // Pack data: quadIndex | texIndex in x, lights in y, ao in z.x
-        p.packed.x = dir | 1 << 16; // texIndex = 0 for debug-safe rendering
+        p.packed.x = dir | get_texture_id(myDef, dir) << 16; // texIndex = 0 for debug-safe rendering
         p.packed.y = 0xFFFFFFFF; // Full brightness for now
         p.packed.z = 0; // No AO for now
         p.packed.w = 0; // Unused

@@ -16,7 +16,9 @@ namespace Test
     public class ComputeTest : MonoBehaviour
     {
         private static readonly int VoxelRenderDefNameID = Shader.PropertyToID("_VoxelRenderDefs");
+        private static readonly int VoxelRenderDefCountNameID = Shader.PropertyToID("_VoxelRenderDefsCount");
         private static readonly int VoxelDataNameID = Shader.PropertyToID("_RawVoxels");
+        private static readonly int VoxelCompressedCountNameID = Shader.PropertyToID("_RawVoxelsCompressedCount");
         private static readonly int MetadataNameID = Shader.PropertyToID("_Metadata");
         private static readonly int PointsOutNameID = Shader.PropertyToID("_PointsOut");
         private static readonly int PartitionIndexNameID = Shader.PropertyToID("_PartitionIndex");
@@ -49,7 +51,7 @@ namespace Test
 
 
         private GraphicsBuffer _voxelRenderDefBuffer;
-        private ComputeBuffer _voxelData;
+        private GraphicsBuffer _voxelData;
         private ComputeBuffer _metadata;
         private GraphicsBuffer _pointsOut;
 
@@ -73,9 +75,9 @@ namespace Test
             _copyPointsKernel = pointBuilder.FindKernel("CopyPoints");
             _voxels = new UnsafeIntervalList<ushort>(10, Allocator.Domain);
             _voxels.AddInterval(0,VoxelsPerPartition);
-            for (int j = 0; j < 32; j++)
+            for (int j = 0; j < 100; j++)
             {
-                _voxels.Set(j,1);
+                _voxels.Set(j,(ushort)j);
             }
             var intervalData = new uint2[_voxels.CompressedLength];
             int i = 0;
@@ -85,7 +87,7 @@ namespace Test
             }
             
             if(_voxels.Length != VoxelsPerPartition) throw new Exception("Voxel data length mismatch!");
-            _voxelData = new ComputeBuffer(_voxels.CompressedLength, Marshal.SizeOf<uint2>());
+            _voxelData = new GraphicsBuffer(Target.Structured,_voxels.CompressedLength, Marshal.SizeOf<uint2>());
             _voxelData.SetData(intervalData);
             Debug.Log("Voxel data uploaded to GPU.: " +String.Join(", ", intervalData));
             _metadata = new ComputeBuffer(1, Marshal.SizeOf<PartitionMetadata>());
@@ -125,10 +127,15 @@ namespace Test
         private void Start()
         {
             pointBuilder.SetBuffer(_buildPointsKernel,VoxelRenderDefNameID, _voxelRenderDefBuffer);
+            pointBuilder.SetInt(VoxelRenderDefCountNameID, _voxelRenderDefBuffer.count);
             pointBuilder.SetBuffer(_buildPointsKernel, VoxelDataNameID, _voxelData);
+            pointBuilder.SetInt(VoxelCompressedCountNameID, _voxelData.count);
+            
             pointBuilder.SetBuffer(_buildPointsKernel, MetadataNameID, _metadata);
             pointBuilder.SetBuffer(_buildPointsKernel, PointsOutNameID, _pointsOut);
+            
             pointBuilder.SetInt(PartitionIndexNameID, 0);
+            
             pointBuilder.Dispatch(_buildPointsKernel, 4, 4, 4);
 
             //copy counter value to arg buffer for indirect draw

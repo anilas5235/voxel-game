@@ -162,7 +162,7 @@ namespace Runtime.Engine.VoxelConfig.Data
                 new NativeArray<VoxelRenderDef>(_idToVoxel.Count, Allocator.Persistent);
 
             _voxelRenderDefBuffer?.Dispose();
-            _voxelRenderDefBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Constant, _idToVoxel.Count,
+            _voxelRenderDefBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, _idToVoxel.Count,
                 Marshal.SizeOf<GPUVoxelDef>());
             GPUVoxelDef[] GPUVoxelDefData = new GPUVoxelDef[_idToVoxel.Count];
             
