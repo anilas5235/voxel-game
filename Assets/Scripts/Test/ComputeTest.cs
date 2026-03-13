@@ -59,6 +59,8 @@ namespace Test
         private int _copyPointsKernel;
 
         private UnsafeIntervalList<ushort> _voxels;
+        
+        private bool _dataInitialized = false;
 
 
         private void Awake()
@@ -140,10 +142,13 @@ namespace Test
             computeShader.SetInt(PointCountNameID, realPointCount);
             computeShader.SetInt(PointOffsetNameID, 0);
             computeShader.Dispatch(_copyPointsKernel, Mathf.CeilToInt(realPointCount / 64f), 1, 1);
+            
+            _dataInitialized = true;    
         }
 
         private void Draw(ScriptableRenderContext context, Camera cam)
         {
+            if (!_dataInitialized)  return;
             _materialPropertyBlock.SetBuffer(PointDataNameID, _bigVertexBuffer);
             Graphics.DrawProceduralIndirect(
                 material,
