@@ -10,12 +10,12 @@ namespace Runtime.Engine.VoxelConfig.Data
     /// </summary>
     public enum Direction
     {
-        Up = 0, // +y direction
-        Down = 1, // -y direction
-        Forward = 2, // z+ direction
-        Backward = 3, // -z direction
-        Right = 4, // +x direction
-        Left = 5, // -x direction
+        Right, // +x direction
+        Left, // -x direction
+        Up, // +y direction
+        Down, // -y direction
+        Forward, // z+ direction
+        Backward, // -z direction
     }
 
     /// <summary>
@@ -42,17 +42,16 @@ namespace Runtime.Engine.VoxelConfig.Data
         {
             return direction switch
             {
+                Direction.Right => Int3Right,
+                Direction.Left => Int3Left,
                 Direction.Up => Int3Up,
                 Direction.Down => Int3Down,
                 Direction.Forward => Int3Forward,
                 Direction.Backward => Int3Backward,
-                Direction.Right => Int3Right,
-                Direction.Left => Int3Left,
-
                 _ => throw new ArgumentOutOfRangeException(nameof(direction), direction, null)
             };
         }
-        
+
         public static int3 RelativeUp(this Direction direction)
         {
             return direction switch
@@ -64,7 +63,7 @@ namespace Runtime.Engine.VoxelConfig.Data
         }
 
         public static int3 RelativeDown(this Direction direction) => -direction.RelativeUp();
-        
+
         public static int3 RelativeRight(this Direction direction)
         {
             return direction switch
@@ -78,7 +77,7 @@ namespace Runtime.Engine.VoxelConfig.Data
                 _ => throw new ArgumentOutOfRangeException(nameof(direction), direction, null)
             };
         }
-        
+
         public static int3 RelativeLeft(this Direction direction) => -direction.RelativeRight();
 
         /// <summary>
@@ -130,13 +129,12 @@ namespace Runtime.Engine.VoxelConfig.Data
         {
             return direction switch
             {
+                Direction.Right => Direction.Left,
+                Direction.Left => Direction.Right,
                 Direction.Up => Direction.Down,
                 Direction.Down => Direction.Up,
                 Direction.Forward => Direction.Backward,
                 Direction.Backward => Direction.Forward,
-                Direction.Right => Direction.Left,
-                Direction.Left => Direction.Right,
-
                 _ => throw new ArgumentOutOfRangeException(nameof(direction), direction, null)
             };
         }

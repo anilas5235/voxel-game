@@ -62,12 +62,12 @@ namespace Runtime.Engine.VoxelConfig.Data
                 DepthFadeDistance = (half)definition.depthFadeDistance,
                 Glow = (byte)definition.glow,
                 Collision = definition.collision,
+                TexRight = RegisterTexture(definition, Direction.Right),
+                TexLeft = RegisterTexture(definition, Direction.Left),
                 TexUp = RegisterTexture(definition, Direction.Up),
                 TexDown = RegisterTexture(definition, Direction.Down),
                 TexFront = RegisterTexture(definition, Direction.Forward),
                 TexBack = RegisterTexture(definition, Direction.Backward),
-                TexLeft = RegisterTexture(definition, Direction.Left),
-                TexRight = RegisterTexture(definition, Direction.Right)
             };
 
             ushort id = Register(packagePrefix + ":" + definition.name, type);

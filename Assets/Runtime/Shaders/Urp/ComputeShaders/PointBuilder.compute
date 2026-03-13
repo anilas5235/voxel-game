@@ -4,25 +4,11 @@
 #include "VoxelComputeCommon.hlsl"
 #include "../VoxelCommon.hlsl"
 
-enum MeshLayer : uint
+struct VoxelDef
 {
-    Solid = 0,
-    Transparent = 1,
-    Air = 255
-};
-
-enum VoxelType : uint
-{
-    Full,
-    Liquid,
-    Flora,
-};
-
-struct VoxelRenderDef
-{
-    MeshLayer MeshLayer;
+    uint MeshLayer;
     bool AlwaysRenderAllFaces;
-    VoxelType VoxelType;
+    uint VoxelType;
     half DepthFadeDistance;
     uint Glow;
     bool Collision;
@@ -34,14 +20,14 @@ struct VoxelRenderDef
     uint TexBack;
 };
 
-uint GetTextureId(in VoxelRenderDef def, uint dir)
+uint get_texture_id(in VoxelDef def, uint dir)
 {
     switch (dir)
     {
-    case 0: return def.TexUp;
-    case 1: return def.TexDown;
-    case 2: return def.TexLeft;
-    case 3: return def.TexRight;
+    case 0: return def.TexRight;
+    case 1: return def.TexLeft;
+    case 2: return def.TexUp;
+    case 3: return def.TexDown;
     case 4: return def.TexFront;
     case 5: return def.TexBack;
     default: return 0;
@@ -52,7 +38,7 @@ uint GetTextureId(in VoxelRenderDef def, uint dir)
 // Rebuild Kernel - Generate solid point data per partition
 // ─────────────────────────────────────────────────────────────────────────────
 
-StructuredBuffer<VoxelRenderDef> _VoxelRenderDefs;
+//StructuredBuffer<VoxelDef> _VoxelRenderDefs;
 StructuredBuffer<uint2> _RawVoxels;
 RWStructuredBuffer<PartitionMetadata> _Metadata;
 AppendStructuredBuffer<PointData> _PointsOut;
