@@ -17,7 +17,6 @@ namespace Runtime.Engine.Jobs.Meshing
     [BurstCompile]
     internal partial struct MeshBuildJob : IJobParallelFor
     {
-        [ReadOnly] public NativeArray<VertexAttributeDescriptor> VertexParams;
         [ReadOnly] public NativeArray<VertexAttributeDescriptor> ColliderVertexParams;
         [ReadOnly] public ChunkAccessor Accessor;
         [ReadOnly] public NativeList<int3> Jobs;
@@ -25,7 +24,6 @@ namespace Runtime.Engine.Jobs.Meshing
 
 
         [WriteOnly] public NativeParallelHashMap<int3, PartitionJobResult>.ParallelWriter Results;
-        public Mesh.MeshDataArray MeshDataArray;
         public Mesh.MeshDataArray ColliderMeshDataArray;
 
         /// <summary>
@@ -40,16 +38,10 @@ namespace Runtime.Engine.Jobs.Meshing
             int3 position = Jobs[index];
             Accessor.TryGetLightData(position, out PartitionLightData lightData);
             Accessor.TryGetChunk(position.xz, out ChunkVoxelData chunk);
-            PartitionJobData jobData = new(MeshDataArray[index], ColliderMeshDataArray[index], position,
+            PartitionJobData jobData = new(ColliderMeshDataArray[index], position,
                 lightData, chunk);
 
             SortVoxels(ref jobData);
-
-            MeshSolids(ref jobData);
-
-            MeshTransparent(ref jobData);
-
-            MeshFoliage(ref jobData);
 
             MeshCollision(ref jobData);
 

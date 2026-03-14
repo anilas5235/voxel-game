@@ -14,7 +14,7 @@ namespace Runtime.Engine.VoxelConfig.Data
     /// </summary>
     public class VoxelRegistry : IDisposable
     {
-        private static readonly int Textures = Shader.PropertyToID("_Textures");
+        private static readonly int TexturesNameID = Shader.PropertyToID("_Textures");
         internal const int TextureSize = 128; // Texture resolution (square)
         private readonly Dictionary<string, ushort> _nameToId = new();
         private readonly Dictionary<ushort, string> _idToName = new();
@@ -23,11 +23,18 @@ namespace Runtime.Engine.VoxelConfig.Data
         private VoxelEngineRenderGenData _voxelEngineRenderGenData;
         private readonly TexRegistry _solidTexRegistry = new();
         private readonly TexRegistry _transparentTexRegistry = new();
+        private readonly TexRegistry _foliageTexRegistry = new();
+        private readonly QuadRegistry _quadRegistry = new();
+        private readonly List<uint> _quadTexPairs = new();
         private bool _initialized;
-        
+
         private GraphicsBuffer _voxelRenderDefBuffer;
-        
+        private GraphicsBuffer _quadBuffer;
+        private GraphicsBuffer _quadTexPairBuffer;
+
         public GraphicsBuffer VoxelRenderDefBuffer => _voxelRenderDefBuffer;
+        public GraphicsBuffer QuadBuffer => _quadBuffer;
+        public GraphicsBuffer QuadTexPairBuffer => _quadTexPairBuffer;
 
         public void Initialize()
         {
@@ -37,12 +44,6 @@ namespace Runtime.Engine.VoxelConfig.Data
             {
                 MeshLayer = MeshLayer.Air,
                 Collision = false,
-                TexUp = 0,
-                TexDown = 0,
-                TexFront = 0,
-                TexBack = 0,
-                TexLeft = 0,
-                TexRight = 0
             });
             _voxelEngineRenderGenData = new VoxelEngineRenderGenData();
             Texture2D texError = Resources.Load<Texture2D>("Artwork/TexError");
@@ -63,16 +64,16 @@ namespace Runtime.Engine.VoxelConfig.Data
             {
                 MeshLayer = definition.meshLayer,
                 AlwaysRenderAllFaces = definition.alwaysRenderAllFaces,
-                VoxelType = definition.voxelType,
                 DepthFadeDistance = (half)definition.depthFadeDistance,
                 Glow = (byte)definition.glow,
                 Collision = definition.collision,
-                TexRight = RegisterTexture(definition, Direction.Right),
-                TexLeft = RegisterTexture(definition, Direction.Left),
-                TexUp = RegisterTexture(definition, Direction.Up),
-                TexDown = RegisterTexture(definition, Direction.Down),
-                TexFront = RegisterTexture(definition, Direction.Forward),
-                TexBack = RegisterTexture(definition, Direction.Backward),
+                Always = RegisterFaces(definition, QuadDrawCondition.Always),
+                Right = RegisterFaces(definition, QuadDrawCondition.Right),
+                Left = RegisterFaces(definition, QuadDrawCondition.Left),
+                Up = RegisterFaces(definition, QuadDrawCondition.Up),
+                Down = RegisterFaces(definition, QuadDrawCondition.Down),
+                Front = RegisterFaces(definition, QuadDrawCondition.Forward),
+                Back = RegisterFaces(definition, QuadDrawCondition.Backward),
             };
 
             ushort id = Register(packagePrefix + ":" + definition.name, type);
@@ -96,19 +97,27 @@ namespace Runtime.Engine.VoxelConfig.Data
             return id;
         }
 
-        private ushort RegisterTexture(VoxelDefinition definition, Direction dir)
+        private uint2 RegisterFaces(VoxelDefinition definition, QuadDrawCondition condition)
         {
-            Texture2D tex = definition.GetTexture(dir);
-            return RegisterTexture(tex, definition.meshLayer);
+            int baseIndex = _quadTexPairs.Count;
+            int texPairsAdded = 0;
+            foreach ((QuadDefinition qDef, Texture2D tex) in definition.GetQuadsAndTextures(condition))
+            {
+                ushort texId = RegisterTexture(tex, definition.meshLayer);
+                ushort quadId = _quadRegistry.Register(qDef);
+                _quadTexPairs.Add(quadId | ((uint)texId << 16));
+                texPairsAdded++;
+            }
+            return new uint2((uint)baseIndex, (uint)texPairsAdded);
         }
-        
-        private ushort 
-            RegisterTexture(Texture2D tex, MeshLayer meshLayer)
+
+        private ushort RegisterTexture(Texture2D tex, MeshLayer meshLayer)
         {
             return meshLayer switch
             {
-                MeshLayer.Solid => _solidTexRegistry.RegisterTexture(tex),
-                MeshLayer.Transparent => _transparentTexRegistry.RegisterTexture(tex),
+                MeshLayer.Solid => _solidTexRegistry.Register(tex),
+                MeshLayer.Transparent => _transparentTexRegistry.Register(tex),
+                MeshLayer.Foliage => _foliageTexRegistry.Register(tex),
                 _ => 0
             };
         }
@@ -150,7 +159,7 @@ namespace Runtime.Engine.VoxelConfig.Data
         /// </summary>
         public void FinalizeRegistry()
         {
-            PrepareTextureArray();
+            PrepareArrays();
             PrepareVoxelGenData();
         }
 
@@ -164,47 +173,55 @@ namespace Runtime.Engine.VoxelConfig.Data
             _voxelRenderDefBuffer?.Dispose();
             _voxelRenderDefBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, _idToVoxel.Count,
                 Marshal.SizeOf<GPUVoxelDef>());
-            GPUVoxelDef[] GPUVoxelDefData = new GPUVoxelDef[_idToVoxel.Count];
-            
+            GPUVoxelDef[] gpuVoxelDefData = new GPUVoxelDef[_idToVoxel.Count];
+
             for (int i = 0; i < _idToVoxel.Count; i++)
             {
-                var def  = _idToVoxel[(ushort)i];
+                VoxelRenderDef def = _idToVoxel[(ushort)i];
                 _voxelEngineRenderGenData.VoxelRenderDefs[i] = def;
-                GPUVoxelDefData[i] = new GPUVoxelDef(def);
+                gpuVoxelDefData[i] = new GPUVoxelDef(def);
             }
+
+            _voxelRenderDefBuffer.SetData(gpuVoxelDefData);
             
-            _voxelRenderDefBuffer.SetData(GPUVoxelDefData);
+            _quadBuffer?.Dispose();
+            _quadBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, _quadRegistry.QuadArray.Length, Marshal.SizeOf<QuadDefinition.QuadData>());
+            _quadBuffer.SetData(_quadRegistry.QuadArray);
+            
+            _quadTexPairBuffer?.Dispose();
+            _quadTexPairBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, _quadTexPairs.Count, sizeof(uint));
+            _quadTexPairBuffer.SetData(_quadTexPairs.ToArray());
         }
-        
+
         struct GPUVoxelDef
         {
             uint MeshLayer;
             uint AlwaysRenderAllFaces;
-            uint VoxelType;
             half DepthFadeDistance;
             uint Glow;
             uint Collision;
-            uint TexUp;
-            uint TexDown;
-            uint TexLeft;
-            uint TexRight;
-            uint TexFront;
-            uint TexBack;
+            uint2 shape_quad_indices_alwaysRender;
+            uint2 shape_quad_indices_right;
+            uint2 shape_quad_indices_left;
+            uint2 shape_quad_indices_up;
+            uint2 shape_quad_indices_down;
+            uint2 shape_quad_indices_front;
+            uint2 shape_quad_indices_back;
 
             public GPUVoxelDef(VoxelRenderDef def)
             {
                 MeshLayer = (uint)def.MeshLayer;
                 AlwaysRenderAllFaces = def.AlwaysRenderAllFaces ? 1u : 0u;
-                VoxelType = (uint)def.VoxelType;
                 DepthFadeDistance = def.DepthFadeDistance;
                 Glow = def.Glow;
                 Collision = def.Collision ? 1u : 0u;
-                TexUp = def.TexUp;
-                TexDown = def.TexDown;
-                TexLeft = def.TexLeft;
-                TexRight = def.TexRight;
-                TexFront = def.TexFront;
-                TexBack = def.TexBack;
+                shape_quad_indices_alwaysRender = def.Always;
+                shape_quad_indices_right = def.Right;
+                shape_quad_indices_left = def.Left;
+                shape_quad_indices_up = def.Up;
+                shape_quad_indices_down = def.Down;
+                shape_quad_indices_front = def.Front;
+                shape_quad_indices_back = def.Back;
             }
         };
 
@@ -217,10 +234,12 @@ namespace Runtime.Engine.VoxelConfig.Data
             return _voxelEngineRenderGenData;
         }
 
-        private void PrepareTextureArray()
+        private void PrepareArrays()
         {
-            _solidTexRegistry.PrepareTextureArray();
-            _transparentTexRegistry.PrepareTextureArray();
+            _solidTexRegistry.PrepareArray();
+            _transparentTexRegistry.PrepareArray();
+            _foliageTexRegistry.PrepareArray();
+            _quadRegistry.PrepareArray();
         }
 
         private Texture2DArray GetTextureArray(MeshLayer meshLayer)
@@ -229,6 +248,7 @@ namespace Runtime.Engine.VoxelConfig.Data
             {
                 MeshLayer.Solid => _solidTexRegistry.TextureArray,
                 MeshLayer.Transparent => _transparentTexRegistry.TextureArray,
+                MeshLayer.Foliage => _foliageTexRegistry.TextureArray,
                 _ => null
             };
         }
@@ -241,6 +261,8 @@ namespace Runtime.Engine.VoxelConfig.Data
             if (_voxelEngineRenderGenData.VoxelRenderDefs.IsCreated)
                 _voxelEngineRenderGenData.VoxelRenderDefs.Dispose();
             _voxelRenderDefBuffer.Dispose();
+            _quadBuffer.Dispose();
+            _quadTexPairBuffer.Dispose();
         }
 
         /// <summary>
@@ -254,7 +276,7 @@ namespace Runtime.Engine.VoxelConfig.Data
             {
                 Texture2DArray texArray = GetTextureArray(solid);
                 if (texArray)
-                    material.SetTexture(Textures, texArray);
+                    material.SetTexture(TexturesNameID, texArray);
                 else
                     Debug.LogWarning("Texture array is null, cannot assign to material.");
             }

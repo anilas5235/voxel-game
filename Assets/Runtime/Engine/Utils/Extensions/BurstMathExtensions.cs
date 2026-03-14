@@ -208,6 +208,8 @@ namespace Runtime.Engine.Utils.Extensions
         /// Konvertiert int2 zu float2.
         /// </summary>
         public static float2 Float2(this int2 vec) => new(vec.x, vec.y);
+        
+        public static float2 Float2(this Vector2 vec) => new(vec.x, vec.y);
 
         /// <summary>
         /// Normalisiert einen float3.

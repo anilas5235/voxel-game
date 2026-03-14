@@ -32,35 +32,24 @@ namespace Runtime.Engine.Jobs.Meshing
         [BurstCompile]
         private struct PartitionJobData : IDisposable
         {
-            public readonly Mesh.MeshData Mesh;
             public readonly Mesh.MeshData ColliderMesh;
             public readonly int2 ChunkPos;
             public readonly int3 PartitionPos;
 
             public MeshBuffer MeshBuffer;
 
-            public NativeHashSet<int3> SeeThroughVoxels;
             public NativeHashSet<int3> CollisionVoxels;
-            public NativeHashMap<int3, ushort> FoliageVoxels;
-            public NativeHashMap<int3, ushort> TransparentVoxels;
-            public NativeHashMap<int3, ushort> SolidVoxels;
 
             public PartitionLightData PartitionLightData;
 
             public ChunkVoxelData ChunkVoxelData;
-            public int RenderVertexCount;
             public int CollisionVertexCount;
 
             public bool HasNoCollision => CollisionVoxels.IsEmpty;
-            public bool HasNoFoliage => FoliageVoxels.IsEmpty;
-            public bool HasNoTransparent => TransparentVoxels.IsEmpty;
-            public bool HasNoSolid => SolidVoxels.IsEmpty;
-            public bool HasNoVoxels => HasNoFoliage && HasNoTransparent && HasNoSolid;
 
-            internal PartitionJobData(Mesh.MeshData mesh, Mesh.MeshData colliderMesh, int3 partitionPos,
+            internal PartitionJobData(Mesh.MeshData colliderMesh, int3 partitionPos,
                 PartitionLightData partitionLightData, ChunkVoxelData chunkVoxelData)
             {
-                Mesh = mesh;
                 ColliderMesh = colliderMesh;
                 PartitionPos = partitionPos;
                 PartitionLightData = partitionLightData;
@@ -68,32 +57,19 @@ namespace Runtime.Engine.Jobs.Meshing
                 ChunkPos = partitionPos.xz;
                 MeshBuffer = new MeshBuffer
                 {
-                    VertexBuffer = new NativeList<Vertex>(VoxelCount4, Allocator.Temp),
                     CVertexBuffer = new NativeList<CVertex>(VoxelCount4, Allocator.Temp),
-                    SolidIndexBuffer = new NativeList<ushort>(VoxelCount6, Allocator.Temp),
-                    TransparentIndexBuffer = new NativeList<ushort>(VoxelCount6, Allocator.Temp),
-                    FoliageIndexBuffer = new NativeList<ushort>(VoxelCount6, Allocator.Temp),
                     CIndexBuffer = new NativeList<ushort>(VoxelCount6, Allocator.Temp)
                 };
 
-                SeeThroughVoxels = new NativeHashSet<int3>(VoxelsPerPartition, Allocator.Temp);
                 CollisionVoxels = new NativeHashSet<int3>(VoxelsPerPartition, Allocator.Temp);
-                FoliageVoxels = new NativeHashMap<int3, ushort>(VoxelsPerPartition, Allocator.Temp);
-                TransparentVoxels = new NativeHashMap<int3, ushort>(VoxelsPerPartition, Allocator.Temp);
-                SolidVoxels = new NativeHashMap<int3, ushort>(VoxelsPerPartition, Allocator.Temp);
 
-                RenderVertexCount = 0;
                 CollisionVertexCount = 0;
             }
 
             public void Dispose()
             {
                 MeshBuffer.Dispose();
-                SeeThroughVoxels.Dispose();
                 CollisionVoxels.Dispose();
-                TransparentVoxels.Dispose();
-                FoliageVoxels.Dispose();
-                SolidVoxels.Dispose();
             }
         }
 
@@ -101,12 +77,6 @@ namespace Runtime.Engine.Jobs.Meshing
         private struct AxisInfo
         {
             public int UAxis, VAxis, ULimit, VLimit;
-        }
-
-        [BurstCompile]
-        private struct UVQuad
-        {
-            public float4 Uv1, Uv2, Uv3, Uv4;
         }
 
         [BurstCompile]

@@ -7,7 +7,7 @@ namespace Runtime.Engine.VoxelConfig.Data
     /// ScriptableObject asset that groups multiple <see cref="VoxelDefinition"/> instances
     /// under a common package prefix for registration.
     /// </summary>
-    [CreateAssetMenu(fileName = "VoxelDataPackage", menuName = "Data/Voxel Data Package")]
+    [CreateAssetMenu(fileName = "VoxelDataPackage", menuName = "Voxel/Voxel Data Package")]
     public class VoxelDataPackage : ScriptableObject
     {
         /// <summary>

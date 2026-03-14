@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace Runtime.Engine.VoxelConfig.Data
@@ -7,7 +9,7 @@ namespace Runtime.Engine.VoxelConfig.Data
     /// ScriptableObject that describes a single voxel type, including textures, mesh layer,
     /// voxel type, collision and optional post-processing data.
     /// </summary>
-    [CreateAssetMenu(fileName = "VoxelDefinition", menuName = "Data/Voxel Data")]
+    [CreateAssetMenu(fileName = "VoxelDefinition", menuName = "Voxel/Voxel Data")]
     public class VoxelDefinition : ScriptableObject
     {
         /// <summary>
@@ -19,12 +21,19 @@ namespace Runtime.Engine.VoxelConfig.Data
             /// One texture is used for all faces.
             /// </summary>
             AllSame,
+
             /// <summary>
             /// Separate textures for top and bottom, and one shared texture for all side faces.
             /// </summary>
             TopBottomSides,
+
             /// <summary>
-            /// All faces can have unique textures.
+            /// All six directions can have unique textures.
+            /// </summary>
+            SixSidesUnique,
+
+            /// <summary>
+            /// All Quads have Unique Textures, allowing for more complex shapes with different textures on each face.
             /// </summary>
             AllUnique
         }
@@ -37,11 +46,6 @@ namespace Runtime.Engine.VoxelConfig.Data
         public MeshLayer meshLayer;
 
         /// <summary>
-        /// Semantic voxel type (e.g. solid, liquid, flora).
-        /// </summary>
-        public VoxelType voxelType;
-
-        /// <summary>
         /// If true, all faces are always rendered even when hidden by neighbors.
         /// </summary>
         public bool alwaysRenderAllFaces;
@@ -50,30 +54,43 @@ namespace Runtime.Engine.VoxelConfig.Data
         /// Distance at which transparent voxels start fading; negative value disables depth fading.
         /// </summary>
         public float depthFadeDistance = -1f;
-        
-        [Range(0,255)] public int glow;
+
+        [Range(0, 255)] public int glow;
+
+        public bool usePostProcess;
 
         /// <summary>
         /// Optional post processing data applied when rendering this voxel.
         /// </summary>
         public VoxelPostProcessData postProcess = new();
 
+        public VoxelShape shape;
+
         /// <summary>Texture used for the top face.</summary>
         public Texture2D top;
+
         /// <summary>Texture used for the bottom face.</summary>
         public Texture2D bottom;
+
         /// <summary>Texture used for the forward (+Z) face.</summary>
         public Texture2D front;
+
         /// <summary>Texture used for the backward (-Z) face.</summary>
         public Texture2D back;
+
         /// <summary>Texture used for the right (+X) face.</summary>
         public Texture2D right;
+
         /// <summary>Texture used for the left (-X) face.</summary>
         public Texture2D left;
+
         /// <summary>Texture used for side faces when using <see cref="VoxelTexMode.TopBottomSides"/>.</summary>
         public Texture2D side;
+
         /// <summary>Single texture used for all faces when using <see cref="VoxelTexMode.AllSame"/>.</summary>
         public Texture2D all;
+
+        public Dictionary<QuadDefinition, Texture2D> allUnique;
 
         /// <summary>
         /// If true, this voxel participates in physics collisions.
@@ -90,34 +107,52 @@ namespace Runtime.Engine.VoxelConfig.Data
             set => textureMode = value;
         }
 
-        /// <summary>
-        /// Returns the texture that should be used for the specified face direction
-        /// according to the current <see cref="TextureMode"/>.
-        /// </summary>
-        /// <param name="direction">Face direction to retrieve the texture for.</param>
-        /// <returns>Texture for the given direction, or <c>null</c> if none is assigned.</returns>
-        public Texture2D GetTexture(Direction direction)
+
+        public List<(QuadDefinition, Texture2D)> GetQuadsAndTextures(QuadDrawCondition condition)
+        {
+            List<(QuadDefinition, Texture2D)> result = new List<(QuadDefinition, Texture2D)>();
+            foreach (VoxelQuad quad in shape.quads)
+            {
+                if (quad.drawCondition != condition) continue;
+                Texture2D tex = FindTex(quad,condition);
+                if (!tex) continue;
+                result.Add((quad.quadDef, tex));
+            }
+            return result;
+        }
+
+        public Texture2D GetDisplayTexture(QuadDrawCondition condition)
+        {
+            return textureMode switch
+            {
+                VoxelTexMode.AllUnique => allUnique.First().Value,
+                _ => FindTex(null, condition),
+            };
+        }
+
+        private Texture2D FindTex(VoxelQuad quad, QuadDrawCondition condition)
         {
             return textureMode switch
             {
                 VoxelTexMode.AllSame => all,
-                VoxelTexMode.TopBottomSides => direction switch
+                VoxelTexMode.TopBottomSides => condition switch
                 {
-                    Direction.Up => top,
-                    Direction.Down => bottom,
+                    QuadDrawCondition.Up => top,
+                    QuadDrawCondition.Down => bottom,
                     _ => side
                 },
-                VoxelTexMode.AllUnique => direction switch
+                VoxelTexMode.SixSidesUnique => condition switch
                 {
-                    Direction.Up => top,
-                    Direction.Down => bottom,
-                    Direction.Forward => front,
-                    Direction.Backward => back,
-                    Direction.Left => left,
-                    Direction.Right => right,
+                    QuadDrawCondition.Up => top,
+                    QuadDrawCondition.Down => bottom,
+                    QuadDrawCondition.Forward => front,
+                    QuadDrawCondition.Backward => back,
+                    QuadDrawCondition.Left => left,
+                    QuadDrawCondition.Right => right,
                     _ => null
                 },
-                _ => null
+                VoxelTexMode.AllUnique => allUnique != null && allUnique.TryGetValue(quad.quadDef, out Texture2D tex) ? tex : null,
+                    _ => null
             };
         }
     }

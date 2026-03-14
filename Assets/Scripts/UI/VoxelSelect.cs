@@ -46,7 +46,7 @@ namespace UI
             voxelId = newVoxelId;
             if (VoxelDataImporter.Instance.VoxelRegistry.GetVoxelDefinition(voxelId, out VoxelDefinition definition))
             {
-                Texture2D tex = definition.GetTexture(Direction.Forward);
+                Texture2D tex = definition.GetDisplayTexture(QuadDrawCondition.Forward);
                 voxelImage.texture = tex;
             }
             else

@@ -5,7 +5,7 @@ namespace Runtime.Engine.Settings
     /// <summary>
     /// Central ScriptableObject configuration for the voxel engine (seed, noise, chunk, renderer, scheduler).
     /// </summary>
-    [CreateAssetMenu(fileName = "VoxelEngineSettings", menuName = "Data/EngineSettings", order = 0)]
+    [CreateAssetMenu(fileName = "VoxelEngineSettings", menuName = "Voxel/EngineSettings", order = 0)]
     public class VoxelEngineSettings : ScriptableObject
     {
         /// <summary>

@@ -1,10 +1,12 @@
 ﻿using System;
+using System.Collections.Generic;
 using Runtime.Engine.VoxelConfig.Data;
 using UnityEditor;
+using UnityEngine;
 
 namespace Runtime.Engine.VoxelConfig.Editor
 {
-    [CustomEditor(typeof(VoxelDefinition))]
+    [CustomEditor(typeof(VoxelDefinition)), CanEditMultipleObjects]
     public class VoxelDefinitionCustomEditor : UnityEditor.Editor
     {
         public override void OnInspectorGUI()
@@ -14,41 +16,23 @@ namespace Runtime.Engine.VoxelConfig.Editor
             serializedObject.Update();
 
             EditorGUILayout.PropertyField(serializedObject.FindProperty("meshLayer"));
-            if (voxelDef.meshLayer == MeshLayer.Solid)
-            {
-                voxelDef.voxelType = VoxelType.Full;
-            }
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("collision"));
 
-            if (voxelDef.voxelType != VoxelType.Flora)
-            {
-                EditorGUILayout.PropertyField(serializedObject.FindProperty("textureMode"));
-            }
-            else
-            {
-                voxelDef.TextureMode = VoxelDefinition.VoxelTexMode.AllSame;
-            }
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("alwaysRenderAllFaces"));
 
-            if (voxelDef.voxelType != VoxelType.Flora)
-            {
-                EditorGUILayout.PropertyField(serializedObject.FindProperty("alwaysRenderAllFaces"));
-            }
-            else
-            {
-                voxelDef.alwaysRenderAllFaces = false;
-            }
-            
             EditorGUILayout.PropertyField(serializedObject.FindProperty("glow"));
 
             if (voxelDef.meshLayer == MeshLayer.Transparent)
             {
-                EditorGUILayout.PropertyField(serializedObject.FindProperty("voxelType"));
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("depthFadeDistance"));
-                if (voxelDef.voxelType == VoxelType.Liquid)
+                if (voxelDef.usePostProcess)
                 {
                     EditorGUILayout.PropertyField(serializedObject.FindProperty("postProcess"));
                 }
             }
 
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("shape"));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("textureMode"));
             switch (voxelDef.TextureMode)
             {
                 case VoxelDefinition.VoxelTexMode.AllSame:
@@ -61,7 +45,7 @@ namespace Runtime.Engine.VoxelConfig.Editor
                     EditorGUILayout.PropertyField(serializedObject.FindProperty("side"));
                     break;
 
-                case VoxelDefinition.VoxelTexMode.AllUnique:
+                case VoxelDefinition.VoxelTexMode.SixSidesUnique:
                     EditorGUILayout.PropertyField(serializedObject.FindProperty("top"));
                     EditorGUILayout.PropertyField(serializedObject.FindProperty("bottom"));
                     EditorGUILayout.PropertyField(serializedObject.FindProperty("front"));
@@ -69,18 +53,32 @@ namespace Runtime.Engine.VoxelConfig.Editor
                     EditorGUILayout.PropertyField(serializedObject.FindProperty("left"));
                     EditorGUILayout.PropertyField(serializedObject.FindProperty("right"));
                     break;
+                case VoxelDefinition.VoxelTexMode.AllUnique:
+                    int quadCount = voxelDef.shape.quads.Length;
+                    if (voxelDef.allUnique.Count != quadCount)
+                    {
+                        var temp = new Dictionary<QuadDefinition, Texture2D>(quadCount);
+                        foreach (var q in voxelDef.shape.quads)
+                        {
+                            temp[q.quadDef] = voxelDef.allUnique.GetValueOrDefault(q.quadDef);
+                        }
+
+                        voxelDef.allUnique = temp;
+                    }
+
+                    EditorGUILayout.BeginVertical("Box");
+                    foreach (var q in voxelDef.shape.quads)
+                    {
+                        voxelDef.allUnique[q.quadDef] = (Texture2D)EditorGUILayout.ObjectField(
+                            $"Face {q.quadDef.name}", voxelDef.allUnique[q.quadDef], typeof(Texture2D),
+                            false);
+                    }
+
+                    EditorGUILayout.EndVertical();
+                    break;
 
                 default:
                     throw new ArgumentOutOfRangeException();
-            }
-
-            if (voxelDef.voxelType != VoxelType.Flora)
-            {
-                EditorGUILayout.PropertyField(serializedObject.FindProperty("collision"));
-            }
-            else
-            {
-                voxelDef.collision = false;
             }
 
             serializedObject.ApplyModifiedProperties();

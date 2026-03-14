@@ -1,5 +1,4 @@
-﻿using Runtime.Engine.VoxelConfig.Data;
-using Unity.Burst;
+﻿using Unity.Burst;
 using Unity.Collections;
 using Unity.Mathematics;
 using static Runtime.Engine.Utils.VoxelConstants;
@@ -12,115 +11,11 @@ namespace Runtime.Engine.Jobs.Meshing
     /// </summary>
     internal partial struct MeshBuildJob
     {
-        private void MeshSolids(ref PartitionJobData jobData)
-        {
-            if (jobData.HasNoSolid) return;
-            NativeHashMap<int3, ushort> sortedVoxels = jobData.SolidVoxels;
-            BuildFaces(ref jobData, ref sortedVoxels, SubMeshType.Solid);
-        }
-
-        private void MeshTransparent(ref PartitionJobData jobData)
-        {
-            if (jobData.HasNoTransparent) return;
-            NativeHashMap<int3, ushort> sortedVoxels = jobData.TransparentVoxels;
-            BuildFaces(ref jobData, ref sortedVoxels, SubMeshType.Transparent);
-        }
-
         private void MeshCollision(ref PartitionJobData jobData)
         {
             if (jobData.HasNoCollision) return;
             // Sweep along each principal axis (X, Y, Z)
             ColliderSliceMeshBuild(ref jobData);
-        }
-
-        [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
-        private void BuildFaces(ref PartitionJobData jobData, ref NativeHashMap<int3, ushort> sortedVoxels,
-            SubMeshType subMeshType)
-        {
-            // Sweep along each principal axis (X, Y, Z)
-            for (int mainAxis = 0; mainAxis < 3; mainAxis++)
-            {
-                // Define orthogonal axes for the 2D slice (U and V plane)
-                int uAxis = (mainAxis + 1) % 3;
-                int vAxis = (mainAxis + 2) % 3;
-
-                int mainAxisLimit = PartitionSize[mainAxis];
-
-                AxisInfo axisInfo = new()
-                {
-                    UAxis = uAxis,
-                    VAxis = vAxis,
-                    ULimit = PartitionSize[uAxis],
-                    VLimit = PartitionSize[vAxis]
-                };
-
-                int3 pos = int3.zero;
-
-                int3 directionMask = int3.zero;
-                directionMask[mainAxis] = 1;
-
-                Direction dir = directionMask.ToDirection();
-                Direction negDir = dir.GetOpposite();
-
-                for (pos[mainAxis] = 0; pos[mainAxis] < mainAxisLimit; ++pos[mainAxis])
-                for (pos[axisInfo.VAxis] = 0; pos[axisInfo.VAxis] < axisInfo.VLimit; ++pos[axisInfo.VAxis])
-                for (pos[axisInfo.UAxis] = 0; pos[axisInfo.UAxis] < axisInfo.ULimit; ++pos[axisInfo.UAxis])
-                {
-                    if (!sortedVoxels.ContainsKey(pos))
-                    {
-                        continue;
-                    }
-
-                    BuildFace(ref jobData, sortedVoxels, subMeshType, pos, dir);
-                    BuildFace(ref jobData, sortedVoxels, subMeshType, pos, negDir);
-                }
-            }
-        }
-
-        private void BuildFace(ref PartitionJobData jobData, NativeHashMap<int3, ushort> sortedVoxels,
-            SubMeshType subMeshType, int3 pos, Direction direction)
-        {
-            int3 neighborCoord = pos + direction.ToInt3();
-
-            ushort currentVoxel = sortedVoxels[pos];
-            ushort neighborVoxel = GetVoxel(ref jobData, neighborCoord);
-
-            VoxelRenderDef neighborDef = RenderGenData.GetRenderDef(neighborVoxel);
-            VoxelRenderDef currentDef = RenderGenData.GetRenderDef(currentVoxel);
-
-            MeshLayer currentLayer = currentDef.MeshLayer;
-            MeshLayer neighborLayer = neighborDef.MeshLayer;
-
-            if (ShouldSkipFace(currentDef, neighborDef))
-            {
-                return;
-            }
-
-            sbyte top = ComputeTopVoxelOfType(pos, currentVoxel, ref jobData);
-            ComputeAO(neighborCoord, ref jobData, direction, out byte ao);
-            byte sunlight = ComputeSunlight(ref jobData, neighborCoord);
-
-            ushort quadIndex = direction switch
-            {
-                Direction.Right => 0,
-                Direction.Left => 1,
-                Direction.Up => 2,
-                Direction.Down => 3,
-                Direction.Forward => 4,
-                Direction.Backward => 5,
-                _ => 0
-            };
-
-            Vertex vertex = new(pos, quadIndex, currentDef.GetTextureId(direction));
-            vertex.SetLight(sunlight, Vertex.LightIndex.SunUL);
-            vertex.SetLight(sunlight, Vertex.LightIndex.SunUR);
-            vertex.SetLight(sunlight, Vertex.LightIndex.SunDR);
-            vertex.SetLight(sunlight, Vertex.LightIndex.SunDL);
-            vertex.SetAO(ao);
-            if(currentLayer == MeshLayer.Transparent) vertex.SetDepthFade(currentDef.DepthFadeDistance);
-            vertex.SetGlow(currentDef.Glow);
-
-            AddVertex(ref jobData, subMeshType, ref vertex);
         }
 
         private void ColliderSliceMeshBuild(ref PartitionJobData jobData)
@@ -178,37 +73,6 @@ namespace Runtime.Engine.Jobs.Meshing
             negColMask.Dispose();
         }
 
-
-        /// <summary>
-        /// Builds foliage billboard quads from collected flora voxels.
-        /// </summary>
-        [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
-        private void MeshFoliage(ref PartitionJobData jobData)
-        {
-            if (jobData.HasNoFoliage) return;
-
-            // Build cross (billboard) quads for flora collected during the surface pass
-            foreach (KVPair<int3, ushort> foliageVoxel in jobData.FoliageVoxels)
-            {
-                int3 pos = foliageVoxel.Key;
-                VoxelRenderDef def = RenderGenData.GetRenderDef(foliageVoxel.Value);
-                byte sunlight = ComputeSunlight(ref jobData, pos);
-                ComputeAO(pos, ref jobData, Direction.Forward, out byte ao);
-
-                Vertex vertex = new(pos, 6, def.GetTextureId(Direction.Forward));
-                vertex.SetLight(sunlight, Vertex.LightIndex.SunUL);
-                vertex.SetLight(sunlight, Vertex.LightIndex.SunUR);
-                vertex.SetLight(sunlight, Vertex.LightIndex.SunDR);
-                vertex.SetLight(sunlight, Vertex.LightIndex.SunDL);
-                vertex.SetAO(ao);
-                vertex.SetGlow(def.Glow);
-                
-                AddVertex(ref jobData, SubMeshType.Foliage, ref vertex);
-
-                vertex.SetQuadIndex(7); 
-                AddVertex(ref jobData, SubMeshType.Foliage, ref vertex);
-            }
-        }
 
         /// <summary>
         /// Builds collider quads for one slice using greedy merging.

@@ -8,28 +8,34 @@ struct VoxelDef
 {
     uint MeshLayer;
     uint AlwaysRenderAllFaces;
-    uint VoxelType;
     half DepthFadeDistance;
     uint Glow;
     uint Collision;
-    uint TexUp;
-    uint TexDown;
-    uint TexLeft;
-    uint TexRight;
-    uint TexFront;
-    uint TexBack;
+    uint2 shape_quad_indices_alwaysRender;
+    uint2 shape_quad_indices_right;
+    uint2 shape_quad_indices_left;
+    uint2 shape_quad_indices_up;
+    uint2 shape_quad_indices_down;
+    uint2 shape_quad_indices_front;
+    uint2 shape_quad_indices_back;
 };
 
-uint get_texture_id(in VoxelDef def, uint dir)
+struct VoxelQuad
+{
+    uint quadIndex;
+    uint texIndex;
+};
+
+uint2 get_voxel_quad_indices(in VoxelDef def, uint dir)
 {
     switch (dir)
     {
-    case 0: return def.TexRight;
-    case 1: return def.TexLeft;
-    case 2: return def.TexUp;
-    case 3: return def.TexDown;
-    case 4: return def.TexFront;
-    case 5: return def.TexBack;
+    case 0: return def.shape_quad_indices_right;
+    case 1: return def.shape_quad_indices_left;
+    case 2: return def.shape_quad_indices_up;
+    case 3: return def.shape_quad_indices_down;
+    case 4: return def.shape_quad_indices_front;
+    case 5: return def.shape_quad_indices_back;
     default: return 0;
     }
 }
@@ -41,6 +47,8 @@ uint get_texture_id(in VoxelDef def, uint dir)
 
 StructuredBuffer<VoxelDef> _VoxelRenderDefs;
 uint _VoxelRenderDefsCount;
+StructuredBuffer<uint> _VoxelQuadTexPairs;
+uint _VoxelQuadTexPairsCount;
 StructuredBuffer<uint2> _RawVoxels;
 uint _RawVoxelsCompressedCount;
 RWStructuredBuffer<PartitionMetadata> _Metadata;
@@ -59,8 +67,6 @@ uint get_voxel_array_index(in int3 pos)
 {
     return pos.x * 1024u + pos.z * 32u + pos.y;
 }
-
-#define MAX_INDEX_IN_PARTITION 32*32*32
 
 uint get_voxel(in int3 pos)
 {
@@ -106,42 +112,29 @@ int3 get_direction_offset(uint dir)
 }
 
 // Helper: Check if face should be rendered
-bool should_render_face(VoxelDef currentVoxel, VoxelDef neighborVoxel)
+bool should_render_face(in VoxelDef currentVoxel, in VoxelDef neighborVoxel)
 {
     if (currentVoxel.MeshLayer == 255) return false; // Current is air, don't render
     if (neighborVoxel.MeshLayer == 255) return true; // Neighbor is air, render face
     return false;
 }
 
-[numthreads(8, 8, 8)]
-void RebuildPoints(uint3 id : SV_DispatchThreadID)
+uint get_quad_tex_pair(uint index)
 {
-    if (any(id >= uint3(32, 32, 32))) return;
+    if (index >= _VoxelQuadTexPairsCount) return 0; // Invalid
+    return _VoxelQuadTexPairs[index];
+}
 
-    int3 pos = (int3)id;
-    uint voxelId = get_voxel(pos);
-    PartitionMetadata metadata = _Metadata[_PartitionIndex];
-    float3 partitionPos = metadata.partitionPos;
-
-    if (voxelId == 0) return; // Skip air
-
-    VoxelDef myDef = _VoxelRenderDefs[voxelId];
-
-    // Check 6 neighbors for face exposure
-    for (uint dir = 0; dir < 6; dir++)
+void add_quads(int3 pos, in float3 partitionPos, in VoxelDef myDef, uint2 quadRange)
+{
+    for (uint i = 0u; i < quadRange.y; i++)
     {
-        int3 neighborPos = pos + get_direction_offset(dir);
-        uint neighborId = get_voxel_safe(neighborPos);
-        VoxelDef otherDef = _VoxelRenderDefs[neighborId];
-
-        if (!should_render_face(myDef, otherDef)) continue;
-
+        uint quad_tex_pair = get_quad_tex_pair(quadRange.x + i);
         // Generate point in world voxel space.
         PointData p;
         p.position = (float3)pos + partitionPos;
 
-        // Pack data: quadIndex | texIndex in x, lights in y, ao in z.x
-        p.packed.x = dir | get_texture_id(myDef, dir) << 16; // texIndex = 0 for debug-safe rendering
+        p.packed.x = quad_tex_pair;
         p.packed.y = 0xFFFFFFFF; // Full brightness for now
         p.packed.z = 0; // No AO for now
         p.packed.w = 0; // Unused
@@ -158,6 +151,37 @@ void RebuildPoints(uint3 id : SV_DispatchThreadID)
         }
     }
 }
+
+[numthreads(8, 8, 8)]
+void RebuildPoints(uint3 id : SV_DispatchThreadID)
+{
+    if (any(id >= uint3(32, 32, 32))) return;
+
+    int3 pos = (int3)id;
+    uint voxelId = get_voxel(pos);
+    PartitionMetadata metadata = _Metadata[_PartitionIndex];
+    float3 partitionPos = metadata.partitionPos;
+
+    if (voxelId == 0) return; // Skip air
+
+    VoxelDef myDef = _VoxelRenderDefs[voxelId];
+
+    add_quads(pos, partitionPos, myDef, myDef.shape_quad_indices_alwaysRender);
+
+    // Check 6 neighbors for face exposure
+    for (uint dir = 0; dir < 6; dir++)
+    {
+        int3 neighborPos = pos + get_direction_offset(dir);
+        uint neighborId = get_voxel_safe(neighborPos);
+        VoxelDef otherDef = _VoxelRenderDefs[neighborId];
+
+        if (myDef.AlwaysRenderAllFaces == 0 && !should_render_face(myDef, otherDef)) continue;
+
+        uint2 quadData = get_voxel_quad_indices(myDef, dir);
+        add_quads(pos, partitionPos, myDef, quadData);
+    }
+}
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Copy Points Kernel - Copy points to final buffer for rendering

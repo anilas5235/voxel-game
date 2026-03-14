@@ -35,10 +35,8 @@ namespace Runtime.Engine.Jobs.Meshing
         private ChunkAccessor _chunkAccessor;
         private NativeParallelHashMap<int3, MeshBuildJob.PartitionJobResult> _results;
 
-        private Mesh.MeshDataArray _meshDataArray;
         private Mesh.MeshDataArray _colliderMeshDataArray;
 
-        private NativeArray<VertexAttributeDescriptor> _vertexParams;
         private NativeArray<VertexAttributeDescriptor> _colliderVertexParams;
 
         /// <summary>
@@ -58,12 +56,6 @@ namespace Runtime.Engine.Jobs.Meshing
             _chunkManager = chunkManager;
             _chunkPool = chunkPool;
             _voxelRegistry = voxelRegistry;
-
-            _vertexParams = new NativeArray<VertexAttributeDescriptor>(2, Allocator.Persistent)
-            {
-                [0] = new VertexAttributeDescriptor(VertexAttribute.Position),
-                [1] = new VertexAttributeDescriptor(VertexAttribute.TexCoord0, VertexAttributeFormat.UInt32, 4),
-            };
 
             // Collider uses only Position and Normal from CVertex
             _colliderVertexParams = new NativeArray<VertexAttributeDescriptor>(2, Allocator.Persistent)
@@ -105,16 +97,13 @@ namespace Runtime.Engine.Jobs.Meshing
                 _jobs.Add(j);
             }
 
-            _meshDataArray = Mesh.AllocateWritableMeshData(_jobs.Length);
             _colliderMeshDataArray = Mesh.AllocateWritableMeshData(_jobs.Length);
 
             MeshBuildJob job = new()
             {
                 Accessor = _chunkAccessor,
                 Jobs = _jobs,
-                VertexParams = _vertexParams,
                 ColliderVertexParams = _colliderVertexParams,
-                MeshDataArray = _meshDataArray,
                 ColliderMeshDataArray = _colliderMeshDataArray,
                 RenderGenData = _voxelRegistry.GetVoxelGenData(),
                 Results = _results.AsParallelWriter()
@@ -132,7 +121,6 @@ namespace Runtime.Engine.Jobs.Meshing
             double start = Time.realtimeSinceStartupAsDouble;
             _handle.Complete();
 
-            Mesh[] meshes = new Mesh[_jobs.Length];
             Mesh[] colliderMeshes = new Mesh[_jobs.Length];
 
             List<ChunkPartition> changedPartitions = new();
@@ -146,17 +134,10 @@ namespace Runtime.Engine.Jobs.Meshing
 
                 MeshBuildJob.PartitionJobResult result = _results[pos];
 
-                meshes[result.Index] = partition.Mesh;
                 colliderMeshes[result.Index] = partition.ColliderMesh;
                 partition.Mesh.bounds = result.MeshBounds;
                 partition.ColliderMesh.bounds = result.ColliderBounds;
             }
-
-            Mesh.ApplyAndDisposeWritableMeshData(
-                _meshDataArray,
-                meshes,
-                MeshFlags
-            );
 
             Mesh.ApplyAndDisposeWritableMeshData(
                 _colliderMeshDataArray,
@@ -200,7 +181,6 @@ namespace Runtime.Engine.Jobs.Meshing
         {
             _handle.Complete();
 
-            _vertexParams.Dispose();
             _colliderVertexParams.Dispose();
             _results.Dispose();
             _jobs.Dispose();

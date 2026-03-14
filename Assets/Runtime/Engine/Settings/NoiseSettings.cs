@@ -5,7 +5,7 @@ namespace Runtime.Engine.Settings
     /// <summary>
     /// Configuration for world noise and height levels (water). Used during generation.
     /// </summary>
-    [CreateAssetMenu(fileName = "NoiseSettings2D", menuName = "Data/NoiseSettings", order = 0)]
+    [CreateAssetMenu(fileName = "NoiseSettings2D", menuName = "Voxel/NoiseSettings", order = 0)]
     public class NoiseSettings : ScriptableObject
     {
         /// <summary>

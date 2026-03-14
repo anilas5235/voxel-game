@@ -19,9 +19,15 @@ namespace Test
     {
         private static readonly int VoxelRenderDefNameID = Shader.PropertyToID("_VoxelRenderDefs");
         private static readonly int VoxelRenderDefCountNameID = Shader.PropertyToID("_VoxelRenderDefsCount");
+        
+        private static readonly int VoxelQuadTexPairNameID = Shader.PropertyToID("_VoxelQuadTexPairs");
+        private static readonly int VoxelQuadTexPairCountNameID = Shader.PropertyToID("_VoxelQuadTexPairsCount");
+        
         private static readonly int VoxelDataNameID = Shader.PropertyToID("_RawVoxels");
         private static readonly int VoxelCompressedCountNameID = Shader.PropertyToID("_RawVoxelsCompressedCount");
+        
         private static readonly int MetadataNameID = Shader.PropertyToID("_Metadata");
+        
         private static readonly int SolidPointsOutNameID = Shader.PropertyToID("_SolidPointsOut");
         private static readonly int TransparentPointsOutNameID = Shader.PropertyToID("_TransparentPointsOut");
         private static readonly int FoliagePointsOutNameID = Shader.PropertyToID("_FoliagePointsOut");
@@ -57,6 +63,7 @@ namespace Test
 
 
         private GraphicsBuffer _voxelRenderDefBuffer;
+        private GraphicsBuffer _voxelQuadTexPairBuffer;
         private GraphicsBuffer _voxelData;
         private GraphicsBuffer _metadata;
 
@@ -82,11 +89,14 @@ namespace Test
 
         private bool _dataInitialized = false;
 
-        private MaterialPass[] _drawCalls = new MaterialPass[3];
+        private readonly MaterialPass[] _drawCalls = new MaterialPass[3];
 
         private void Awake()
         {
-            _voxelRenderDefBuffer = VoxelDataImporter.Instance.VoxelRegistry.VoxelRenderDefBuffer;
+            VoxelRegistry voxelRegistry = VoxelDataImporter.Instance.VoxelRegistry;
+            _voxelRenderDefBuffer = voxelRegistry.VoxelRenderDefBuffer;
+            _voxelQuadTexPairBuffer = voxelRegistry.QuadTexPairBuffer;
+            
             _buildPointsKernel = pointBuilder.FindKernel("RebuildPoints");
             _copyPointsKernel = pointBuilder.FindKernel("CopyPoints");
             _voxels = new UnsafeIntervalList<ushort>(10, Allocator.Domain);
@@ -175,9 +185,13 @@ namespace Test
 
         private void Start()
         {
-            var start = Time.realtimeSinceStartupAsDouble;
+            double start = Time.realtimeSinceStartupAsDouble;
             pointBuilder.SetBuffer(_buildPointsKernel, VoxelRenderDefNameID, _voxelRenderDefBuffer);
             pointBuilder.SetInt(VoxelRenderDefCountNameID, _voxelRenderDefBuffer.count);
+            
+            pointBuilder.SetBuffer(_buildPointsKernel, VoxelQuadTexPairNameID, _voxelQuadTexPairBuffer);
+            pointBuilder.SetInt(VoxelQuadTexPairCountNameID, _voxelQuadTexPairBuffer.count);
+            
             pointBuilder.SetBuffer(_buildPointsKernel, VoxelDataNameID, _voxelData);
             pointBuilder.SetInt(VoxelCompressedCountNameID, _voxelData.count);
 
@@ -189,28 +203,28 @@ namespace Test
             pointBuilder.SetInt(PartitionIndexNameID, 0);
 
             pointBuilder.Dispatch(_buildPointsKernel, 4, 4, 4);
-            var buildFinished = Time.realtimeSinceStartupAsDouble;
+            double buildFinished = Time.realtimeSinceStartupAsDouble;
 
             ArgsAndCopy(_solidPointsOut, _bigSolidVertexBuffer, _solidArgBuffer, out int solidCount);
             _drawCalls[0].DrawCalls[0].VertexCount = solidCount;
-            var copy1 = Time.realtimeSinceStartupAsDouble;
+            double copy1 = Time.realtimeSinceStartupAsDouble;
             ArgsAndCopy(_transparentPointsOut, _bigTransparentVertexBuffer, _transparentArgBuffer,
                 out int transparentCount);
             _drawCalls[1].DrawCalls[0].VertexCount = transparentCount;
-            var copy2 = Time.realtimeSinceStartupAsDouble;
+            double copy2 = Time.realtimeSinceStartupAsDouble;
             ArgsAndCopy(_foliagePointsOut, _bigFoliageVertexBuffer, _foliageArgBuffer, out int foliageCount);
             _drawCalls[2].DrawCalls[0].VertexCount = foliageCount;
-            var copy3 = Time.realtimeSinceStartupAsDouble;
+            double copy3 = Time.realtimeSinceStartupAsDouble;
             _dataInitialized = true;
 
-            var done =  Time.realtimeSinceStartupAsDouble;
+            double done =  Time.realtimeSinceStartupAsDouble;
             Debug.Log($"Build time: {(buildFinished - start)*1000:F3}ms, Copy times: Solid {(copy1 - buildFinished)*1000:F3}ms, Transparent {(copy2 - copy1)*1000:F3}ms, Foliage {(copy3 - copy2)*1000:F3}ms, Total: {(done - start)*1001:F3}ms");
         }
 
         private bool ArgsAndCopy(GraphicsBuffer source, GraphicsBuffer destination, GraphicsBuffer argBuffer,
             out int count)
         {
-            var readBackStart = Time.realtimeSinceStartupAsDouble;
+            double readBackStart = Time.realtimeSinceStartupAsDouble;
             CopyCount(source, argBuffer, 0);
             uint[] argData = new uint[5];
             argBuffer.GetData(argData);
@@ -218,8 +232,8 @@ namespace Test
             if (count < 1) return false;
             argData[0] *= 6u;
             argBuffer.SetData(argData);
-            //Debug.Log($"Indirect args: {string.Join(", ", argData)}");
-            //Debug.Log($"Real point count: {count}");
+            Debug.Log($"Indirect args: {string.Join(", ", argData)}");
+            Debug.Log($"Real point count: {count}");
             Debug.Log($"Count readback time: {(Time.realtimeSinceStartupAsDouble - readBackStart)*1000:F3}ms");
 
             source.SetCounterValue(0);
@@ -279,6 +293,7 @@ namespace Test
                         ShadowCastingMode.Off,
                         false
                     );
+                    Debug.Log($"Drawing {drawCall.VertexCount} vertices with material {Material.name}");
                 }
             }
         }

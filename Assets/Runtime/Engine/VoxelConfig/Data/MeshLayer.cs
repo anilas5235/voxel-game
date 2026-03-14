@@ -14,6 +14,10 @@
         /// </summary>
         Transparent = 1,
         /// <summary>
+        /// Non-solid geometry such as plants or grass, rendered with special handling to allow for alpha testing and correct sorting.
+        /// </summary>
+        Foliage = 2,
+        /// <summary>
         /// Non-rendered air; used as a sentinel value.
         /// </summary>
         Air = byte.MaxValue

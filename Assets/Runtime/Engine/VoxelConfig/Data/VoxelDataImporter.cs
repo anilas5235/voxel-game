@@ -28,26 +28,12 @@ namespace Runtime.Engine.VoxelConfig.Data
         /// </summary>
         public Material voxelTransparentMaterial;
 
+        public Material voxelFoliageMaterial;
+
         /// <summary>
         /// Registry containing all registered <see cref="VoxelDefinition"/> instances.
         /// </summary>
         public VoxelRegistry VoxelRegistry { get; } = new();
-
-        private ComputeBuffer _quadDataBuffer;
-
-        [StructLayout(LayoutKind.Sequential, Pack = 1)]
-        private struct QuadData
-        {
-            public float3 position00;
-            public float3 position01;
-            public float3 position02;
-            public float3 position03;
-            public float3 normal;
-            public float2 uv00;
-            public float2 uv01;
-            public float2 uv02;
-            public float2 uv03;
-        };
 
         /// <summary>
         /// Loads packages, registers voxels and updates materials when the importer is created.
@@ -67,112 +53,9 @@ namespace Runtime.Engine.VoxelConfig.Data
 
             UpdateMaterials();
 
-            List<QuadData> quadDataList = new()
-            {
-                new QuadData // +X
-                {
-                    position00 = new float3(1, 0, 0),
-                    position01 = new float3(1, 1, 0),
-                    position02 = new float3(1, 0, 1),
-                    position03 = new float3(1, 1, 1),
-                    normal = new float3(1, 0, 0),
-                    uv00 = new float2(0, 0),
-                    uv01 = new float2(0, 1),
-                    uv02 = new float2(1, 0),
-                    uv03 = new float2(1, 1),
-                },
-                new QuadData // -X
-                {
-                    position00 = new float3(0, 0, 0),
-                    position01 = new float3(0, 0, 1),
-                    position02 = new float3(0, 1, 0),
-                    position03 = new float3(0, 1, 1),
-                    normal = new float3(-1, 0, 0),
-                    uv00 = new float2(1, 0),
-                    uv01 = new float2(0, 0),
-                    uv02 = new float2(1, 1),
-                    uv03 = new float2(0, 1),
-                },
-                new QuadData // +Y
-                {
-                    position00 = new float3(0, 1, 0),
-                    position01 = new float3(0, 1, 1),
-                    position02 = new float3(1, 1, 0),
-                    position03 = new float3(1, 1, 1),
-                    normal = new float3(0, 1, 0),
-                    uv00 = new float2(0, 0),
-                    uv02 = new float2(1, 0),
-                    uv01 = new float2(0, 1),
-                    uv03 = new float2(1, 1),
-                },
-                new QuadData // -Y
-                {
-                    position00 = new float3(0, 0, 0),
-                    position01 = new float3(1, 0, 0),
-                    position02 = new float3(0, 0, 1),
-                    position03 = new float3(1, 0, 1),
-                    normal = new float3(0, -1, 0),
-                    uv00 = new float2(1, 0),
-                    uv01 = new float2(0, 0),
-                    uv02 = new float2(1, 1),
-                    uv03 = new float2(0, 1),
-                },
-                new QuadData // +Z
-                {
-                    position00 = new float3(0, 0, 1),
-                    position01 = new float3(1, 0, 1),
-                    position02 = new float3(0, 1, 1),
-                    position03 = new float3(1, 1, 1),
-                    normal = new float3(0, 0, 1),
-                    uv00 = new float2(1, 0),
-                    uv01 = new float2(0, 0),
-                    uv02 = new float2(1, 1),
-                    uv03 = new float2(0, 1),
-                },
-                new QuadData // -Z
-                {
-                    position00 = new float3(0, 0, 0),
-                    position01 = new float3(0, 1, 0),
-                    position02 = new float3(1, 0, 0),
-                    position03 = new float3(1, 1, 0),
-                    normal = new float3(0, 0, -1),
-                    uv00 = new float2(0, 0),
-                    uv01 = new float2(0, 1),
-                    uv02 = new float2(1, 0),
-                    uv03 = new float2(1, 1),
-                },
-                new QuadData() // Diagonal 1
-                {
-                    position00 = new float3(0, 0, 0),
-                    position01 = new float3(0, 1, 0),
-                    position02 = new float3(1, 0, 1),
-                    position03 = new float3(1, 1, 1),
-                    normal = new float3(1, 0, 1).Normalized(),
-                    uv00 = new float2(0, 0),
-                    uv01 = new float2(0, 1),
-                    uv02 = new float2(1, 0),
-                    uv03 = new float2(1, 1),
-                },
-                new QuadData() // Diagonal 2
-                {
-                    position00 = new float3(1, 0, 0),
-                    position01 = new float3(1, 1, 0),
-                    position02 = new float3(0, 0, 1),
-                    position03 = new float3(0, 1, 1),
-                    normal = new float3(-1, 0, -1).Normalized(),
-                    uv00 = new float2(0, 0),
-                    uv01 = new float2(0, 1),
-                    uv02 = new float2(1, 0),
-                    uv03 = new float2(1, 1),
-                },
-            };
-
-            _quadDataBuffer = new ComputeBuffer(quadDataList.Count, Marshal.SizeOf<QuadData>());
-
-            _quadDataBuffer.SetData(quadDataList);
-
-            voxelSolidMaterial.SetBuffer(QuadBufferID, _quadDataBuffer);
-            voxelTransparentMaterial.SetBuffer(QuadBufferID, _quadDataBuffer);
+            voxelSolidMaterial.SetBuffer(QuadBufferID, VoxelRegistry.QuadBuffer);
+            voxelTransparentMaterial.SetBuffer(QuadBufferID, VoxelRegistry.QuadBuffer);
+            voxelFoliageMaterial.SetBuffer(QuadBufferID, VoxelRegistry.QuadBuffer);
         }
 
         /// <summary>
@@ -182,6 +65,7 @@ namespace Runtime.Engine.VoxelConfig.Data
         {
             VoxelRegistry.ApplyToMaterial(voxelSolidMaterial, MeshLayer.Solid);
             VoxelRegistry.ApplyToMaterial(voxelTransparentMaterial, MeshLayer.Transparent);
+            VoxelRegistry.ApplyToMaterial(voxelFoliageMaterial, MeshLayer.Foliage);
         }
 
         /// <summary>
@@ -218,7 +102,6 @@ namespace Runtime.Engine.VoxelConfig.Data
         {
             base.OnDestroy();
             VoxelRegistry.Dispose();
-            _quadDataBuffer.Dispose();
         }
 
         /// <summary>

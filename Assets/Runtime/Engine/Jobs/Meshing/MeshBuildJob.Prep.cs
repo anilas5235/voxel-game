@@ -17,28 +17,6 @@ namespace Runtime.Engine.Jobs.Meshing
                 VoxelRenderDef renderDef = RenderGenData.GetRenderDef(voxelId);
 
                 if (renderDef.Collision) jobData.CollisionVoxels.Add(localPos);
-
-                if (renderDef.IsAir)
-                {
-                    jobData.SeeThroughVoxels.Add(localPos);
-                    continue;
-                }
-
-                if (renderDef.IsFoliage)
-                {
-                    jobData.FoliageVoxels.Add(localPos, voxelId);
-                    jobData.SeeThroughVoxels.Add(localPos);
-                    continue;
-                }
-
-                if (renderDef.IsTransparent)
-                {
-                    jobData.TransparentVoxels.Add(localPos, voxelId);
-                    jobData.SeeThroughVoxels.Add(localPos);
-                    continue;
-                }
-
-                jobData.SolidVoxels.Add(localPos, voxelId);
             }
         }
     }

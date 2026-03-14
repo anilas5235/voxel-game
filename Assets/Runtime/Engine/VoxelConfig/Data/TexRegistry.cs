@@ -14,7 +14,7 @@ namespace Runtime.Engine.VoxelConfig.Data
         private readonly Dictionary<Texture2D, ushort> _textureToId = new();
 
         /// <summary>
-        /// Gets the resulting texture array after <see cref="PrepareTextureArray"/> has been called.
+        /// Gets the resulting texture array after <see cref="PrepareArray"/> has been called.
         /// </summary>
         public Texture2DArray TextureArray { get; private set; }
 
@@ -24,7 +24,7 @@ namespace Runtime.Engine.VoxelConfig.Data
         /// </summary>
         /// <param name="tex">Texture to register.</param>
         /// <returns>Assigned texture index, or -1 if registration failed.</returns>
-        public ushort RegisterTexture(Texture2D tex)
+        public ushort Register(Texture2D tex)
         {
             ushort textureId = 0;
             if (!tex) return textureId;
@@ -46,7 +46,7 @@ namespace Runtime.Engine.VoxelConfig.Data
         /// <summary>
         /// Builds a <see cref="Texture2DArray"/> from all registered textures using point filtering and repeat wrapping.
         /// </summary>
-        internal void PrepareTextureArray()
+        internal void PrepareArray()
         {
             if (_textureToId.Count == 0) return;
 
