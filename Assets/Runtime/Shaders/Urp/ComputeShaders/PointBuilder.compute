@@ -106,13 +106,10 @@ int3 get_direction_offset(uint dir)
 }
 
 // Helper: Check if face should be rendered
-bool should_render_face(uint currentVoxel, uint neighborVoxel)
+bool should_render_face(VoxelDef currentVoxel, VoxelDef neighborVoxel)
 {
-    // TODO: Implement proper face culling logic based on VoxelRenderDef
-    // For now: render if neighbor is air (0) or current is non-air
-    if (currentVoxel == 0) return false; // Current is air, don't render
-    if (neighborVoxel == 0) return true; // Neighbor is air, render face
-    // TODO: Add transparency and layer checks
+    if (currentVoxel.MeshLayer == 255) return false; // Current is air, don't render
+    if (neighborVoxel.MeshLayer == 255) return true; // Neighbor is air, render face
     return false;
 }
 
@@ -137,7 +134,7 @@ void RebuildPoints(uint3 id : SV_DispatchThreadID)
         uint neighborId = get_voxel_safe(neighborPos);
         VoxelDef otherDef = _VoxelRenderDefs[neighborId];
 
-        if (!should_render_face(voxelId, neighborId)) continue;
+        if (!should_render_face(myDef, otherDef)) continue;
 
         // Generate point in world voxel space.
         PointData p;
