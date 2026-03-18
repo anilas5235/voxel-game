@@ -17,6 +17,8 @@ namespace Test
 {
     public class ComputeTest : MonoBehaviour
     {
+        private const int RenderBufferSize = 128 * 512;
+
         private static readonly int VoxelRenderDefNameID = Shader.PropertyToID("_VoxelRenderDefs");
         private static readonly int VoxelRenderDefCountNameID = Shader.PropertyToID("_VoxelRenderDefsCount");
 
@@ -42,6 +44,8 @@ namespace Test
         private static readonly int PointsCountOffsetNameID = Shader.PropertyToID("_PointsCountOffset");
 
         private static readonly int PointDataNameID = Shader.PropertyToID("_PointData");
+        private static readonly int PointIntervalsNameID = Shader.PropertyToID("_PointIntervals");
+        private static readonly int PointIntervalCountNameID = Shader.PropertyToID("_PointIntervalCount");
 
         struct PartitionMetadata
         {
@@ -82,6 +86,9 @@ namespace Test
         private GraphicsBuffer _bigSolidVertexBuffer;
         private GraphicsBuffer _bigTransparentVertexBuffer;
         private GraphicsBuffer _bigFoliageVertexBuffer;
+        private GraphicsBuffer _solidIntervalsBuffer;
+        private GraphicsBuffer _transparentIntervalsBuffer;
+        private GraphicsBuffer _foliageIntervalsBuffer;
         private GraphicsBuffer _pointsCountOffsetBuffer;
 
         private GraphicsBuffer _readBackCountBuffer;
@@ -134,12 +141,21 @@ namespace Test
             _foliagePointsOut = new GraphicsBuffer(Target.Append | Target.CopySource, MaxPointsPerPartition / 3,
                 Marshal.SizeOf<Vertex>());
 
-            _bigSolidVertexBuffer = new GraphicsBuffer(Target.Structured | Target.CopyDestination, 1000000,
+            _bigSolidVertexBuffer = new GraphicsBuffer(Target.Structured | Target.CopyDestination, RenderBufferSize,
                 Marshal.SizeOf<Vertex>());
-            _bigTransparentVertexBuffer = new GraphicsBuffer(Target.Structured | Target.CopyDestination, 1000000,
+            _bigTransparentVertexBuffer = new GraphicsBuffer(Target.Structured | Target.CopyDestination,
+                RenderBufferSize,
                 Marshal.SizeOf<Vertex>());
-            _bigFoliageVertexBuffer = new GraphicsBuffer(Target.Structured | Target.CopyDestination, 1000000,
+            _bigFoliageVertexBuffer = new GraphicsBuffer(Target.Structured | Target.CopyDestination, RenderBufferSize,
                 Marshal.SizeOf<Vertex>());
+
+            _solidIntervalsBuffer = new GraphicsBuffer(Target.Structured, 1, Marshal.SizeOf<uint2>());
+            _transparentIntervalsBuffer = new GraphicsBuffer(Target.Structured, 1, Marshal.SizeOf<uint2>());
+            _foliageIntervalsBuffer = new GraphicsBuffer(Target.Structured, 1, Marshal.SizeOf<uint2>());
+            uint2[] emptyIntervals = { new uint2(0u, 0u) };
+            _solidIntervalsBuffer.SetData(emptyIntervals);
+            _transparentIntervalsBuffer.SetData(emptyIntervals);
+            _foliageIntervalsBuffer.SetData(emptyIntervals);
 
             _pointsCountOffsetBuffer = new GraphicsBuffer(Target.Structured, 3, Marshal.SizeOf<uint2>());
 
@@ -158,17 +174,20 @@ namespace Test
             _drawCalls[0].AddDrawCall(new DrawCall
             {
                 VertexBuffer = _bigSolidVertexBuffer,
-                ArgsBuffer = _solidArgBuffer
+                ArgsBuffer = _solidArgBuffer,
+                IntervalsBuffer = _solidIntervalsBuffer
             });
             _drawCalls[1].AddDrawCall(new DrawCall
             {
                 VertexBuffer = _bigTransparentVertexBuffer,
                 ArgsBuffer = _transparentArgBuffer,
+                IntervalsBuffer = _transparentIntervalsBuffer,
             });
             _drawCalls[2].AddDrawCall(new DrawCall
             {
                 VertexBuffer = _bigFoliageVertexBuffer,
                 ArgsBuffer = _foliageArgBuffer,
+                IntervalsBuffer = _foliageIntervalsBuffer,
             });
         }
 
@@ -192,6 +211,11 @@ namespace Test
             _foliagePointsOut.Dispose();
             _solidArgBuffer.Dispose();
             _bigSolidVertexBuffer.Dispose();
+            _bigTransparentVertexBuffer.Dispose();
+            _bigFoliageVertexBuffer.Dispose();
+            _solidIntervalsBuffer.Dispose();
+            _transparentIntervalsBuffer.Dispose();
+            _foliageIntervalsBuffer.Dispose();
             _pointsCountOffsetBuffer.Dispose();
             _materialPropertyBlock.Clear();
         }
@@ -230,14 +254,17 @@ namespace Test
             int solidCount = (int)counts[0];
             SetIndirectArgs(_solidArgBuffer, solidCount);
             _drawCalls[0].DrawCalls[0].VertexCount = solidCount;
+            UpdateSingleInterval(_solidIntervalsBuffer, solidCount, _drawCalls[0].DrawCalls[0]);
 
             int transparentCount = (int)counts[1];
             SetIndirectArgs(_transparentArgBuffer, transparentCount);
             _drawCalls[1].DrawCalls[0].VertexCount = transparentCount;
+            UpdateSingleInterval(_transparentIntervalsBuffer, transparentCount, _drawCalls[1].DrawCalls[0]);
 
             int foliageCount = (int)counts[2];
             SetIndirectArgs(_foliageArgBuffer, foliageCount);
             _drawCalls[2].DrawCalls[0].VertexCount = foliageCount;
+            UpdateSingleInterval(_foliageIntervalsBuffer, foliageCount, _drawCalls[2].DrawCalls[0]);
             double indicesSetFinished = Time.realtimeSinceStartupAsDouble;
 
             CopyJob(solidCount, transparentCount, foliageCount);
@@ -247,7 +274,7 @@ namespace Test
             double done = Time.realtimeSinceStartupAsDouble;
             Debug.Log(
                 $"Build time: {(buildFinished - start) * 1000:F3}ms, Readback: {(countReadFinished - buildFinished) * 1000:F3}ms," +
-                $" IndirectArgs Set:{(indicesSetFinished-countReadFinished) * 1000:F3}ms ,Copy {(copyFinished - indicesSetFinished) * 1000:F3}ms, Total: {(done - start) * 1001:F3}ms");
+                $" IndirectArgs Set:{(indicesSetFinished - countReadFinished) * 1000:F3}ms ,Copy {(copyFinished - indicesSetFinished) * 1000:F3}ms, Total: {(done - start) * 1001:F3}ms");
         }
 
         private bool SetIndirectArgs(GraphicsBuffer argBuffer, int count)
@@ -289,6 +316,13 @@ namespace Test
             _foliagePointsOut.SetCounterValue(0);
         }
 
+        private static void UpdateSingleInterval(GraphicsBuffer intervalBuffer, int pointCount, DrawCall drawCall)
+        {
+            uint2[] data = { new uint2(0u, (uint)math.max(0, pointCount)) };
+            intervalBuffer.SetData(data);
+            drawCall.IntervalCount = pointCount > 0 ? 1 : 0;
+        }
+
         private void Draw(ScriptableRenderContext context, Camera cam)
         {
             if (!_dataInitialized) return;
@@ -320,6 +354,8 @@ namespace Test
                 {
                     if (!drawCall.CanDraw) continue;
                     PropertyBlock.SetBuffer(PointDataNameID, drawCall.VertexBuffer);
+                    PropertyBlock.SetBuffer(PointIntervalsNameID, drawCall.IntervalsBuffer);
+                    PropertyBlock.SetInt(PointIntervalCountNameID, drawCall.IntervalCount);
                     Graphics.DrawProceduralIndirect(
                         Material,
                         new Bounds(Vector3.zero, Vector3.one * 100),
@@ -342,6 +378,8 @@ namespace Test
             public int VertexCount;
             public GraphicsBuffer VertexBuffer;
             public GraphicsBuffer ArgsBuffer;
+            public GraphicsBuffer IntervalsBuffer;
+            public int IntervalCount;
         }
     }
 }

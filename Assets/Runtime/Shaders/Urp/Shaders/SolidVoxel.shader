@@ -28,6 +28,8 @@ Shader "Custom/VoxelShader"
         #include "../VoxelCommon.hlsl"
 
         StructuredBuffer<PointData> _PointData;
+        StructuredBuffer<uint2> _PointIntervals;
+        uint _PointIntervalCount;
 
         struct Varyings
         {
@@ -36,15 +38,63 @@ Shader "Custom/VoxelShader"
             uint4 packed : TEXCOORD1; // (texArrayIndex u16, sunLightLevel u4, 4 bit unused, ao u8)
         };
 
+        uint get_interval_prefix_count(uint exclusiveIndex)
+        {
+            uint prefix = 0u;
+            [loop]
+            for (uint i = 0u; i < exclusiveIndex; i++)
+            {
+                prefix += _PointIntervals[i].y;
+            }
+
+            return prefix;
+        }
+
+        uint resolve_physical_point_id(uint logicalPointID)
+        {
+            if (_PointIntervalCount == 0u)
+            {
+                return 0u;
+            }
+
+            uint low = 0u;
+            uint high = _PointIntervalCount;
+
+            while (low < high)
+            {
+                uint mid = (low + high) >> 1;
+                uint prefixBefore = get_interval_prefix_count(mid);
+                uint midCount = _PointIntervals[mid].y;
+                uint prefixAfter = prefixBefore + midCount;
+
+                if (logicalPointID < prefixBefore)
+                {
+                    high = mid;
+                    continue;
+                }
+
+                if (logicalPointID >= prefixAfter)
+                {
+                    low = mid + 1u;
+                    continue;
+                }
+
+                return _PointIntervals[mid].x + (logicalPointID - prefixBefore);
+            }
+
+            return _PointIntervals[0].x;
+        }
+
         // ── Vertex shader with expansion ─────────────────────────────
         Varyings vert(uint vertexID : SV_VertexID)
         {
             // Calculate point and corner indices
             uint pointID = vertexID / 6;
             uint cornerID = vertexID % 6;
+            uint physicalPointID = resolve_physical_point_id(pointID);
             
             // Fetch point data directly
-            PointData p = _PointData[pointID];
+            PointData p = _PointData[physicalPointID];
             
             uint quadIndex = get_quad_index(p.packed);
             QuadData quad = quad_buffer[quadIndex];
