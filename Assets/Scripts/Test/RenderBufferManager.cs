@@ -102,6 +102,7 @@ namespace Test
 
             public void Draw(Material mat, Camera cam)
             {
+                if(_usedPageCount == 0) return;
                 _propertyBlock.SetBuffer(PointDataNameID, _buffer);
                 _propertyBlock.SetBuffer(PageStatesNameID, _pageStateBuffer);
                 _propertyBlock.SetInteger(PointsPerPageNameID, PageSize);
