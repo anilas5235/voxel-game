@@ -2,6 +2,7 @@
 #define VOXEL_SHADER_COMMON_INCLUDED
 
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/UnityInstancing.hlsl"
+#include "../VoxelCommon.hlsl"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Quad buffer
@@ -30,6 +31,50 @@ struct Attributes
     uint vertexID : SV_VertexID;
     UNITY_VERTEX_INPUT_INSTANCE_ID
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Vertex helpers
+// ─────────────────────────────────────────────────────────────────────────────
+StructuredBuffer<uint> _PageStates;
+uint _PointsPerPage;
+uint _PagesPerBuffer;
+
+uint resolve_logical_id(uint point_id)
+{
+    if (_PointsPerPage == 0u)
+    {
+        return 0u;
+    }
+
+    uint remaining = point_id;
+    [loop]
+    for (uint pageIndex = 0u; pageIndex < _PagesPerBuffer; pageIndex++)
+    {
+        uint pageCount = _PageStates[pageIndex];
+        if (pageCount == 0u) break;
+
+        if (remaining < pageCount)
+        {
+            return pageIndex * _PointsPerPage + remaining;
+        }
+
+        remaining -= pageCount;
+    }
+
+    return 0u;
+}
+
+StructuredBuffer<PointData> _PointData;
+
+PointData fetch_point_data(uint vertexID)
+{
+    // Calculate point and corner indices
+    uint pointID = vertexID / 6;
+    uint index = resolve_logical_id(pointID);
+
+    // Fetch point data directly
+    return _PointData[index];
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Frag helpers

@@ -27,13 +27,6 @@
         #include "VoxelShaderCommon.hlsl"
         #include "../VoxelCommon.hlsl"
 
-        StructuredBuffer<PointData> _PointData;
-        StructuredBuffer<uint> _VisiblePartitions;
-        StructuredBuffer<uint> _PageStates;
-        uint _PointsPerPage;
-
-        static const uint MAX_PAGE_STATES = 512u;
-
         struct Varyings
         {
             float4 positionCS : SV_POSITION;
@@ -43,50 +36,19 @@
             // z and w unused
             float4 positionSS : TEXCOORD3;
         };
-
-        uint resolve_physical_point_id(uint logicalPointID)
-        {
-            if (_PointsPerPage == 0u)
-            {
-                return 0u;
-            }
-
-            uint remaining = logicalPointID;
-            [loop]
-            for (uint pageIndex = 0u; pageIndex < MAX_PAGE_STATES; pageIndex++)
-            {
-                uint pageCount = _PageStates[pageIndex];
-                if (pageCount == 0u)
-                {
-                    break;
-                }
-
-                if (remaining < pageCount)
-                {
-                    return pageIndex * _PointsPerPage + remaining;
-                }
-
-                remaining -= pageCount;
-            }
-
-            return 0u;
-        }
-
+        
 
         // ── Vertex shader with expansion ─────────────────────────────
         Varyings vert(uint vertexID : SV_VertexID)
         {
-            // Calculate point and corner indices
-            uint pointID = vertexID / 6;
             uint cornerID = vertexID % 6;
-            uint physicalPointID = resolve_physical_point_id(pointID);
-            
+
             // Fetch point data
-            PointData p = _PointData[physicalPointID];
-            
+            PointData p = fetch_point_data(vertexID);
+
             uint quadIndex = get_quad_index(p.packed);
             QuadData quad = quad_buffer[quadIndex];
-            
+
             // Triangle strip corners: two triangles forming a quad
             // Triangle 1: 00-01-02, Triangle 2: 02-01-03
             float3 corners[6] = {
@@ -97,7 +59,7 @@
                 quad.uv00, quad.uv01, quad.uv02,
                 quad.uv02, quad.uv01, quad.uv03
             };
-            
+
             Varyings o;
             float4 worldPos = float4(p.position + corners[cornerID], 1.0);
             o.positionCS = TransformObjectToHClip(worldPos.xyz);

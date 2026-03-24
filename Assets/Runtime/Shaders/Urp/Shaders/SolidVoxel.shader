@@ -25,64 +25,25 @@ Shader "Custom/VoxelShader"
         HLSLINCLUDE
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
         #include "VoxelShaderCommon.hlsl"
-        #include "../VoxelCommon.hlsl"
-
-        StructuredBuffer<PointData> _PointData;
-        StructuredBuffer<uint> _PageStates;
-        uint _PointsPerPage;
-
-        static const uint MAX_PAGE_STATES = 512u;
-
+        
         struct Varyings
         {
             float4 positionCS : SV_POSITION;
             float2 uv : TEXCOORD0; // xy = tile UV
             uint4 packed : TEXCOORD1; // (texArrayIndex u16, sunLightLevel u4, 4 bit unused, ao u8)
-        };
-
-        uint resolve_physical_point_id(uint logicalPointID)
-        {
-            if (_PointsPerPage == 0u)
-            {
-                return 0u;
-            }
-
-            uint remaining = logicalPointID;
-            [loop]
-            for (uint pageIndex = 0u; pageIndex < MAX_PAGE_STATES; pageIndex++)
-            {
-                uint pageCount = _PageStates[pageIndex];
-                if (pageCount == 0u)
-                {
-                    break;
-                }
-
-                if (remaining < pageCount)
-                {
-                    return pageIndex * _PointsPerPage + remaining;
-                }
-
-                remaining -= pageCount;
-            }
-
-            return 0u;
-        }
-
+        };    
 
         // ── Vertex shader with expansion ─────────────────────────────
         Varyings vert(uint vertexID : SV_VertexID)
         {
-            // Calculate point and corner indices
-            uint pointID = vertexID / 6;
             uint cornerID = vertexID % 6;
-            uint physicalPointID = resolve_physical_point_id(pointID);
-            
+
             // Fetch point data directly
-            PointData p = _PointData[physicalPointID];
-            
+            PointData p = fetch_point_data(vertexID);
+
             uint quadIndex = get_quad_index(p.packed);
             QuadData quad = quad_buffer[quadIndex];
-            
+
             // Triangle strip corners: two triangles forming a quad
             // Triangle 1: 00-01-02, Triangle 2: 02-01-03
             float3 corners[6] = {
@@ -93,9 +54,9 @@ Shader "Custom/VoxelShader"
                 quad.uv00, quad.uv01, quad.uv02,
                 quad.uv02, quad.uv01, quad.uv03
             };
-            
+
             float3 objectPos = p.position + corners[cornerID];
-            
+
             Varyings o;
             o.positionCS = TransformObjectToHClip(objectPos);
             o.uv = uvs[cornerID];
@@ -168,7 +129,7 @@ Shader "Custom/VoxelShader"
                 float4 albedo = SAMPLE_TEXTURE2D_ARRAY(_Textures, sampler_Textures, uv, extra.texture_index);
 
                 // --- Ambient occlusion ---
-                float4 ao_color =  calc_ao_color(_AOColor, albedo, _AOCurve, extra.ao, _AOIntensity, _AOPower, uv);
+                float4 ao_color = calc_ao_color(_AOColor, albedo, _AOCurve, extra.ao, _AOIntensity, _AOPower, uv);
 
                 // --- Sun light level ---
                 float sun_light = calc_sun_light(extra.sun_light, uv);

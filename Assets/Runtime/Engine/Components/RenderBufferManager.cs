@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
 using Runtime.Engine.Jobs.Meshing;
+using Runtime.Engine.Utils.Logger;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -72,7 +73,8 @@ namespace Runtime.Engine.Components
                 if (count < 0) throw new ArgumentOutOfRangeException(nameof(count));
                 if (_pages[index].IsFree) _usedPageCount++;
 
-                _totalValidPoints += (uint)count - (uint)_pages[index].PointCount;
+                _totalValidPoints -= (uint)_pages[index].PointCount;
+                _totalValidPoints += (uint)count;
 
                 _pages[index].PartitionPos = partition;
                 _pages[index].PointCount = count;
@@ -106,6 +108,7 @@ namespace Runtime.Engine.Components
                 _propertyBlock.SetBuffer(PointDataNameID, _buffer);
                 _propertyBlock.SetBuffer(PageStatesNameID, _pageStateBuffer);
                 _propertyBlock.SetInteger(PointsPerPageNameID, PageSize);
+                _propertyBlock.SetInteger(PagesPerBufferNameID, PagesPerBuffer);
                 Graphics.DrawProceduralIndirect(
                     mat,
                     new Bounds(Vector3.zero, Vector3.one * 100000),
@@ -123,12 +126,14 @@ namespace Runtime.Engine.Components
             {
                 if (_stateBufferDirty)
                 {
-                    uint[] pageCounts = new uint[_pages.Length];
-                    for (int i = 0; i < _pages.Length; i++) pageCounts[i] = (uint)_pages[i].PointCount;
+                    uint[] pageCounts = new uint[PagesPerBuffer];
+                    for (int i = 0; i < PagesPerBuffer; i++) pageCounts[i] = (uint)_pages[i].PointCount;
 
                     _pageStateBuffer.SetData(pageCounts);
                     uint[] tempArgs = DefaultArgs;
                     tempArgs[0] = _totalValidPoints * 6u;
+                    VoxelEngineLogger.Info<RenderBuffer>($"Rebuilding RenderBuffer. Total Valid Points: {_totalValidPoints}, Total Pages Used: {_usedPageCount}");
+                    VoxelEngineLogger.Info<RenderBuffer>($"Args: {string.Join(", ", tempArgs)}");
                     _argsBuffer.SetData(tempArgs);
                     _stateBufferDirty = false;
                 }
