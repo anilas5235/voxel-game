@@ -14,7 +14,7 @@ namespace Runtime.Engine.Components
     public class RenderBufferManager : IDisposable
     {
         private const int RenderBufferSize = PointsPerPage * PagesPerBuffer;
-        internal const int PointsPerPage = 128;
+        internal const int PointsPerPage = 256;
         internal const int PagesPerBuffer = 2048;
 
         private class BufferPage
@@ -37,7 +37,7 @@ namespace Runtime.Engine.Components
             private uint _totalValidPoints;
             private readonly BufferPage[] _pages;
             private readonly GraphicsBuffer _argsBuffer;
-            private readonly GraphicsBuffer _pageStateBuffer;
+            private readonly GraphicsBuffer _indexBuffer;
             private readonly MaterialPropertyBlock _propertyBlock;
 
             private bool _stateBufferDirty;
@@ -54,11 +54,10 @@ namespace Runtime.Engine.Components
                     Marshal.SizeOf<Vertex>());
                 _argsBuffer = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, 5, sizeof(uint));
                 _argsBuffer.SetData(DefaultArgs);
-                _pageStateBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, PagesPerBuffer,
+                _indexBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, RenderBufferSize,
                     Marshal.SizeOf<uint>());
 
                 _propertyBlock = new MaterialPropertyBlock();
-                _propertyBlock.SetInteger(PointsPerPageNameID, PointsPerPage);
 
                 _pages = new BufferPage[PagesPerBuffer];
                 for (int i = 0; i < _pages.Length; i++) _pages[i] = new BufferPage();
@@ -106,9 +105,7 @@ namespace Runtime.Engine.Components
             {
                 if (_usedPageCount == 0) return;
                 _propertyBlock.SetBuffer(PointDataNameID, _buffer);
-                _propertyBlock.SetBuffer(PageStatesNameID, _pageStateBuffer);
-                _propertyBlock.SetInteger(PointsPerPageNameID, PointsPerPage);
-                _propertyBlock.SetInteger(PagesPerBufferNameID, PagesPerBuffer);
+                _propertyBlock.SetBuffer(IndexBufferNameID, _indexBuffer);
                 Graphics.DrawProceduralIndirect(
                     mat,
                     new Bounds(Vector3.zero, Vector3.one * 100000),
@@ -126,10 +123,21 @@ namespace Runtime.Engine.Components
             {
                 if (_stateBufferDirty)
                 {
-                    uint[] pageCounts = new uint[PagesPerBuffer];
-                    for (int i = 0; i < PagesPerBuffer; i++) pageCounts[i] = (uint)_pages[i].PointCount;
+                    List<uint> pageCounts = new((int)_totalValidPoints);
+                    uint offset = 0;
 
-                    _pageStateBuffer.SetData(pageCounts);
+                    foreach (BufferPage page in _pages)
+                    {
+                        for (int i = 0; i < page.PointCount; i++)
+                        {
+                            offset++;
+                            pageCounts.Add(offset);
+                        }
+
+                        offset += (uint)(PointsPerPage - page.PointCount);
+                    }
+
+                    _indexBuffer.SetData(pageCounts);
                     uint[] tempArgs = DefaultArgs;
                     tempArgs[0] = _totalValidPoints * 6u;
                     VoxelEngineLogger.Info<RenderBuffer>(
@@ -144,7 +152,7 @@ namespace Runtime.Engine.Components
             {
                 _buffer?.Dispose();
                 _argsBuffer?.Dispose();
-                _pageStateBuffer?.Dispose();
+                _indexBuffer?.Dispose();
             }
 
             public bool TryFindFreePage(out int pageIndex)
@@ -285,6 +293,7 @@ namespace Runtime.Engine.Components
         private int AddNewBuffer()
         {
             _buffers.Add(new RenderBuffer());
+            VoxelEngineLogger.Info<RenderBufferManager>($"Added new RenderBuffer. Total buffers: {_buffers.Count}");
             return _buffers.Count - 1;
         }
 

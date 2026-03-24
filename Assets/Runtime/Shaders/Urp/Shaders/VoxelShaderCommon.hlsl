@@ -42,39 +42,14 @@ struct VoxelVertexData
 // ─────────────────────────────────────────────────────────────────────────────
 // Vertex helpers
 // ─────────────────────────────────────────────────────────────────────────────
-StructuredBuffer<uint> _PageStates;
-uint _PointsPerPage;
-uint _PagesPerBuffer;
-
-uint resolve_logical_id(uint point_id)
-{
-    if (_PointsPerPage == 0u) return 0u;
-
-    uint remaining = point_id;
-    [loop]
-    for (uint pageIndex = 0u; pageIndex < _PagesPerBuffer; pageIndex++)
-    {
-        uint pageCount = _PageStates[pageIndex];
-        if (pageCount == 0u) break;
-
-        if (remaining < pageCount)
-        {
-            return pageIndex * _PointsPerPage + remaining;
-        }
-
-        remaining -= pageCount;
-    }
-
-    return 0u;
-}
-
 StructuredBuffer<PointData> _PointData;
+StructuredBuffer<uint> _IndexBuffer;
 
 VoxelVertexData fetch_vertex_data(uint vertexID)
 {
     // Calculate point and corner indices
     uint pointID = vertexID / 6;
-    uint index = resolve_logical_id(pointID);
+    uint index = _IndexBuffer[pointID];
     uint cornerID = vertexID % 6;
 
     // Fetch point data directly

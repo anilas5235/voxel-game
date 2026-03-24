@@ -46,9 +46,10 @@ namespace Test
 
         private IEnumerator AddStoneChunks()
         {
-            for (int i = 0; i < 2; i++)
+            for (int z = 0; z < 16; z++)
+            for (int x = 0; x < 16; x++)
             {
-                ChunkAddAndUpdate(new int2(2 + i, 0), _voxels2);
+                ChunkAddAndUpdate(new int2(2 + x, z), _voxels2);
                 yield return null;
             }
         }

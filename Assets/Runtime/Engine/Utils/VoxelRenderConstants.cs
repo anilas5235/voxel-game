@@ -43,8 +43,7 @@ namespace Runtime.Engine.Utils
         public static readonly int PageCountsNameID = Shader.PropertyToID("_PageCounts");
 
         public static readonly int PointDataNameID = Shader.PropertyToID("_PointData");
-        public static readonly int PageStatesNameID = Shader.PropertyToID("_PageStates");
+        public static readonly int IndexBufferNameID = Shader.PropertyToID("_IndexBuffer");
         public static readonly int PointsPerPageNameID = Shader.PropertyToID("_PointsPerPage");
-        public static readonly int PagesPerBufferNameID = Shader.PropertyToID("_PagesPerBuffer");
     }
 }
