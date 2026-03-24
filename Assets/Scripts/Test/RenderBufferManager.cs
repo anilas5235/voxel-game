@@ -14,7 +14,7 @@ namespace Test
     {
         private const int RenderBufferSize = PageSize * PagesPerBuffer;
         internal const int PageSize = 128;
-        internal const int PagesPerBuffer = 512;
+        internal const int PagesPerBuffer = 2048;
 
         private class BufferPage
         {
