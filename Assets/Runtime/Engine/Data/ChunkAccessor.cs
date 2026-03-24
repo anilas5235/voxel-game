@@ -73,7 +73,7 @@ namespace Runtime.Engine.Data
             FindPartitionAndLocalPos(ref partitionPos, ref voxelPos);
 
             return TryGetLightData(partitionPos, out PartitionLightData lightData)
-                ? lightData.GetLight( voxelPos)
+                ? lightData.GetLight(voxelPos)
                 : (byte)0;
         }
 

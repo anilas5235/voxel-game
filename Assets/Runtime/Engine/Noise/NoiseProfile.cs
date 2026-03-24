@@ -112,8 +112,10 @@ namespace Runtime.Engine.Noise
     {
         /// <summary>Humidity value (typically 0..1).</summary>
         public float Humidity;
+
         /// <summary>Temperature value (typically 0..1).</summary>
         public float Temperature;
+
         /// <summary>Height component used for terrain shaping.</summary>
         public float Height;
     }

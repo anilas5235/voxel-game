@@ -147,7 +147,8 @@ namespace Runtime.Engine.Jobs.Chunk
             }
         }
 
-        private static void PlaceShipwreck(ref NativeArray<ushort> vox, int cx, int cy, int cz, ref GeneratorConfig config)
+        private static void PlaceShipwreck(ref NativeArray<ushort> vox, int cx, int cy, int cz,
+            ref GeneratorConfig config)
         {
             ushort planks = config.Planks;
             for (int ox = -2; ox <= 2; ox++)
@@ -161,7 +162,8 @@ namespace Runtime.Engine.Jobs.Chunk
             }
         }
 
-        private static void PlaceMineShaft(ref NativeArray<ushort> vox, int cx, int groundY, int cz, ref GeneratorConfig config, int depth)
+        private static void PlaceMineShaft(ref NativeArray<ushort> vox, int cx, int groundY, int cz,
+            ref GeneratorConfig config, int depth)
         {
             ushort planks = config.Planks;
             for (int y = groundY; y > math.max(1, groundY - depth); y--)

@@ -116,7 +116,7 @@ namespace Runtime.Engine.Utils.Extensions
         /// Komponentenweise Multiplikation mit Einzelwerten.
         /// </summary>
         public static int3 MemberMultiply(this int3 a, int x, int y, int z) => new(a.x * x, a.y * y, a.z * z);
-        
+
         public static int3 MemberDivide(this int3 a, int3 b) => new(a.x / b.x, a.y / b.y, a.z / b.z);
 
 
@@ -138,7 +138,7 @@ namespace Runtime.Engine.Utils.Extensions
         public static readonly int3 Int3Down = new(0, -1, 0);
 
         /// <summary> (1,0,0) Vektor. </summary>
-        public static readonly int3 Int3Right = new(1, 0, 0); 
+        public static readonly int3 Int3Right = new(1, 0, 0);
 
         /// <summary> (-1,0,0) Vektor. </summary>
         public static readonly int3 Int3Left = new(-1, 0, 0);
@@ -210,7 +210,7 @@ namespace Runtime.Engine.Utils.Extensions
         /// Konvertiert int2 zu float2.
         /// </summary>
         public static float2 Float2(this int2 vec) => new(vec.x, vec.y);
-        
+
         public static float2 Float2(this Vector2 vec) => new(vec.x, vec.y);
 
         /// <summary>

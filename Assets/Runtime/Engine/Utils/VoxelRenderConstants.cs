@@ -8,7 +8,7 @@ namespace Runtime.Engine.Utils
     /// </summary>
     public static class VoxelRenderConstants
     {
-        public const int MaxPointsPerPartition = PartitionWidth * PartitionHeight * PartitionDepth *3;
+        public const int MaxPointsPerPartition = PartitionWidth * PartitionHeight * PartitionDepth * 3;
         public const int MaxDirtyUploadsPerFrame = 8;
 
 
@@ -31,15 +31,15 @@ namespace Runtime.Engine.Utils
         public static readonly int SolidPointsInNameID = Shader.PropertyToID("_SolidPointsIn");
         public static readonly int SolidPointsCopyOutNameID = Shader.PropertyToID("_SolidPointsCopyOut");
         public static readonly int SolidPagesNameID = Shader.PropertyToID("_SolidPages");
-        
+
         public static readonly int TransparentPointsInNameID = Shader.PropertyToID("_TransparentPointsIn");
         public static readonly int TransparentPointsCopyOutNameID = Shader.PropertyToID("_TransparentPointsCopyOut");
         public static readonly int TransparentPagesNameID = Shader.PropertyToID("_TransparentPages");
-        
+
         public static readonly int FoliagePointsInNameID = Shader.PropertyToID("_FoliagePointsIn");
         public static readonly int FoliagePointsCopyOutNameID = Shader.PropertyToID("_FoliagePointsCopyOut");
         public static readonly int FoliagePagesNameID = Shader.PropertyToID("_FoliagePages");
-        
+
         public static readonly int PageCountsNameID = Shader.PropertyToID("_PageCounts");
 
         public static readonly int PointDataNameID = Shader.PropertyToID("_PointData");

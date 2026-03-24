@@ -1,4 +1,4 @@
-﻿﻿using System;
+﻿using System;
 using System.Collections.Generic;
 using Runtime.Engine.Data;
 using Runtime.Engine.Jobs;
@@ -228,10 +228,11 @@ namespace Runtime.Engine.Components
                 batch.Add(pos);
                 if (batch.Count >= maxCount) break;
             }
+
             foreach (int3 pos in batch) _gpuDirtyPartitions.Remove(pos);
             return batch;
         }
-        
+
         /// <summary>
         /// Manually marks a partition as dirty for GPU rebuild (for testing).
         /// </summary>

@@ -8,7 +8,8 @@ namespace Runtime.Engine.Utils.Logger
     /// </summary>
     public static class VoxelEngineLogger
     {
-        private static readonly string LOGTag = $"<color=#{ColorUtility.ToHtmlStringRGB(GetColor("Voxel"))}>[Voxel]</color> ";
+        private static readonly string LOGTag =
+            $"<color=#{ColorUtility.ToHtmlStringRGB(GetColor("Voxel"))}>[Voxel]</color> ";
 
         /// <summary>
         /// Creates a tag with a unique color derived from the given type.

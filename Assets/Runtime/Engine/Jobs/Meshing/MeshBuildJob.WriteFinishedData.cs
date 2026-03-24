@@ -9,7 +9,8 @@ namespace Runtime.Engine.Jobs.Meshing
 {
     internal partial struct MeshBuildJob
     {
-        private static readonly  Bounds Bounds = new((PartitionSize / (int3)2).GetVector3(), PartitionSize.GetVector3());
+        private static readonly Bounds Bounds = new((PartitionSize / (int3)2).GetVector3(), PartitionSize.GetVector3());
+
         private void WriteResults(int index, ref PartitionJobData jobData)
         {
             FillColliderMeshData(in jobData);
@@ -25,7 +26,7 @@ namespace Runtime.Engine.Jobs.Meshing
                 }
             );
         }
-        
+
         private void FillColliderMeshData(in PartitionJobData jobData)
         {
             MeshBuffer meshBuffer = jobData.MeshBuffer;

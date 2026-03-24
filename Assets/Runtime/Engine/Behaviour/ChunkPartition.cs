@@ -69,9 +69,9 @@ namespace Runtime.Engine.Behaviour
             if (!_initialized) return;
             bool isRendered = Mesh && Mesh.vertexCount > 2 && ShouldBeVisible;
             _renderer.enabled = false;
-             //isRendered;
+            //isRendered;
         }
-        
+
         public void ApplyColliderMesh()
         {
             Collider.sharedMesh = ColliderMesh;
@@ -83,7 +83,7 @@ namespace Runtime.Engine.Behaviour
             ColliderMesh.Clear();
             Collider.sharedMesh = null;
         }
-        
+
         public bool HasValidMesh() => Mesh && Mesh.vertexCount > 2;
 
 #if UNITY_EDITOR
@@ -95,13 +95,13 @@ namespace Runtime.Engine.Behaviour
 
         private void OnDrawGizmosSelected()
         {
-            if(!ShowPartitionGizmos) return;
-            
+            if (!ShowPartitionGizmos) return;
+
             Gizmos.color = Color.green;
-            
+
             if (Mesh.vertexCount < 3) Gizmos.color = Color.grey;
             else if (!_Collider.sharedMesh) Gizmos.color = Color.magenta;
-            
+
             Gizmos.DrawWireCube(
                 transform.position + PartitionSize.GetVector3() * 0.5f,
                 PartitionSize.GetVector3() * 0.95f

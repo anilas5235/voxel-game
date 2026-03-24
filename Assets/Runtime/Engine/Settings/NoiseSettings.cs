@@ -12,18 +12,22 @@ namespace Runtime.Engine.Settings
         /// Water surface level in world Y coordinates.
         /// </summary>
         public int WaterLevel = 96;
+
         /// <summary>
         /// Base noise scale.
         /// </summary>
         public float Scale = 256;
+
         /// <summary>
         /// Amplitude reduction per octave (persistence).
         /// </summary>
         public float Persistance = 0.5f;
+
         /// <summary>
         /// Frequency increase per octave (lacunarity).
         /// </summary>
         public float Lacunarity = 2f;
+
         /// <summary>
         /// Number of octaves.
         /// </summary>

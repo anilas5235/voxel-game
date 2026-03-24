@@ -21,7 +21,7 @@ namespace Runtime.Engine.Jobs
         private readonly DataJobStateHandler _dataJobHandler;
         private readonly MeshJobStateHandler _meshJobHandler;
         private readonly ColliderJobStateHandler _colliderJobHandler;
-        
+
         private SchedulerUpdate _currentUpdate;
 
         /// <summary>
@@ -45,7 +45,7 @@ namespace Runtime.Engine.Jobs
                 _colliderJobHandler);
             _dataJobHandler =
                 new DataJobStateHandler(settings, chunkManager, chunkPool, chunkScheduler, _meshJobHandler);
-            
+
             _currentUpdate = SchedulerUpdate.Data;
 
             _chunkManager.OnChunkRemeshRequested += OnRemesh;
@@ -69,10 +69,10 @@ namespace Runtime.Engine.Jobs
                     _colliderJobHandler.Update(focus);
                     break;
             }
-            
+
             _currentUpdate = (SchedulerUpdate)(((byte)_currentUpdate + 1) % 3);
         }
-        
+
         private enum SchedulerUpdate : byte
         {
             Data,

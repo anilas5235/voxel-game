@@ -8,7 +8,7 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using static Runtime.Engine.Utils.VoxelRenderConstants;
 
-namespace Test
+namespace Runtime.Engine.Components
 {
     public class RenderBufferManager : IDisposable
     {
@@ -102,7 +102,7 @@ namespace Test
 
             public void Draw(Material mat, Camera cam)
             {
-                if(_usedPageCount == 0) return;
+                if (_usedPageCount == 0) return;
                 _propertyBlock.SetBuffer(PointDataNameID, _buffer);
                 _propertyBlock.SetBuffer(PageStatesNameID, _pageStateBuffer);
                 _propertyBlock.SetInteger(PointsPerPageNameID, PageSize);
@@ -184,6 +184,7 @@ namespace Test
             public readonly int BufferIndex;
             public readonly int PageIndex;
             public readonly int PointCount;
+
             public AllocInfo(int bufferIndex, int pageIndex, int pointCount)
             {
                 BufferIndex = bufferIndex;
@@ -193,7 +194,7 @@ namespace Test
 
             public uint2 ToIndexAndCount() =>
                 new((uint)PageIndex, (uint)PointCount);
-            
+
             public int2 ToBufferAndPageIndex() =>
                 new(BufferIndex, PageIndex);
         }

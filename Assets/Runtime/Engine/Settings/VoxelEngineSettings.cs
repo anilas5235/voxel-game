@@ -12,18 +12,22 @@ namespace Runtime.Engine.Settings
         /// Global seed for deterministic world generation.
         /// </summary>
         public int Seed = 1337;
+
         /// <summary>
         /// Noise parameters (scale, persistence, etc.).
         /// </summary>
         public NoiseSettings Noise;
+
         /// <summary>
         /// Chunk related settings (dimensions, distances, prefabs).
         /// </summary>
         public ChunkSettings Chunk;
+
         /// <summary>
         /// Renderer options (shadows, materials).
         /// </summary>
         public RendererSettings Renderer;
+
         /// <summary>
         /// Scheduler batch sizes.
         /// </summary>

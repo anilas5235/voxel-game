@@ -109,6 +109,7 @@ namespace Runtime.Engine.VoxelConfig.Data
                 _quadTexPairs.Add(quadId | ((uint)texId << 16));
                 texPairsAdded++;
             }
+
             return new uint2((uint)baseIndex, (uint)texPairsAdded);
         }
 
@@ -172,7 +173,8 @@ namespace Runtime.Engine.VoxelConfig.Data
                 new NativeArray<VoxelRenderDef>(_idToVoxel.Count, Allocator.Domain);
 
             _voxelRenderDefBuffer?.Dispose();
-            _voxelRenderDefBuffer = new GraphicsBuffer(Target.Structured, _idToVoxel.Count, Marshal.SizeOf<GPUVoxelDef>());
+            _voxelRenderDefBuffer =
+                new GraphicsBuffer(Target.Structured, _idToVoxel.Count, Marshal.SizeOf<GPUVoxelDef>());
             GPUVoxelDef[] gpuVoxelDefData = new GPUVoxelDef[_idToVoxel.Count];
 
             for (int i = 0; i < _idToVoxel.Count; i++)
@@ -183,11 +185,12 @@ namespace Runtime.Engine.VoxelConfig.Data
             }
 
             _voxelRenderDefBuffer.SetData(gpuVoxelDefData);
-            
+
             _quadBuffer?.Dispose();
-            _quadBuffer = new GraphicsBuffer(Target.Structured, _quadRegistry.QuadArray.Length, Marshal.SizeOf<QuadDefinition.QuadData>());
+            _quadBuffer = new GraphicsBuffer(Target.Structured, _quadRegistry.QuadArray.Length,
+                Marshal.SizeOf<QuadDefinition.QuadData>());
             _quadBuffer.SetData(_quadRegistry.QuadArray);
-            
+
             _quadTexPairBuffer?.Dispose();
             _quadTexPairBuffer = new GraphicsBuffer(Target.Structured, _quadTexPairs.Count, sizeof(uint));
             _quadTexPairBuffer.SetData(_quadTexPairs.ToArray());

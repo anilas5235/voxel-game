@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using Runtime.Engine.Behaviour;
 using Runtime.Engine.Utils.Collections;
 using Runtime.Engine.Utils.Extensions;
 using Unity.Collections;
@@ -11,7 +12,7 @@ namespace Test
 {
     public class WorldRenderTest : MonoBehaviour
     {
-        [SerializeField] private VoxelWorldRender vWRenderer;
+        [SerializeField] private VoxelWorldRenderer vWRenderer;
         private UnsafeIntervalList<ushort> _voxels;
         private UnsafeIntervalList<ushort> _voxels2;
 

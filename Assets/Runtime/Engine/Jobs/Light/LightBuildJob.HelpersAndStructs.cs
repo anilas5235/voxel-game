@@ -15,16 +15,17 @@ namespace Runtime.Engine.Jobs.Light
             public bool HasNoSolid;
 
             public NativeHashSet<int3> SunlightSeeds;
-            
+
             public NativeHashMap<int3, byte> LightDataMap;
             public NativeHashSet<int3> SeeThroughVoxels;
+
             public LightJobData(int3 partition)
             {
                 PartitionPos = partition;
                 HasNoSolid = true;
                 SunlightSeeds = new NativeHashSet<int3>();
                 SeeThroughVoxels = new NativeHashSet<int3>();
-                LightDataMap = new NativeHashMap<int3, byte>(VoxelsPerPartition/2, Allocator.TempJob);
+                LightDataMap = new NativeHashMap<int3, byte>(VoxelsPerPartition / 2, Allocator.TempJob);
             }
 
 

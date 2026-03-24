@@ -42,7 +42,7 @@ namespace Runtime.Engine.Jobs.Chunk
                 ushort surface = vox[ChunkSize.Flatten(x, gy, z)];
                 if (surface == 0) continue;
 
-                TryPlaceBiomeVegetation(ref vox, ref chunkColumns,  ref config, surface, x, gy, z, biome,
+                TryPlaceBiomeVegetation(ref vox, ref chunkColumns, ref config, surface, x, gy, z, biome,
                     ref rng);
             }
         }
@@ -66,7 +66,7 @@ namespace Runtime.Engine.Jobs.Chunk
                     {
                         int h = rng.NextInt(5, 9);
                         ushort chosenLog = rng.NextInt(0, 100) < 75 ? config.LogOak : config.LogBirch;
-                        if (CanPlaceTree(ref vox, x, gy + 1, z,  config.LogOak, config.LogBirch))
+                        if (CanPlaceTree(ref vox, x, gy + 1, z, config.LogOak, config.LogBirch))
                         {
                             PlaceTree(ref vox, x, gy + 1, z, h, chosenLog, ref rng, ref config);
                         }
@@ -345,7 +345,8 @@ namespace Runtime.Engine.Jobs.Chunk
         /// <param name="cz">Z coordinate of the trunk base in chunk space.</param>
         /// <param name="rng">Random generator used to vary palm height and leaf placement.</param>
         /// <param name="config">Generator configuration providing log and leaf voxel IDs.</param>
-        private static void PlacePalm(ref NativeArray<ushort> vox, int cx, int cy, int cz, ref Random rng, ref GeneratorConfig config)
+        private static void PlacePalm(ref NativeArray<ushort> vox, int cx, int cy, int cz, ref Random rng,
+            ref GeneratorConfig config)
         {
             ushort log = config.LogOak;
             ushort leaves = config.Leaves;

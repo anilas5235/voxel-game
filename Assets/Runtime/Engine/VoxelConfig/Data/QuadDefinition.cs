@@ -30,7 +30,7 @@ namespace Runtime.Engine.VoxelConfig.Data
                 uv03 = uv03.Float2()
             };
         }
-        
+
         public struct QuadData
         {
             public float3 position00; // vertex offset from voxel origin

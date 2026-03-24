@@ -15,11 +15,13 @@ namespace Runtime.Engine.Settings
         /// </summary>
         [Tooltip("Number of chunks to process per update for meshing")]
         public int MeshingBatchSize = 4;
+
         /// <summary>
         /// Number of chunks processed per update for data streaming/generation.
         /// </summary>
         [Tooltip("Number of chunks to process per update for streaming")]
         public int StreamingBatchSize = 8;
+
         /// <summary>
         /// Number of chunks processed per update for collider generation.
         /// </summary>

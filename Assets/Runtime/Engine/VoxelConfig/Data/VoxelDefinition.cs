@@ -114,10 +114,11 @@ namespace Runtime.Engine.VoxelConfig.Data
             foreach (VoxelQuad quad in shape.quads)
             {
                 if (quad.drawCondition != condition) continue;
-                Texture2D tex = FindTex(quad,condition);
+                Texture2D tex = FindTex(quad, condition);
                 if (!tex) continue;
                 result.Add((quad.quadDef, tex));
             }
+
             return result;
         }
 
@@ -151,8 +152,10 @@ namespace Runtime.Engine.VoxelConfig.Data
                     QuadDrawCondition.Right => right,
                     _ => null
                 },
-                VoxelTexMode.AllUnique => allUnique != null && allUnique.TryGetValue(quad.quadDef, out Texture2D tex) ? tex : null,
-                    _ => null
+                VoxelTexMode.AllUnique => allUnique != null && allUnique.TryGetValue(quad.quadDef, out Texture2D tex)
+                    ? tex
+                    : null,
+                _ => null
             };
         }
     }
