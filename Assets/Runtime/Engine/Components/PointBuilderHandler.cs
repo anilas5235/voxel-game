@@ -9,6 +9,8 @@ using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Rendering;
+using static Runtime.Engine.Utils.VoxelRenderConstants;
+using static UnityEngine.GraphicsBuffer;
 
 namespace Runtime.Engine.Components
 {
@@ -39,12 +41,12 @@ namespace Runtime.Engine.Components
             _pointBuilderKernelID = pointBuilder.FindKernel("RebuildPoints");
 
             int vSize = Marshal.SizeOf<Vertex>();
-            SolidPointsOut = new GraphicsBuffer(GraphicsBuffer.Target.Append, VoxelRenderConstants.MaxPointsPerPartition, vSize);
-            TransparentPointsOut = new GraphicsBuffer(GraphicsBuffer.Target.Append, VoxelRenderConstants.MaxPointsPerPartition, vSize);
-            FoliagePointsOut = new GraphicsBuffer(GraphicsBuffer.Target.Append, VoxelRenderConstants.MaxPointsPerPartition, vSize);
+            SolidPointsOut = new GraphicsBuffer(Target.Append, MaxPointsPerPartition, vSize);
+            TransparentPointsOut = new GraphicsBuffer(Target.Append, MaxPointsPerPartition, vSize);
+            FoliagePointsOut = new GraphicsBuffer(Target.Append, MaxPointsPerPartition, vSize);
 
-            _metadata = new GraphicsBuffer(GraphicsBuffer.Target.Structured, 1, Marshal.SizeOf<PartitionMetadata>());
-            _readBackCountBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Raw, 3, sizeof(uint));
+            _metadata = new GraphicsBuffer(Target.Structured, 1, Marshal.SizeOf<PartitionMetadata>());
+            _readBackCountBuffer = new GraphicsBuffer(Target.Raw, 3, sizeof(uint));
             _counts = new NativeArray<uint>(_readBackCountBuffer.count, Allocator.Domain);
         }
 
@@ -57,21 +59,21 @@ namespace Runtime.Engine.Components
             };
             _metadata.SetData(new[] { meta });
 
-            _pointBuilder.SetBuffer(_pointBuilderKernelID, VoxelRenderConstants.VoxelRenderDefNameID, _voxelRenderDefBuffer);
-            _pointBuilder.SetInt(VoxelRenderConstants.VoxelRenderDefCountNameID, _voxelRenderDefBuffer.count);
+            _pointBuilder.SetBuffer(_pointBuilderKernelID, VoxelRenderDefNameID, _voxelRenderDefBuffer);
+            _pointBuilder.SetInt(VoxelRenderDefCountNameID, _voxelRenderDefBuffer.count);
 
-            _pointBuilder.SetBuffer(_pointBuilderKernelID, VoxelRenderConstants.VoxelQuadTexPairNameID, _voxelQuadTexPairBuffer);
-            _pointBuilder.SetInt(VoxelRenderConstants.VoxelQuadTexPairCountNameID, _voxelQuadTexPairBuffer.count);
+            _pointBuilder.SetBuffer(_pointBuilderKernelID, VoxelQuadTexPairNameID, _voxelQuadTexPairBuffer);
+            _pointBuilder.SetInt(VoxelQuadTexPairCountNameID, _voxelQuadTexPairBuffer.count);
 
-            _pointBuilder.SetBuffer(_pointBuilderKernelID, VoxelRenderConstants.VoxelDataNameID, voxelData);
-            _pointBuilder.SetInt(VoxelRenderConstants.VoxelCompressedCountNameID, voxelData.count);
+            _pointBuilder.SetBuffer(_pointBuilderKernelID, VoxelDataNameID, voxelData);
+            _pointBuilder.SetInt(VoxelCompressedCountNameID, voxelData.count);
 
-            _pointBuilder.SetBuffer(_pointBuilderKernelID, VoxelRenderConstants.MetadataNameID, _metadata);
-            _pointBuilder.SetBuffer(_pointBuilderKernelID, VoxelRenderConstants.SolidPointsOutNameID, SolidPointsOut);
-            _pointBuilder.SetBuffer(_pointBuilderKernelID, VoxelRenderConstants.TransparentPointsOutNameID, TransparentPointsOut);
-            _pointBuilder.SetBuffer(_pointBuilderKernelID, VoxelRenderConstants.FoliagePointsOutNameID, FoliagePointsOut);
+            _pointBuilder.SetBuffer(_pointBuilderKernelID, MetadataNameID, _metadata);
+            _pointBuilder.SetBuffer(_pointBuilderKernelID, SolidPointsOutNameID, SolidPointsOut);
+            _pointBuilder.SetBuffer(_pointBuilderKernelID, TransparentPointsOutNameID, TransparentPointsOut);
+            _pointBuilder.SetBuffer(_pointBuilderKernelID, FoliagePointsOutNameID, FoliagePointsOut);
 
-            _pointBuilder.SetInt(VoxelRenderConstants.PartitionIndexNameID, 0);
+            _pointBuilder.SetInt(PartitionIndexNameID, 0);
 
             _pointBuilder.Dispatch(_pointBuilderKernelID, 4, 4, 4);
         }
@@ -80,12 +82,14 @@ namespace Runtime.Engine.Components
         {
             try
             {
-                GraphicsBuffer.CopyCount(SolidPointsOut, _readBackCountBuffer, sizeof(uint) * 0);
-                GraphicsBuffer.CopyCount(TransparentPointsOut, _readBackCountBuffer, sizeof(uint) * 1);
-                GraphicsBuffer.CopyCount(FoliagePointsOut, _readBackCountBuffer, sizeof(uint) * 2);
+                CopyCount(SolidPointsOut, _readBackCountBuffer, sizeof(uint) * 0);
+                CopyCount(TransparentPointsOut, _readBackCountBuffer, sizeof(uint) * 1);
+                CopyCount(FoliagePointsOut, _readBackCountBuffer, sizeof(uint) * 2);
 
                 await AsyncGPUReadback.RequestIntoNativeArrayAsync(ref _counts, _readBackCountBuffer);
-                return _counts.Select(c => (int)c).ToArray();
+                int[] results = _counts.Select(c => (int)c).ToArray();
+                ResetCounters();
+                return results;
             }
             catch (Exception e)
             {
@@ -94,7 +98,7 @@ namespace Runtime.Engine.Components
             }
         }
 
-        public void ResetCounters()
+        private void ResetCounters()
         {
             SolidPointsOut.SetCounterValue(0);
             TransparentPointsOut.SetCounterValue(0);

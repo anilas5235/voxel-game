@@ -44,9 +44,14 @@ namespace Runtime.Engine.Utils
         public static readonly int FoliagePagesNameID = Shader.PropertyToID("_FoliagePages");
 
         public static readonly int PageCountsNameID = Shader.PropertyToID("_PageCounts");
+        public static readonly int CountsPerPageNameID = Shader.PropertyToID("_CountsPerPage");
 
         public static readonly int PointDataNameID = Shader.PropertyToID("_PointData");
         public static readonly int IndexBufferNameID = Shader.PropertyToID("_IndexBuffer");
+        public static readonly int ArgsBufferNameID = Shader.PropertyToID("_ArgsBuffer");
+        public static readonly int TotalPointCountNameID = Shader.PropertyToID("_TotalPointCount");
         public static readonly int PointsPerPageNameID = Shader.PropertyToID("_PointsPerPage");
+        public static readonly int PagesPerBufferNameID = Shader.PropertyToID("_PagesPerBuffer");
+        
     }
 }

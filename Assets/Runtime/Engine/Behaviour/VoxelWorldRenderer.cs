@@ -22,7 +22,7 @@ namespace Runtime.Engine.Behaviour
         public ComputeShader pointBuilder;
         public ComputeShader copyPoints;
         public ComputeShader rebuildBuffers;
-        
+
         private int _pointBuilderKernelID;
         private int _copyKernelID;
 
@@ -37,9 +37,9 @@ namespace Runtime.Engine.Behaviour
 
         private void Awake()
         {
-            _solidBufferManager = new RenderBufferManager(solidMaterial);
-            _transparentBufferManager = new RenderBufferManager(transparentMaterial);
-            _foliageBufferManager = new RenderBufferManager(foliageMaterial);
+            _solidBufferManager = new RenderBufferManager(solidMaterial, rebuildBuffers);
+            _transparentBufferManager = new RenderBufferManager(transparentMaterial, rebuildBuffers);
+            _foliageBufferManager = new RenderBufferManager(foliageMaterial, rebuildBuffers);
 
             VoxelRegistry voxelRegistry = VoxelDataImporter.Instance.VoxelRegistry;
             _pointBuilderHandler = new PointBuilderHandler(

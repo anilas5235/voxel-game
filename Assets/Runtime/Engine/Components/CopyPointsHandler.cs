@@ -97,8 +97,6 @@ namespace Runtime.Engine.Components
             if (maxPageCount <= 0) return;
 
             _copyPoints.Dispatch(_copyKernelID, Mathf.CeilToInt(maxPageCount / 8f), 1, 1);
-
-            pointBuilderHandler.ResetCounters();
         }
 
         public void Dispose()
