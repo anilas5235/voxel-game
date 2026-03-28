@@ -2,10 +2,11 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
-using Runtime.Engine.Utils;
 using Runtime.Engine.Utils.Logger;
 using Unity.Mathematics;
 using UnityEngine;
+using static Runtime.Engine.Utils.VoxelRenderConstants;
+using static UnityEngine.GraphicsBuffer;
 
 namespace Runtime.Engine.Components
 {
@@ -31,17 +32,17 @@ namespace Runtime.Engine.Components
             _transparentBufferManager = transparentBufferManager;
             _foliageBufferManager = foliageBufferManager;
 
-            _pageCountsBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, 3, sizeof(uint));
-            _solidPagesBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, RenderBufferManager.PagesPerBuffer, Marshal.SizeOf<uint2>());
-            _transparentPagesBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, RenderBufferManager.PagesPerBuffer, Marshal.SizeOf<uint2>());
-            _foliagePagesBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, RenderBufferManager.PagesPerBuffer, Marshal.SizeOf<uint2>());
+            _pageCountsBuffer = new GraphicsBuffer(Target.Structured, 3, sizeof(uint));
+            _solidPagesBuffer = new GraphicsBuffer(Target.Structured, PagesPerBuffer, Marshal.SizeOf<uint2>());
+            _transparentPagesBuffer = new GraphicsBuffer(Target.Structured, PagesPerBuffer, Marshal.SizeOf<uint2>());
+            _foliagePagesBuffer = new GraphicsBuffer(Target.Structured, PagesPerBuffer, Marshal.SizeOf<uint2>());
         }
 
         internal void CopyJob(PointBuilderHandler pointBuilderHandler, int3 partition, int[] counts)
         {
-            List<RenderBufferManager.AllocInfo> solidAlloc = _solidBufferManager.AllocBufferSpace(partition, counts[0]);
-            List<RenderBufferManager.AllocInfo> transparentAlloc = _transparentBufferManager.AllocBufferSpace(partition, counts[1]);
-            List<RenderBufferManager.AllocInfo> foliageAlloc = _foliageBufferManager.AllocBufferSpace(partition, counts[2]);
+            List<AllocInfo> solidAlloc = _solidBufferManager.AllocBufferSpace(partition, counts[0]);
+            List<AllocInfo> transparentAlloc = _transparentBufferManager.AllocBufferSpace(partition, counts[1]);
+            List<AllocInfo> foliageAlloc = _foliageBufferManager.AllocBufferSpace(partition, counts[2]);
 
             VoxelEngineLogger.Info<CopyPointsHandler>(
                 $"Copying points for partition {partition}. Solid pages: {solidAlloc.Count}, Transparent pages: {transparentAlloc.Count}, Foliage pages: {foliageAlloc.Count}");
@@ -60,10 +61,10 @@ namespace Runtime.Engine.Components
                 uint2[] solidPageData = solidAlloc.Select(a => a.ToIndexAndCount()).ToArray();
                 _solidPagesBuffer.SetData(solidPageData);
 
-                _copyPoints.SetBuffer(_copyKernelID, VoxelRenderConstants.SolidPointsInNameID, pointBuilderHandler.SolidPointsOut);
-                _copyPoints.SetBuffer(_copyKernelID, VoxelRenderConstants.SolidPointsCopyOutNameID,
+                _copyPoints.SetBuffer(_copyKernelID, SolidPointsInNameID, pointBuilderHandler.SolidPointsOut);
+                _copyPoints.SetBuffer(_copyKernelID, SolidPointsCopyOutNameID,
                     _solidBufferManager.GetBuffer(solidAlloc[0].BufferIndex));
-                _copyPoints.SetBuffer(_copyKernelID, VoxelRenderConstants.SolidPagesNameID, _solidPagesBuffer);
+                _copyPoints.SetBuffer(_copyKernelID, SolidPagesNameID, _solidPagesBuffer);
             }
 
             if (transparentPagesCount > 0)
@@ -71,11 +72,11 @@ namespace Runtime.Engine.Components
                 uint2[] transparentPageData = transparentAlloc.Select(a => a.ToIndexAndCount()).ToArray();
                 _transparentPagesBuffer.SetData(transparentPageData);
 
-                _copyPoints.SetBuffer(_copyKernelID, VoxelRenderConstants.TransparentPointsInNameID,
+                _copyPoints.SetBuffer(_copyKernelID, TransparentPointsInNameID,
                     pointBuilderHandler.TransparentPointsOut);
-                _copyPoints.SetBuffer(_copyKernelID, VoxelRenderConstants.TransparentPointsCopyOutNameID,
+                _copyPoints.SetBuffer(_copyKernelID, TransparentPointsCopyOutNameID,
                     _transparentBufferManager.GetBuffer(transparentAlloc[0].BufferIndex));
-                _copyPoints.SetBuffer(_copyKernelID, VoxelRenderConstants.TransparentPagesNameID, _transparentPagesBuffer);
+                _copyPoints.SetBuffer(_copyKernelID, TransparentPagesNameID, _transparentPagesBuffer);
             }
 
             if (foliagePagesCount > 0)
@@ -83,13 +84,13 @@ namespace Runtime.Engine.Components
                 uint2[] foliagePageData = foliageAlloc.Select(a => a.ToIndexAndCount()).ToArray();
                 _foliagePagesBuffer.SetData(foliagePageData);
 
-                _copyPoints.SetBuffer(_copyKernelID, VoxelRenderConstants.FoliagePointsInNameID, pointBuilderHandler.FoliagePointsOut);
-                _copyPoints.SetBuffer(_copyKernelID, VoxelRenderConstants.FoliagePointsCopyOutNameID,
+                _copyPoints.SetBuffer(_copyKernelID, FoliagePointsInNameID, pointBuilderHandler.FoliagePointsOut);
+                _copyPoints.SetBuffer(_copyKernelID, FoliagePointsCopyOutNameID,
                     _foliageBufferManager.GetBuffer(foliageAlloc[0].BufferIndex));
-                _copyPoints.SetBuffer(_copyKernelID, VoxelRenderConstants.FoliagePagesNameID, _foliagePagesBuffer);
+                _copyPoints.SetBuffer(_copyKernelID, FoliagePagesNameID, _foliagePagesBuffer);
 
-                _copyPoints.SetBuffer(_copyKernelID, VoxelRenderConstants.PageCountsNameID, _pageCountsBuffer);
-                _copyPoints.SetInt(VoxelRenderConstants.PointsPerPageNameID, RenderBufferManager.PointsPerPage);
+                _copyPoints.SetBuffer(_copyKernelID, PageCountsNameID, _pageCountsBuffer);
+                _copyPoints.SetInt(PointsPerPageNameID, PointsPerPage);
             }
 
             int maxPageCount = math.max(solidPagesCount, math.max(transparentPagesCount, foliagePagesCount));

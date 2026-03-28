@@ -12,155 +12,178 @@ using static Runtime.Engine.Utils.VoxelRenderConstants;
 
 namespace Runtime.Engine.Components
 {
+    internal class RenderBuffer : IDisposable
+    {
+        private static readonly uint[] DefaultArgs = { 0u, 1u, 0u, 0u, 0u };
+
+        private readonly RenderBufferManager _manager;
+        private readonly GraphicsBuffer _buffer;
+        private uint _totalValidPoints;
+        private readonly GraphicsBuffer _argsBuffer;
+        private readonly GraphicsBuffer _indexBuffer;
+        private readonly MaterialPropertyBlock _propertyBlock;
+
+
+        private NativeArray<uint> _indices;
+        private NativeArray<uint> _pagesPointCounts;
+
+        private bool _stateBufferDirty;
+        private int _usedPageCount;
+
+        private int _lastFreePageIndex;
+
+        public GraphicsBuffer Buffer => _buffer;
+        public int FreePages => PagesPerBuffer - _usedPageCount;
+
+        public RenderBuffer(RenderBufferManager manager)
+        {
+            _manager = manager;
+            _buffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, RenderBufferSize,
+                Marshal.SizeOf<Vertex>());
+            _argsBuffer = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, 5, sizeof(uint));
+            _argsBuffer.SetData(DefaultArgs);
+            _indexBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, RenderBufferSize,
+                Marshal.SizeOf<uint>());
+            _indices = new NativeArray<uint>(RenderBufferSize, Allocator.Domain);
+
+            _propertyBlock = new MaterialPropertyBlock();
+
+            _pagesPointCounts = new NativeArray<uint>(PagesPerBuffer, Allocator.Domain);
+            _lastFreePageIndex = 0;
+        }
+
+        private bool IsPageFree(int index) => _pagesPointCounts[index] == 0;
+        private bool IsPageNotFree(int index) => _pagesPointCounts[index] != 0;
+
+        private void SetPageCount(int index, uint count)
+        {
+            _totalValidPoints -= _pagesPointCounts[index];
+            _totalValidPoints += count;
+            _pagesPointCounts[index] = count;
+        }
+
+        internal void SetPage(in AllocInfo allocInfo)
+        {
+            int index = allocInfo.PageIndex;
+            int count = allocInfo.PointCount;
+            ValidOrThrow(index);
+            if (count < 0) throw new ArgumentOutOfRangeException(nameof(count));
+            if (IsPageFree(index)) _usedPageCount++;
+
+            SetPageCount(index, (uint)count);
+            _stateBufferDirty = true;
+        }
+
+        public void ClearPage(int index)
+        {
+            ValidOrThrow(index);
+            if (IsPageNotFree(index)) _usedPageCount--;
+            SetPageCount(index, 0);
+            _stateBufferDirty = true;
+        }
+
+        private static void ValidOrThrow(int index)
+        {
+            if (index is < 0 or >= PagesPerBuffer) throw new ArgumentOutOfRangeException(nameof(index));
+        }
+
+        public void Draw(Material mat, Camera cam)
+        {
+            if (_usedPageCount == 0) return;
+            _propertyBlock.SetBuffer(PointDataNameID, _buffer);
+            _propertyBlock.SetBuffer(IndexBufferNameID, _indexBuffer);
+            Graphics.DrawProceduralIndirect(
+                mat,
+                new Bounds(Vector3.zero, Vector3.one * 100000),
+                MeshTopology.Triangles,
+                _argsBuffer,
+                0,
+                cam,
+                _propertyBlock,
+                ShadowCastingMode.Off,
+                false
+            );
+        }
+
+        public void RebuildBuffers()
+        {
+            double startTime = Time.realtimeSinceStartupAsDouble;
+            if (!_stateBufferDirty) return;
+
+            uint offset = 0;
+            int writeIndex = 0;
+
+            for (int pageIndex = 0; pageIndex < PagesPerBuffer; pageIndex++)
+            {
+                uint count = _pagesPointCounts[pageIndex];
+                for (int i = 0; i < count; i++)
+                {
+                    _indices[writeIndex++] = ++offset;
+                }
+
+                offset += PointsPerPage - count;
+            }
+
+            _indexBuffer.SetData(_indices);
+            VoxelEngineLogger.Info<RenderBuffer>(
+                $"RebuildBuffers: Updated index buffer with {_totalValidPoints} valid points in {(Time.realtimeSinceStartupAsDouble - startTime) * 1000:F4} ms.");
+            uint[] tempArgs = DefaultArgs;
+            tempArgs[0] = _totalValidPoints * 6u;
+            VoxelEngineLogger.Info<RenderBuffer>(
+                $"Rebuilding RenderBuffer. Total Valid Points: {_totalValidPoints}, Total Pages Used: {_usedPageCount}");
+            VoxelEngineLogger.Info<RenderBuffer>($"Args: {string.Join(", ", tempArgs)}");
+            _argsBuffer.SetData(tempArgs);
+            _stateBufferDirty = false;
+        }
+
+        public void Dispose()
+        {
+            _buffer?.Dispose();
+            _argsBuffer?.Dispose();
+            _indexBuffer?.Dispose();
+            _indices.Dispose();
+        }
+
+        public bool TryFindFreePage(out int pageIndex)
+        {
+            for (int i = _lastFreePageIndex; i < PagesPerBuffer; i++)
+            {
+                int index = i % PagesPerBuffer;
+                if (IsPageNotFree(index)) continue;
+
+                pageIndex = index;
+                _lastFreePageIndex = index;
+                return true;
+            }
+
+            pageIndex = -1;
+            return false;
+        }
+    }
+
+    public readonly struct AllocInfo
+    {
+        public readonly int BufferIndex;
+        public readonly int PageIndex;
+        public readonly int PointCount;
+
+        public AllocInfo(int bufferIndex, int pageIndex, int pointCount)
+        {
+            BufferIndex = bufferIndex;
+            PageIndex = pageIndex;
+            PointCount = pointCount;
+        }
+
+        public uint2 ToIndexAndCount() =>
+            new((uint)PageIndex, (uint)PointCount);
+
+        public int2 ToBufferAndPageIndex() =>
+            new(BufferIndex, PageIndex);
+    }
+
     public class RenderBufferManager : IDisposable
     {
-        private const int RenderBufferSize = PointsPerPage * PagesPerBuffer;
-        internal const int PointsPerPage = 256;
-        internal const int PagesPerBuffer = 2048;
-
-        private class RenderBuffer : IDisposable
-        {
-            private static readonly uint[] DefaultArgs = { 0u, 1u, 0u, 0u, 0u };
-            private readonly GraphicsBuffer _buffer;
-            private uint _totalValidPoints;
-            private readonly GraphicsBuffer _argsBuffer;
-            private readonly GraphicsBuffer _indexBuffer;
-            private readonly MaterialPropertyBlock _propertyBlock;
-            
-            private NativeArray<uint> _indices;
-            private NativeArray<uint> _pagesPointCounts;
-
-            private bool _stateBufferDirty;
-            private int _usedPageCount;
-
-            private int _lastFreePageIndex;
-
-            public GraphicsBuffer Buffer => _buffer;
-            public int FreePages => PagesPerBuffer - _usedPageCount;
-
-            public RenderBuffer()
-            {
-                _buffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, RenderBufferSize,
-                    Marshal.SizeOf<Vertex>());
-                _argsBuffer = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, 5, sizeof(uint));
-                _argsBuffer.SetData(DefaultArgs);
-                _indexBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, RenderBufferSize,
-                    Marshal.SizeOf<uint>());
-                _indices = new NativeArray<uint>(RenderBufferSize, Allocator.Domain);
-
-                _propertyBlock = new MaterialPropertyBlock();
-
-                _pagesPointCounts = new NativeArray<uint>(PagesPerBuffer, Allocator.Domain);
-                _lastFreePageIndex = 0;
-            }
-            
-            private bool IsPageFree(int index) => _pagesPointCounts[index] == 0;
-            private bool IsPageNotFree(int index) => _pagesPointCounts[index] != 0;
-
-            private void SetPageCount(int index, uint count)
-            {
-                _totalValidPoints -= _pagesPointCounts[index];
-                _totalValidPoints += count;
-                _pagesPointCounts[index] = count;
-            }
-
-            internal void SetPage(in AllocInfo allocInfo)
-            {
-                int index = allocInfo.PageIndex;
-                int count = allocInfo.PointCount;
-                ValidOrThrow(index);
-                if (count < 0) throw new ArgumentOutOfRangeException(nameof(count));
-                if (IsPageFree(index)) _usedPageCount++;
-
-                SetPageCount(index, (uint)count);
-                _stateBufferDirty = true;
-            }
-
-            public void ClearPage(int index)
-            {
-                ValidOrThrow(index);
-                if (IsPageNotFree(index)) _usedPageCount--;
-                SetPageCount(index, 0);
-                _stateBufferDirty = true;
-            }
-
-            private static void ValidOrThrow(int index)
-            {
-                if (index is < 0 or >= PagesPerBuffer) throw new ArgumentOutOfRangeException(nameof(index));
-            }
-
-            public void Draw(Material mat, Camera cam)
-            {
-                if (_usedPageCount == 0) return;
-                _propertyBlock.SetBuffer(PointDataNameID, _buffer);
-                _propertyBlock.SetBuffer(IndexBufferNameID, _indexBuffer);
-                Graphics.DrawProceduralIndirect(
-                    mat,
-                    new Bounds(Vector3.zero, Vector3.one * 100000),
-                    MeshTopology.Triangles,
-                    _argsBuffer,
-                    0,
-                    cam,
-                    _propertyBlock,
-                    ShadowCastingMode.Off,
-                    false
-                );
-            }
-
-            public void RebuildBuffers()
-            {
-                double startTime = Time.realtimeSinceStartupAsDouble;
-                if (!_stateBufferDirty) return;
-                
-                uint offset = 0;
-                int writeIndex = 0;
-
-                for (int pageIndex = 0; pageIndex < PagesPerBuffer; pageIndex++)
-                {
-                    uint count = _pagesPointCounts[pageIndex];
-                    for (int i = 0; i < count; i++)
-                    {
-                        _indices[writeIndex++] = ++offset;
-                    }
-
-                    offset += PointsPerPage - count;
-                }
-
-                _indexBuffer.SetData(_indices);
-                VoxelEngineLogger.Info<RenderBuffer>($"RebuildBuffers: Updated index buffer with {_totalValidPoints} valid points in {(Time.realtimeSinceStartupAsDouble - startTime)*1000:F4} ms.");
-                uint[] tempArgs = DefaultArgs;
-                tempArgs[0] = _totalValidPoints * 6u;
-                VoxelEngineLogger.Info<RenderBuffer>(
-                    $"Rebuilding RenderBuffer. Total Valid Points: {_totalValidPoints}, Total Pages Used: {_usedPageCount}");
-                VoxelEngineLogger.Info<RenderBuffer>($"Args: {string.Join(", ", tempArgs)}");
-                _argsBuffer.SetData(tempArgs);
-                _stateBufferDirty = false;
-            }
-
-            public void Dispose()
-            {
-                _buffer?.Dispose();
-                _argsBuffer?.Dispose();
-                _indexBuffer?.Dispose();
-                _indices.Dispose();
-            }
-
-            public bool TryFindFreePage(out int pageIndex)
-            {
-                for (int i = _lastFreePageIndex; i < PagesPerBuffer; i++)
-                {
-                    int index = i % PagesPerBuffer;
-                    if (IsPageNotFree(index)) continue;
-
-                    pageIndex = index;
-                    _lastFreePageIndex = index;
-                    return true;
-                }
-
-                pageIndex = -1;
-                return false;
-            }
-        }
+        internal ComputeShader RebuildBufferShader { get; private set; }
 
         private readonly List<RenderBuffer> _buffers = new();
         private readonly Dictionary<int3, List<int2>> _partitionAllocations = new();
@@ -170,10 +193,7 @@ namespace Runtime.Engine.Components
         public RenderBufferManager(Material mat, int initialBuffers = 1)
         {
             _material = mat;
-            for (int i = 0; i < initialBuffers; i++)
-            {
-                AddNewBuffer();
-            }
+            for (int i = 0; i < initialBuffers; i++) AddNewBuffer();
         }
 
         public int RemainingPages => _buffers.Sum(b => b.FreePages);
@@ -181,26 +201,6 @@ namespace Runtime.Engine.Components
         public void Draw(Camera cam)
         {
             foreach (RenderBuffer renderBuffer in _buffers) renderBuffer.Draw(_material, cam);
-        }
-
-        public readonly struct AllocInfo
-        {
-            public readonly int BufferIndex;
-            public readonly int PageIndex;
-            public readonly int PointCount;
-
-            public AllocInfo(int bufferIndex, int pageIndex, int pointCount)
-            {
-                BufferIndex = bufferIndex;
-                PageIndex = pageIndex;
-                PointCount = pointCount;
-            }
-
-            public uint2 ToIndexAndCount() =>
-                new((uint)PageIndex, (uint)PointCount);
-
-            public int2 ToBufferAndPageIndex() =>
-                new(BufferIndex, PageIndex);
         }
 
         public List<AllocInfo> AllocBufferSpace(int3 partitionPos, int pointCount)
@@ -282,22 +282,16 @@ namespace Runtime.Engine.Components
 
         private int AddNewBuffer()
         {
-            _buffers.Add(new RenderBuffer());
+            _buffers.Add(new RenderBuffer(this));
             VoxelEngineLogger.Info<RenderBufferManager>($"Added new RenderBuffer. Total buffers: {_buffers.Count}");
             return _buffers.Count - 1;
         }
 
         public void Dispose()
         {
-            if (_isDisposed)
-            {
-                return;
-            }
+            if (_isDisposed) return;
 
-            foreach (RenderBuffer buffer in _buffers)
-            {
-                buffer.Dispose();
-            }
+            foreach (RenderBuffer buffer in _buffers) buffer.Dispose();
 
             _buffers.Clear();
             _partitionAllocations.Clear();
