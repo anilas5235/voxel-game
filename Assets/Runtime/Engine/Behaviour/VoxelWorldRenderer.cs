@@ -72,10 +72,7 @@ namespace Runtime.Engine.Behaviour
             _transparentBufferManager.Dispose();
             _foliageBufferManager.Dispose();
 
-            foreach (GraphicsBuffer buffer in _voxelDataBuffers.Values)
-            {
-                buffer.Dispose();
-            }
+            foreach (GraphicsBuffer buffer in _voxelDataBuffers.Values) buffer.Dispose();
 
             _voxelDataBuffers.Clear();
         }
@@ -108,7 +105,7 @@ namespace Runtime.Engine.Behaviour
             if (voxelData.Length != VoxelsPerChunk) throw new Exception("Voxel data length mismatch!");
             GraphicsBuffer dataBuffer = new(Target.Structured, voxelData.CompressedLength, Marshal.SizeOf<uint2>());
             dataBuffer.SetData(intervalData);
-            _voxelDataBuffers.Add(chunk, dataBuffer);
+            _voxelDataBuffers[chunk] = dataBuffer;
         }
 
         public async Awaitable<HashSet<int3>> UpdatePartitions(HashSet<int3> partitions)
@@ -116,10 +113,14 @@ namespace Runtime.Engine.Behaviour
             HashSet<int3> updatedPartitions = new();
             foreach (int3 partition in partitions)
             {
+                if (!_voxelDataBuffers.TryGetValue(PartitionToChunkPos(partition), out GraphicsBuffer dataBuffer))
+                {
+                    if (Logging) VoxelEngineLogger.Error<VoxelWorldRenderer>($"Voxel data buffer for partition {partition} not found.");
+                    continue;
+                }
+
                 try
                 {
-                    if (!_voxelDataBuffers.TryGetValue(PartitionToChunkPos(partition), out GraphicsBuffer dataBuffer))
-                        throw new Exception($"Voxel data buffer for partition {partition} not found.");
                     int[] counts = await _pointBuilderHandler.BuildPoints(partition, dataBuffer);
                     if(Logging)VoxelEngineLogger.Info<VoxelWorldRenderer>(
                         $"Partition {partition}: Solid={counts[0]}, Transparent={counts[1]}, Foliage={counts[2]}");
@@ -132,9 +133,12 @@ namespace Runtime.Engine.Behaviour
                 }
             }
 
-            _solidBufferManager.RebuildBuffers();
-            _transparentBufferManager.RebuildBuffers();
-            _foliageBufferManager.RebuildBuffers();
+            if (updatedPartitions.Count > 0)
+            {
+                _solidBufferManager.RebuildBuffers();
+                _transparentBufferManager.RebuildBuffers();
+                _foliageBufferManager.RebuildBuffers();
+            }
 
             return updatedPartitions;
         }
