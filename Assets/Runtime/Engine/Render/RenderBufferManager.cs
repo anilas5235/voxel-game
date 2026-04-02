@@ -1,13 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using Runtime.Engine.Behaviour;
 using Runtime.Engine.Utils.Logger;
 using Unity.Mathematics;
 using UnityEngine;
 using static Runtime.Engine.Utils.VoxelRenderConstants;
 
-namespace Runtime.Engine.Components
+namespace Runtime.Engine.Render
 {
     public class RenderBufferManager : IDisposable
     {

@@ -1,6 +1,6 @@
 ﻿using Unity.Mathematics;
 
-namespace Runtime.Engine.Components
+namespace Runtime.Engine.Render
 {
     public readonly struct AllocInfo
     {

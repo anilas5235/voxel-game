@@ -2,14 +2,13 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
-using Runtime.Engine.Behaviour;
 using Runtime.Engine.Utils.Logger;
 using Unity.Mathematics;
 using UnityEngine;
 using static Runtime.Engine.Utils.VoxelRenderConstants;
 using static UnityEngine.GraphicsBuffer;
 
-namespace Runtime.Engine.Components
+namespace Runtime.Engine.Render
 {
     public class CopyPointsHandler : IDisposable
     {

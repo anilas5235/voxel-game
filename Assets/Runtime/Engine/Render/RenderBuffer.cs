@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Runtime.InteropServices;
-using Runtime.Engine.Behaviour;
 using Runtime.Engine.Jobs.Meshing;
 using Runtime.Engine.Utils.Logger;
 using Unity.Collections;
@@ -10,7 +9,7 @@ using UnityEngine.Rendering;
 using static Runtime.Engine.Utils.VoxelRenderConstants;
 using static UnityEngine.GraphicsBuffer;
 
-namespace Runtime.Engine.Components
+namespace Runtime.Engine.Render
 {
     internal class RenderBuffer : IDisposable
     {

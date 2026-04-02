@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
-using Runtime.Engine.Components;
+using Runtime.Engine.Utils;
 using Runtime.Engine.Utils.Collections;
 using Runtime.Engine.Utils.Logger;
 using Runtime.Engine.VoxelConfig.Data;
@@ -12,11 +12,11 @@ using static Runtime.Engine.Utils.VoxelRenderConstants;
 using static Runtime.Engine.Utils.VoxelConstants;
 using static UnityEngine.GraphicsBuffer;
 
-namespace Runtime.Engine.Behaviour
+namespace Runtime.Engine.Render
 {
-    public class VoxelWorldRenderer : MonoBehaviour
+    public class VoxelWorldRenderer : Singleton<VoxelWorldRenderer>
     {
-        public const bool Logging = false;
+        public static bool Logging = false;
         public Material solidMaterial;
         public Material transparentMaterial;
         public Material foliageMaterial;
@@ -52,8 +52,9 @@ namespace Runtime.Engine.Behaviour
             }
         }
 
-        private void Awake()
+        protected override void Awake()
         {
+            base.Awake();
             _solidBufferManager = new RenderBufferManager(solidMaterial, rebuildBuffers);
             _transparentBufferManager = new RenderBufferManager(transparentMaterial, rebuildBuffers);
             _foliageBufferManager = new RenderBufferManager(foliageMaterial, rebuildBuffers);
@@ -88,8 +89,9 @@ namespace Runtime.Engine.Behaviour
             RenderPipelineManager.beginCameraRendering -= Draw;
         }
 
-        private void OnDestroy()
+        protected override void OnDestroy()
         {
+            base.OnDestroy();
             _isDestroyed = true;
             _copyPointsHandler?.Dispose();
 
