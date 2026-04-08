@@ -1,11 +1,14 @@
 using System.Collections.Generic;
 using Runtime.Engine.Components;
+using Runtime.Engine.Data;
 using Runtime.Engine.Jobs.Core;
 using Runtime.Engine.Noise;
+using Runtime.Engine.Render;
 using Runtime.Engine.Settings;
 using Runtime.Engine.Utils.Extensions;
 using Runtime.Engine.Utils.Logger;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
@@ -91,6 +94,13 @@ namespace Runtime.Engine.Jobs.Chunk
             double start = Time.realtimeSinceStartupAsDouble;
             _handle.Complete();
             _chunkManager.AddChunks(_results);
+
+            VoxelWorldRenderer worldRenderer = VoxelWorldRenderer.Instance;
+            if (worldRenderer)
+            {
+                foreach (KeyValue<int2, ChunkVoxelData> r in _results) worldRenderer.AddOrUpdateChunk(r.Key, r.Value.Data);
+            }
+
             double totalTime = (Time.realtimeSinceStartupAsDouble - start) * 1000;
             if (totalTime >= 1)
             {

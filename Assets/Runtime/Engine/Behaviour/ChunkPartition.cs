@@ -12,9 +12,7 @@ namespace Runtime.Engine.Behaviour
         public static bool ShowPartitionGizmos = false;
 #endif
         [SerializeField] private MeshCollider _Collider;
-
-        private bool _initialized;
-
+        
         /// <summary>
         /// Dedicated mesh for collider (not shared with render mesh).
         /// </summary>
@@ -32,11 +30,10 @@ namespace Runtime.Engine.Behaviour
             ColliderMesh = new Mesh { name = "PCollider" };
         }
 
-        public void Init(RendererSettings settings, int pId)
+        public void Init(int pId)
         {
             PartitionId = (short)pId;
             transform.localPosition = new Vector3(0, PartitionHeight * pId, 0);
-            _initialized = true;
         }
 
 

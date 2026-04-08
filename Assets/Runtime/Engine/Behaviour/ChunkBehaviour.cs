@@ -13,11 +13,11 @@ namespace Runtime.Engine.Behaviour
         /// <summary>
         /// Initializes renderer-specific options (e.g. shadow casting) from settings.
         /// </summary>
-        public void Init(RendererSettings settings)
+        public void Init()
         {
             for (int pId = 0; pId < chunkPartitions.Length; pId++)
             {
-                chunkPartitions[pId].Init(settings, pId);
+                chunkPartitions[pId].Init(pId);
             }
         }
 

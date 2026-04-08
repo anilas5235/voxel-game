@@ -137,11 +137,11 @@ namespace Runtime.Engine.Data
     [BurstCompile]
     public struct ChunkVoxelData : IDisposable
     {
-        private UnsafeIntervalList<ushort> _data;
+        internal UnsafeIntervalList<ushort> Data;
 
         public ChunkVoxelData(int initCapacity)
         {
-            _data = new UnsafeIntervalList<ushort>(initCapacity, Allocator.Domain);
+            Data = new UnsafeIntervalList<ushort>(initCapacity, Allocator.Domain);
         }
 
         /// <summary>
@@ -149,7 +149,7 @@ namespace Runtime.Engine.Data
         /// </summary>
         public void AddVoxels(ushort voxelId, int count)
         {
-            _data.AddInterval(voxelId, count);
+            Data.AddInterval(voxelId, count);
         }
 
         /// <summary>
@@ -157,19 +157,19 @@ namespace Runtime.Engine.Data
         /// </summary>
         public bool SetVoxel(int3 pos, ushort voxelId)
         {
-            bool result = _data.Set(GetIndex(pos), voxelId);
+            bool result = Data.Set(GetIndex(pos), voxelId);
             return result;
         }
 
         /// <summary>
         /// Reads voxel at int3 position.
         /// </summary>
-        public ushort GetVoxel(int3 pos) => _data.Get(GetIndex(pos));
+        public ushort GetVoxel(int3 pos) => Data.Get(GetIndex(pos));
 
         /// <summary>
         /// Disposes native resources.
         /// </summary>
-        public void Dispose() => _data.Dispose();
+        public void Dispose() => Data.Dispose();
 
         private static int GetIndex(in int3 pos) => ChunkSize.Flatten(pos);
     }

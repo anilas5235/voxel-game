@@ -184,7 +184,7 @@ namespace Runtime.Engine.Jobs
                     if (CanGenerateMeshForChunk(chunk)) Set.Add(chunk);
                 }
 
-                _meshBuildScheduler.Start(Set.ToList());
+                _meshBuildScheduler.Start(Set);
 
                 return true;
             }

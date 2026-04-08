@@ -35,7 +35,6 @@ namespace Runtime.Engine.Components
         private readonly int _chunkStoreSize;
 
         internal Action OnChunkRemeshRequested;
-        internal Action OnGpuRebuildReady;
 
         /// <summary>
         /// Creates a new manager with capacities from <paramref name="settings"/>.

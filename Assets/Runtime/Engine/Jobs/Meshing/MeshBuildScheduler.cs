@@ -1,13 +1,16 @@
 using System.Collections.Generic;
+using System.Linq;
 using Runtime.Engine.Behaviour;
 using Runtime.Engine.Components;
 using Runtime.Engine.Data;
 using Runtime.Engine.Jobs.Core;
+using Runtime.Engine.Render;
 using Runtime.Engine.Settings;
 using Runtime.Engine.Utils.Extensions;
 using Runtime.Engine.Utils.Logger;
 using Runtime.Engine.VoxelConfig.Data;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
@@ -19,7 +22,7 @@ namespace Runtime.Engine.Jobs.Meshing
     /// Schedules and executes mesh build jobs for chunks, generating both render and collider meshes
     /// using a greedy meshing algorithm and applying the results to chunk behaviors.
     /// </summary>
-    internal class MeshBuildScheduler : JobScheduler
+    internal sealed class MeshBuildScheduler : JobScheduler
     {
         private const MeshUpdateFlags MeshFlags = MeshUpdateFlags.DontRecalculateBounds |
                                                   MeshUpdateFlags.DontValidateIndices |
@@ -77,25 +80,26 @@ namespace Runtime.Engine.Jobs.Meshing
         /// <summary>
         /// Gets a value indicating whether the currently scheduled mesh build jobs have completed.
         /// </summary>
-        internal bool IsComplete => _handle.IsCompleted;
+        internal bool IsComplete => CheckComplete();
+        
+        internal bool CheckComplete() => _handle.IsCompleted && _awaiter.IsCompleted;
+
+        internal Awaitable<HashSet<int3>>.Awaiter _awaiter;
 
         /// <summary>
         /// Starts a mesh build job for the given list of chunk positions.
         /// Allocates writable mesh data arrays and schedules the Burst job.
         /// </summary>
         /// <param name="jobs">List of chunk positions whose meshes should be generated or updated.</param>
-        internal void Start(List<int3> jobs)
+        internal void Start(HashSet<int3> jobs)
         {
             StartRecord();
 
             IsReady = false;
 
-            _chunkAccessor = _chunkManager.GetAccessor(jobs);
+            _chunkAccessor = _chunkManager.GetAccessor(jobs.ToList());
 
-            foreach (int3 j in jobs)
-            {
-                _jobs.Add(j);
-            }
+            foreach (int3 j in jobs) _jobs.Add(j);
 
             _colliderMeshDataArray = Mesh.AllocateWritableMeshData(_jobs.Length);
 
@@ -110,6 +114,11 @@ namespace Runtime.Engine.Jobs.Meshing
             };
 
             _handle = job.Schedule(_jobs.Length, 1);
+            VoxelWorldRenderer worldRenderer = VoxelWorldRenderer.Instance;
+            if (worldRenderer)
+            {
+                _awaiter = worldRenderer.UpdatePartitions(jobs).GetAwaiter();
+            }
         }
 
         /// <summary>
@@ -120,6 +129,14 @@ namespace Runtime.Engine.Jobs.Meshing
         {
             double start = Time.realtimeSinceStartupAsDouble;
             _handle.Complete();
+            HashSet<int3> gpuPipelineResult = _awaiter.GetResult();
+
+            if (gpuPipelineResult.Count != _jobs.Length)
+            {
+                VoxelEngineLogger.Warn<MeshBuildScheduler>(
+                    $"GPU pipeline returned {gpuPipelineResult.Count} results, expected {_jobs.Count()}. This may indicate a synchronization issue or a problem in the GPU processing stage."
+                );
+            }
 
             Mesh[] colliderMeshes = new Mesh[_jobs.Length];
 
@@ -163,9 +180,6 @@ namespace Runtime.Engine.Jobs.Meshing
                     $"Total Mesh Build Time for {_jobs.Length} jobs: <color=red>{totalJobTime:0.000}</color>ms"
                 );
             }
-
-            // Trigger GPU rebuild after collider processing
-            _chunkManager.OnGpuRebuildReady?.Invoke();
         }
 
         /// <summary>

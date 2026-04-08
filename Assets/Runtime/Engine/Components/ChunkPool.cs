@@ -56,7 +56,7 @@ namespace Runtime.Engine.Components
                     GameObject go = Object.Instantiate(settings.Chunk.ChunkPrefab, transform);
                     go.SetActive(false);
                     ChunkBehaviour chunkBehaviour = go.GetComponent<ChunkBehaviour>();
-                    chunkBehaviour.Init(settings.Renderer);
+                    chunkBehaviour.Init();
                     return chunkBehaviour;
                 },
                 chunkBehaviour => chunkBehaviour.gameObject.SetActive(true),
