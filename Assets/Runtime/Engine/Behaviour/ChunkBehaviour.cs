@@ -29,19 +29,6 @@ namespace Runtime.Engine.Behaviour
             }
         }
 
-        private void FixedUpdate()
-        {
-            UpdatePartitionsRenderStatus();
-        }
-
-        private void UpdatePartitionsRenderStatus()
-        {
-            foreach (ChunkPartition partition in chunkPartitions)
-            {
-                partition.UpdateRenderStatus();
-            }
-        }
-
         public ChunkPartition GetPartition(int y) => chunkPartitions[y];
     }
 }

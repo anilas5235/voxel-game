@@ -36,10 +36,8 @@ namespace Runtime.Engine.Jobs.Meshing
         public void Execute(int index)
         {
             int3 position = Jobs[index];
-            Accessor.TryGetLightData(position, out PartitionLightData lightData);
             Accessor.TryGetChunk(position.xz, out ChunkVoxelData chunk);
-            PartitionJobData jobData = new(ColliderMeshDataArray[index], position,
-                lightData, chunk);
+            PartitionJobData jobData = new(ColliderMeshDataArray[index], position, chunk);
 
             SortVoxels(ref jobData);
 

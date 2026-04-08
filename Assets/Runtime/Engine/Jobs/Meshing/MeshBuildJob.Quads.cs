@@ -5,8 +5,6 @@ namespace Runtime.Engine.Jobs.Meshing
 {
     internal partial struct MeshBuildJob
     {
-        #region Quad Creation
-
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
         private void CreateColliderQuad(ref PartitionJobData jobData, CMask mask, int3 directionMask, in VQuad verts)
         {
@@ -41,7 +39,5 @@ namespace Runtime.Engine.Jobs.Meshing
             mesh.AddCVertex(vertex3);
             mesh.AddCVertex(vertex4);
         }
-
-        #endregion
     }
 }

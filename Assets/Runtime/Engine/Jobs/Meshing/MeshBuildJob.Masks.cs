@@ -1,6 +1,4 @@
-﻿using Runtime.Engine.Data;
-using Runtime.Engine.Utils.Extensions;
-using Runtime.Engine.VoxelConfig.Data;
+﻿using Runtime.Engine.VoxelConfig.Data;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Mathematics;
@@ -59,26 +57,6 @@ namespace Runtime.Engine.Jobs.Meshing
             return true;
         }
 
-        private byte ComputeSunlight(ref PartitionJobData jobData, in int3 voxelPos)
-        {
-            return ChunkAccessor.InPartitionBounds(voxelPos)
-                ? jobData.PartitionLightData.GetLight(voxelPos)
-                : Accessor.GetLightInPartition(jobData.PartitionPos, voxelPos);
-        }
-
-        [BurstCompile]
-        private bool ShouldSkipFace(VoxelRenderDef currentDef, VoxelRenderDef neighborDef)
-        {
-            return (!currentDef.AlwaysRenderAllFaces && currentDef.MeshLayer == neighborDef.MeshLayer)
-                   || currentDef.MeshLayer > neighborDef.MeshLayer;
-        }
-
-        [BurstCompile]
-        private sbyte ComputeTopVoxelOfType(int3 coord, ushort currentVoxelId, ref PartitionJobData jobData)
-        {
-            ushort aboveId = GetVoxel(ref jobData, coord + YOne);
-            return (sbyte)(aboveId != currentVoxelId ? 1 : 0);
-        }
 
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low, CompileSynchronously = true)]
         private int FindColQuadWidth(NativeArray<CMask> cMasks, int n, CMask currentMask, int start, int max)

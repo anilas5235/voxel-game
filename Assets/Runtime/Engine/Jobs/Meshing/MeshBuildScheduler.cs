@@ -135,7 +135,6 @@ namespace Runtime.Engine.Jobs.Meshing
                 MeshBuildJob.PartitionJobResult result = _results[pos];
 
                 colliderMeshes[result.Index] = partition.ColliderMesh;
-                partition.Mesh.bounds = result.MeshBounds;
                 partition.ColliderMesh.bounds = result.ColliderBounds;
             }
 
@@ -144,11 +143,6 @@ namespace Runtime.Engine.Jobs.Meshing
                 colliderMeshes,
                 MeshFlags
             );
-
-            foreach (ChunkPartition partition in changedPartitions)
-            {
-                partition.UpdateRenderStatus();
-            }
 
             double totalTime = (Time.realtimeSinceStartupAsDouble - start) * 1000;
             if (totalTime >= 4)

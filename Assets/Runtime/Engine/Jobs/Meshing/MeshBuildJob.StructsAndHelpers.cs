@@ -1,6 +1,5 @@
 ﻿using System;
 using Runtime.Engine.Data;
-using Runtime.Engine.VoxelConfig.Data;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Mathematics;
@@ -25,7 +24,6 @@ namespace Runtime.Engine.Jobs.Meshing
         {
             public int Index;
             public int3 PartitionPos;
-            public Bounds MeshBounds;
             public Bounds ColliderBounds;
         }
 
@@ -40,19 +38,15 @@ namespace Runtime.Engine.Jobs.Meshing
 
             public NativeHashSet<int3> CollisionVoxels;
 
-            public PartitionLightData PartitionLightData;
-
             public ChunkVoxelData ChunkVoxelData;
             public int CollisionVertexCount;
 
             public bool HasNoCollision => CollisionVoxels.IsEmpty;
 
-            internal PartitionJobData(Mesh.MeshData colliderMesh, int3 partitionPos,
-                PartitionLightData partitionLightData, ChunkVoxelData chunkVoxelData)
+            internal PartitionJobData(Mesh.MeshData colliderMesh, int3 partitionPos, ChunkVoxelData chunkVoxelData)
             {
                 ColliderMesh = colliderMesh;
                 PartitionPos = partitionPos;
-                PartitionLightData = partitionLightData;
                 ChunkVoxelData = chunkVoxelData;
                 ChunkPos = partitionPos.xz;
                 MeshBuffer = new MeshBuffer
@@ -83,14 +77,6 @@ namespace Runtime.Engine.Jobs.Meshing
         private struct VQuad
         {
             public float3 V1, V2, V3, V4;
-
-            public void OffsetAll(float3 offset)
-            {
-                V1 += offset;
-                V2 += offset;
-                V3 += offset;
-                V4 += offset;
-            }
         }
 
         private interface IMaskComparable<T>
@@ -128,11 +114,6 @@ namespace Runtime.Engine.Jobs.Meshing
                 : Accessor.GetVoxelInPartition(jobData.PartitionPos, voxelPos);
         }
 
-        [BurstCompile]
-        private MeshLayer GetMeshLayer(ushort voxelId, VoxelEngineRenderGenData renderGenData)
-        {
-            return renderGenData.GetMeshLayer(voxelId);
-        }
 
         [BurstCompile]
         private void ClearColMaskRegion(NativeArray<CMask> normalMask, int n, int width, int height, int axis1Limit)

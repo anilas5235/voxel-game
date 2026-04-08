@@ -21,7 +21,6 @@ namespace Runtime.Engine.Jobs.Meshing
                 {
                     Index = index,
                     PartitionPos = jobData.PartitionPos,
-                    MeshBounds = Bounds,
                     ColliderBounds = Bounds
                 }
             );

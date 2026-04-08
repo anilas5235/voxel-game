@@ -1,39 +1,19 @@
-﻿using Runtime.Engine.Jobs.Meshing;
-using Runtime.Engine.Settings;
+﻿using Runtime.Engine.Settings;
 using Runtime.Engine.Utils.Extensions;
+using UnityEditor;
 using UnityEngine;
-using UnityEngine.Rendering;
 using static Runtime.Engine.Utils.VoxelConstants;
 
 namespace Runtime.Engine.Behaviour
 {
-    [RequireComponent(typeof(MeshRenderer), typeof(MeshFilter))]
     public class ChunkPartition : MonoBehaviour
     {
 #if UNITY_EDITOR
         public static bool ShowPartitionGizmos = false;
 #endif
-        private MeshRenderer _renderer;
         [SerializeField] private MeshCollider _Collider;
 
-        private bool _shouldBeVisible = true;
         private bool _initialized;
-
-        internal bool ShouldBeVisible
-        {
-            get => _shouldBeVisible;
-            set
-            {
-                if (_shouldBeVisible == value) return;
-                _shouldBeVisible = value;
-                UpdateRenderStatus();
-            }
-        }
-
-        /// <summary>
-        /// Mesh used for visual rendering.
-        /// </summary>
-        public Mesh Mesh { get; private set; }
 
         /// <summary>
         /// Dedicated mesh for collider (not shared with render mesh).
@@ -49,8 +29,6 @@ namespace Runtime.Engine.Behaviour
 
         private void Awake()
         {
-            Mesh = GetComponent<MeshFilter>().mesh;
-            _renderer = GetComponent<MeshRenderer>();
             ColliderMesh = new Mesh { name = "PCollider" };
         }
 
@@ -58,19 +36,9 @@ namespace Runtime.Engine.Behaviour
         {
             PartitionId = (short)pId;
             transform.localPosition = new Vector3(0, PartitionHeight * pId, 0);
-            _renderer.shadowCastingMode = settings.CastShadows ? ShadowCastingMode.On : ShadowCastingMode.Off;
-            _renderer.allowOcclusionWhenDynamic = false;
             _initialized = true;
-            UpdateRenderStatus();
         }
 
-        public void UpdateRenderStatus()
-        {
-            if (!_initialized) return;
-            bool isRendered = Mesh && Mesh.vertexCount > 2 && ShouldBeVisible;
-            _renderer.enabled = false;
-            //isRendered;
-        }
 
         public void ApplyColliderMesh()
         {
@@ -79,12 +47,9 @@ namespace Runtime.Engine.Behaviour
 
         public void Clear()
         {
-            Mesh.Clear();
             ColliderMesh.Clear();
             Collider.sharedMesh = null;
         }
-
-        public bool HasValidMesh() => Mesh && Mesh.vertexCount > 2;
 
 #if UNITY_EDITOR
         private static readonly Color[] FaceColors =
@@ -98,9 +63,7 @@ namespace Runtime.Engine.Behaviour
             if (!ShowPartitionGizmos) return;
 
             Gizmos.color = Color.green;
-
-            if (Mesh.vertexCount < 3) Gizmos.color = Color.grey;
-            else if (!_Collider.sharedMesh) Gizmos.color = Color.magenta;
+            if (!_Collider.sharedMesh) Gizmos.color = Color.magenta;
 
             Gizmos.DrawWireCube(
                 transform.position + PartitionSize.GetVector3() * 0.5f,
@@ -109,7 +72,7 @@ namespace Runtime.Engine.Behaviour
 
             // Draw partition ID
             Gizmos.color = Color.white;
-            UnityEditor.Handles.Label(
+            Handles.Label(
                 transform.position + PartitionSize.GetVector3() * 0.5f,
                 $"Id:{PartitionId}",
                 new GUIStyle()
