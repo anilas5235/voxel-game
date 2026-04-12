@@ -43,7 +43,7 @@ B --> C[Bind Array +
 Material Properties]
 
 T[Vertex] --> U[Extract Texture
-Index & Sample 
+Index & Sample
 Texture Array]
 U --> V[Apply AO
 ...]
@@ -105,20 +105,20 @@ Array]
 B --> C[Bind Array +
 Material Properties]
 
-A--> D[Build Quad 
+A --> D[Build Quad
 Buffer]
 D --> E[Bind Buffer +
 Material Properties]
 
 L[Point] --> M[Extract Quad
-Index & Sample 
+Index & Sample
 Quad Buffer]
 M --> O[Expand to Quads
 Geometry Shader]
-O -->U[Extract Texture
+O --> U[Extract Texture
 Index & Sample
 Texture Array]
-U --> V[Apply AO 
+U --> V[Apply AO
 & Lighting
 ...]
 V --> W[Output Color]
@@ -186,30 +186,62 @@ Trade-offs:
 
 ```mermaid
 flowchart LR
-    A[Partition Render Request] --> B[PointBuilder Compute]
-    B --> C[Reserve/Compact Global Buffer Range]
-    C --> D[CopyPoints Compute]
-    D --> E[ReBuildIndexAndArgs Compute]
-    E --> F[Global Vertex + Index + Args Buffers]
-    F --> G[DrawProceduralIndirect]
-    G --> H[Vertex Pulling Shader]
-    H --> I[Frame Output]
+    A[Voxel Registry 
+    Data] --> B[Build Texture2D
+Array]
+B --> C[Bind Array +
+Material Properties]
+
+A --> D[Build Quad
+Buffer]
+D --> E[Bind Buffer +
+Material Properties]
+
+A --> F[Build Shape
+Buffer]
+F --> G[Bind Buffer +
+Material Properties]
+
+H[VoxelWorldRenderer] --> I[Prepares & administers
+Global Buffers]
+I--> J[Issue Indirect Draw]
+
+K[IndexID
+6 per Point] --> L[Get Point 
+from Buffer over
+IndexBuffer]
+L --> M[Extract Quad
+Index & Sample
+Quad Buffer]
+M --> O[Pick correct Vertex
+from Quad Data]
+O --> U[Extract Texture
+Index & Sample
+Texture Array]
+U --> V[Apply AO
+& Lighting
+...]
+V --> W[Output Color]
 ```
 
 ### Description
 
-In version 1.2, rendering becomes meshless for the visual path.
-Compute shaders build and pack point/vertex data into global GPU buffers, then indirect draw arguments are rebuilt
-before issuing `DrawProceduralIndirect`.
+In version 1.2, rendering becomes fully meshless and GPU-driven.
+Instead of building and binding traditional meshes per partition, compute shaders process voxel data directly and build
+compact vertex/index buffers in global GPU memory.
+The render pipeline then issues a single indirect draw call, with shaders performing vertex pulling to fetch and expand
+quad data for rasterization.
 
 Advantages:
 
-- Strong reduction of CPU render setup work.
-- Much better scaling for large numbers of visible partitions.
-- Lower draw call overhead through batched indirect rendering.
+- Strong reduction of CPU render setup work—no mesh binding overhead per partition.
+- Much better scaling for large numbers of visible partitions through global buffer management.
+- Lower draw call overhead through batched indirect rendering instead of per-partition draws.
+- Unified GPU-driven path simplifies CPU-side rendering logic.
 
 Trade-offs:
 
-- Higher implementation complexity (compute pipeline, synchronization, buffer lifetime).
-- Harder debugging and profiling compared to classic mesh rendering.
+- Higher implementation complexity (compute pipeline, buffer synchronization, indirect args management).
+- Harder debugging and profiling compared to traditional mesh-based rendering.
+- Requires support for compute shaders and indirect rendering on target platforms.
 
