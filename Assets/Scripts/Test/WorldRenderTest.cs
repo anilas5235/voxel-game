@@ -1,13 +1,12 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
-using Runtime.Engine.Behaviour;
-using Runtime.Engine.Render;
-using Runtime.Engine.Utils.Collections;
-using Runtime.Engine.Utils.Extensions;
+using Engine.Scripts.Render;
+using Engine.Scripts.Utils.Collections;
+using Engine.Scripts.Utils.Extensions;
 using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
-using static Runtime.Engine.Utils.VoxelConstants;
+using static Engine.Scripts.Utils.VoxelConstants;
 
 namespace Test
 {

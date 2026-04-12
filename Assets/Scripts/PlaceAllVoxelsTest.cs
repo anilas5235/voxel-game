@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
-using Runtime.Engine.Utils.Extensions;
-using Runtime.Engine.VoxelConfig.Data;
-using Runtime.Engine.World;
+using Engine.Scripts.Utils.Extensions;
+using Engine.Scripts.VoxelConfig.Data;
+using Engine.Scripts.World;
 using UnityEngine;
 
 /// <summary>

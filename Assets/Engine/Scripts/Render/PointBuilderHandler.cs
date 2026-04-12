@@ -1,0 +1,125 @@
+﻿using System;
+using System.Linq;
+using System.Runtime.InteropServices;
+using Engine.Scripts.Jobs.Meshing;
+using Engine.Scripts.Utils;
+using Engine.Scripts.Utils.Logger;
+using Engine.Scripts.VoxelConfig.Data;
+using Unity.Collections;
+using Unity.Mathematics;
+using UnityEngine;
+using UnityEngine.Rendering;
+using static Engine.Scripts.Utils.VoxelRenderConstants;
+using static UnityEngine.GraphicsBuffer;
+
+namespace Engine.Scripts.Render
+{
+    public class PointBuilderHandler : IDisposable
+    {
+        private readonly GraphicsBuffer _metadata;
+        private readonly ComputeShader _pointBuilder;
+        private readonly int _pointBuilderKernelID;
+
+        private readonly GraphicsBuffer _readBackCountBuffer;
+        private readonly GraphicsBuffer _voxelQuadTexPairBuffer;
+
+        private readonly GraphicsBuffer _voxelRenderDefBuffer;
+        private NativeArray<uint> _counts;
+
+        public PointBuilderHandler(ComputeShader pointBuilder, GraphicsBuffer voxelRenderDef,
+            GraphicsBuffer voxelQuadTexPair)
+        {
+            _pointBuilder = pointBuilder;
+            _voxelRenderDefBuffer = voxelRenderDef;
+            _voxelQuadTexPairBuffer = voxelQuadTexPair;
+            _pointBuilderKernelID = pointBuilder.FindKernel("BuildPoints");
+
+            int vSize = Marshal.SizeOf<Vertex>();
+            SolidPointsOut = new GraphicsBuffer(Target.Append, MaxPointsPerPartition, vSize);
+            TransparentPointsOut = new GraphicsBuffer(Target.Append, MaxPointsPerPartition, vSize);
+            FoliagePointsOut = new GraphicsBuffer(Target.Append, MaxPointsPerPartition, vSize);
+
+            _metadata = new GraphicsBuffer(Target.Structured, 1, Marshal.SizeOf<PartitionMetadata>());
+            _readBackCountBuffer = new GraphicsBuffer(Target.Raw, 3, sizeof(uint));
+            _counts = new NativeArray<uint>(_readBackCountBuffer.count, Allocator.Domain);
+            pointBuilder.SetBuffer(_pointBuilderKernelID, QuadBufferNameID,
+                VoxelDataImporter.Instance.VoxelRegistry.QuadBuffer);
+        }
+
+        public GraphicsBuffer SolidPointsOut { get; }
+
+        public GraphicsBuffer TransparentPointsOut { get; }
+
+        public GraphicsBuffer FoliagePointsOut { get; }
+
+        public void Dispose()
+        {
+            SolidPointsOut?.Dispose();
+            TransparentPointsOut?.Dispose();
+            FoliagePointsOut?.Dispose();
+            _metadata?.Dispose();
+            _readBackCountBuffer?.Dispose();
+            _counts.Dispose();
+        }
+
+        public async Awaitable<int[]> BuildPoints(int3 partition, GraphicsBuffer voxelData, GraphicsBuffer[] neighbors8)
+        {
+            ResetCounters();
+            PartitionMetadata meta = new()
+            {
+                PartitionPos = partition,
+                PartitionWorldPos = VoxelConstants.PartitionToWorldPos(partition)
+            };
+            _metadata.SetData(new[] { meta });
+
+            _pointBuilder.SetBuffer(_pointBuilderKernelID, VoxelRenderDefNameID, _voxelRenderDefBuffer);
+            _pointBuilder.SetInt(VoxelRenderDefCountNameID, _voxelRenderDefBuffer.count);
+
+            _pointBuilder.SetBuffer(_pointBuilderKernelID, VoxelQuadTexPairNameID, _voxelQuadTexPairBuffer);
+            _pointBuilder.SetInt(VoxelQuadTexPairCountNameID, _voxelQuadTexPairBuffer.count);
+
+            _pointBuilder.SetBuffer(_pointBuilderKernelID, MainChunkNameID, voxelData);
+            _pointBuilder.SetBuffer(_pointBuilderKernelID, NeighborChunkUpNameID, neighbors8[0]);
+            _pointBuilder.SetBuffer(_pointBuilderKernelID, NeighborChunkUpRightNameID, neighbors8[1]);
+            _pointBuilder.SetBuffer(_pointBuilderKernelID, NeighborChunkRightNameID, neighbors8[2]);
+            _pointBuilder.SetBuffer(_pointBuilderKernelID, NeighborChunkDownRightNameID, neighbors8[3]);
+            _pointBuilder.SetBuffer(_pointBuilderKernelID, NeighborChunkDownNameID, neighbors8[4]);
+            _pointBuilder.SetBuffer(_pointBuilderKernelID, NeighborChunkDownLeftNameID, neighbors8[5]);
+            _pointBuilder.SetBuffer(_pointBuilderKernelID, NeighborChunkLeftNameID, neighbors8[6]);
+            _pointBuilder.SetBuffer(_pointBuilderKernelID, NeighborChunkUpLeftNameID, neighbors8[7]);
+
+            _pointBuilder.SetBuffer(_pointBuilderKernelID, MetadataNameID, _metadata);
+            _pointBuilder.SetBuffer(_pointBuilderKernelID, SolidPointsOutNameID, SolidPointsOut);
+            _pointBuilder.SetBuffer(_pointBuilderKernelID, TransparentPointsOutNameID, TransparentPointsOut);
+            _pointBuilder.SetBuffer(_pointBuilderKernelID, FoliagePointsOutNameID, FoliagePointsOut);
+
+            _pointBuilder.SetInt(PartitionIndexNameID, 0);
+
+            _pointBuilder.Dispatch(_pointBuilderKernelID, 8, 8, 8);
+
+            try
+            {
+                CopyCount(SolidPointsOut, _readBackCountBuffer, sizeof(uint) * 0);
+                CopyCount(TransparentPointsOut, _readBackCountBuffer, sizeof(uint) * 1);
+                CopyCount(FoliagePointsOut, _readBackCountBuffer, sizeof(uint) * 2);
+
+                await AsyncGPUReadback.RequestIntoNativeArrayAsync(ref _counts, _readBackCountBuffer);
+                int[] results = _counts.Select(c => (int)c).ToArray();
+                return results;
+            }
+            catch (Exception e)
+            {
+                if (VoxelWorldRenderer.Logging)
+                    VoxelEngineLogger.Error<PointBuilderHandler>($"Error reading back point counts: {e}");
+                return new[] { 0, 0, 0 };
+            }
+        }
+
+        private void ResetCounters()
+        {
+            SolidPointsOut.SetCounterValue(0);
+            TransparentPointsOut.SetCounterValue(0);
+            FoliagePointsOut.SetCounterValue(0);
+        }
+    }
+}
