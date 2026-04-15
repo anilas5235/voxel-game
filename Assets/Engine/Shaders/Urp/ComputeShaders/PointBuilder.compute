@@ -47,7 +47,6 @@ uint2 get_voxel_quad_indices(in VoxelDef def, uint dir)
 StructuredBuffer<uint2> _CompChunk; // interval 0: (intervalCount, lastUncompressedIndex)
 RWStructuredBuffer<uint> _UnCompChunk;
 
-uint _PrepChunkIndex;
 uint _VoxelsPerChunk;
 
 #define INTERVALS_PER_THREAD 8
@@ -56,7 +55,6 @@ uint _VoxelsPerChunk;
 
 void BuildPrep(uint3 id : SV_DispatchThreadID)
 {
-    if (_PrepChunkIndex > 8) return;
 
     uint start_interval = 1 + id.x * INTERVALS_PER_THREAD; //+1 because interval 0 is metadata   
 

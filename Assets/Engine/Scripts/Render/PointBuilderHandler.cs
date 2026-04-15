@@ -152,7 +152,6 @@ namespace Engine.Scripts.Render
         private void DispatchPrepChunk(int chunkIndex, GraphicsBuffer compressedChunk)
         {
             _pointBuilder.SetInt(VoxelsPerChunkNameID, VoxelsPerChunk);
-            _pointBuilder.SetInt(PrepChunkIndexNameID, chunkIndex);
             _pointBuilder.SetBuffer(_buildPrepKernelID, CompChunkNameID, compressedChunk);
             _pointBuilder.SetBuffer(_buildPrepKernelID, UnCompChunkNameID, _preparedChunks[chunkIndex]);
 
