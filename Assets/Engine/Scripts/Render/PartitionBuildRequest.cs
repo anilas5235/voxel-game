@@ -12,7 +12,7 @@ namespace Engine.Scripts.Render
         private readonly GraphicsBuffer[] _buffers = new GraphicsBuffer[9];
 
 
-        public bool IsValid { get; private set; } = true;
+        public bool IsValid { get; private set; }
 
         public PartitionBuildRequest(int3 partition)
         {
@@ -35,6 +35,7 @@ namespace Engine.Scripts.Render
 
         public void CollectBuffers(Dictionary<int2, GraphicsBuffer> voxelDataBuffers)
         {
+            IsValid = true;
             int2 mainChunkPos = PartitionToChunkPos(Partition);
 
             for (int i = 0; i < _requChunks.Length; i++)
