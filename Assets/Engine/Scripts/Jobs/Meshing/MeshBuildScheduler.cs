@@ -30,6 +30,7 @@ namespace Engine.Scripts.Jobs.Meshing
         private readonly ChunkManager _chunkManager;
         private readonly ChunkPool _chunkPool;
         private readonly VoxelRegistry _voxelRegistry;
+        private readonly VoxelWorldRenderer _worldRenderer;
 
         private Awaitable<HashSet<int3>>.Awaiter _awaiter;
         private ChunkAccessor _chunkAccessor;
@@ -55,16 +56,19 @@ namespace Engine.Scripts.Jobs.Meshing
         /// <param name="chunkManager">Chunk manager used to access chunk data and state.</param>
         /// <param name="chunkPool">Pool providing reusable chunk behaviours and meshes.</param>
         /// <param name="voxelRegistry">Voxel registry providing render generation data for blocks.</param>
+        /// <param name="worldRenderer">World renderer used to trigger GPU mesh generation and receive completion callbacks.</param>
         internal MeshBuildScheduler(
             VoxelEngineSettings settings,
             ChunkManager chunkManager,
             ChunkPool chunkPool,
-            VoxelRegistry voxelRegistry
+            VoxelRegistry voxelRegistry,
+            VoxelWorldRenderer worldRenderer
         )
         {
             _chunkManager = chunkManager;
             _chunkPool = chunkPool;
             _voxelRegistry = voxelRegistry;
+            _worldRenderer = worldRenderer;
 
             // Collider uses only Position and Normal from CVertex
             _colliderVertexParams = new NativeArray<VertexAttributeDescriptor>(2, Allocator.Domain)
@@ -111,8 +115,7 @@ namespace Engine.Scripts.Jobs.Meshing
             };
 
             _handle = job.Schedule(_jobs.Length, 1);
-            VoxelWorldRenderer worldRenderer = VoxelWorldRenderer.Instance;
-            if (worldRenderer) _awaiter = worldRenderer.UpdatePartitions(jobs).GetAwaiter();
+            _awaiter = _worldRenderer.UpdatePartitions(jobs).GetAwaiter();
         }
 
         /// <summary>

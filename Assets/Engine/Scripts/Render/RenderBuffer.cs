@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
 using Engine.Scripts.Jobs.Meshing;
+using Engine.Scripts.Settings;
 using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
@@ -28,12 +29,15 @@ namespace Engine.Scripts.Render
         private bool _stateBufferDirty;
         private bool _shouldDraw;
         private uint _totalValidPoints;
+
+        private readonly RendererSettings _renderSettings;
         public int FreePages => _freePages.Count;
         public int BufferIndex { get; }
 
-        public RenderBuffer(RenderBufferManager manager, int bufferIndex)
+        public RenderBuffer(RenderBufferManager manager, int bufferIndex, RendererSettings renderSettings)
         {
             _manager = manager;
+            _renderSettings = renderSettings;
             BufferIndex = bufferIndex;
             PointBuffer = new GraphicsBuffer(Target.Structured, RenderBufferSize,
                 Marshal.SizeOf<Vertex>());
@@ -123,8 +127,8 @@ namespace Engine.Scripts.Render
                 0,
                 cam,
                 _propertyBlock,
-                ShadowCastingMode.Off,
-                false
+                 _renderSettings.shadows,
+                 _renderSettings.shadows != ShadowCastingMode.Off
             );
         }
 

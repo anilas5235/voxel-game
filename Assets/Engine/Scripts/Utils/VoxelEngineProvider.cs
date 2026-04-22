@@ -4,6 +4,7 @@ using Engine.Scripts.Jobs.Chunk;
 using Engine.Scripts.Jobs.ColliderBake;
 using Engine.Scripts.Jobs.Meshing;
 using Engine.Scripts.Noise;
+using Engine.Scripts.Render;
 using Engine.Scripts.Settings;
 using Engine.Scripts.Utils.Provider;
 using Engine.Scripts.VoxelConfig.Data;
@@ -92,10 +93,11 @@ namespace Engine.Scripts.Utils
         internal MeshBuildScheduler MeshBuildScheduler(
             ChunkManager chunkManager,
             ChunkPool chunkPool,
-            VoxelRegistry voxelRegistry
+            VoxelRegistry voxelRegistry,
+            VoxelWorldRenderer worldRenderer
         )
         {
-            return new MeshBuildScheduler(Settings, chunkManager, chunkPool, voxelRegistry);
+            return new MeshBuildScheduler(Settings, chunkManager, chunkPool, voxelRegistry,worldRenderer);
         }
 
         internal ColliderBakeScheduler ColliderBakeScheduler(ChunkManager chunkManager, ChunkPool chunkPool)

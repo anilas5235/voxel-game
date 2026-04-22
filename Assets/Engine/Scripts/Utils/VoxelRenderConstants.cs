@@ -9,8 +9,6 @@ namespace Engine.Scripts.Utils
     public static class VoxelRenderConstants
     {
         public const int MaxPointsPerPartition = PartitionWidth * PartitionHeight * PartitionDepth * 3;
-        public const int MaxDirtyUploadsPerFrame = 8;
-
         public const int RenderBufferSize = PointsPerPage * PagesPerBuffer;
         public const int PointsPerPage = 256;
         public const int PagesPerBuffer = 1024;

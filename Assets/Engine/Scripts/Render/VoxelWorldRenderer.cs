@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using Engine.Scripts.Settings;
 using Engine.Scripts.Utils;
 using Engine.Scripts.Utils.Collections;
 using Engine.Scripts.Utils.Logger;
@@ -15,9 +16,11 @@ using static UnityEngine.GraphicsBuffer;
 
 namespace Engine.Scripts.Render
 {
+    [RequireComponent(typeof(VoxelWorld))]
     public class VoxelWorldRenderer : Singleton<VoxelWorldRenderer>
     {
         public VoxelWorld World;
+        private VoxelEngineSettings _settings;
 
         public Material solidMaterial;
         public Material transparentMaterial;
@@ -36,6 +39,7 @@ namespace Engine.Scripts.Render
         private PointBuilderHandler[] _pointBuilderHandlers;
 
         private int _pointBuilderKernelID;
+        private int _maxInFlight = 1;
 
         private RenderBufferManager _solidBufferManager;
         private RenderBufferManager _transparentBufferManager;
@@ -43,13 +47,28 @@ namespace Engine.Scripts.Render
         protected override void Awake()
         {
             base.Awake();
-            _solidBufferManager = new RenderBufferManager(solidMaterial, rebuildBuffers);
-            _transparentBufferManager = new RenderBufferManager(transparentMaterial, rebuildBuffers);
-            _foliageBufferManager = new RenderBufferManager(foliageMaterial, rebuildBuffers);
+
+            _settings = World.Settings;
+            _maxInFlight = math.max(1, _settings.Scheduler.partitionBuildBatchSize);
+
+            _solidBufferManager = new RenderBufferManager(
+                solidMaterial,
+                rebuildBuffers,
+                _settings.Renderer
+            );
+            _transparentBufferManager = new RenderBufferManager(
+                transparentMaterial,
+                rebuildBuffers,
+                _settings.Renderer
+            );
+            _foliageBufferManager = new RenderBufferManager(
+                foliageMaterial,
+                rebuildBuffers,
+                _settings.Renderer
+            );
 
             VoxelRegistry voxelRegistry = VoxelDataImporter.Instance.VoxelRegistry;
-            int maxInFlight = math.max(1, MaxDirtyUploadsPerFrame);
-            _pointBuilderHandlers = new PointBuilderHandler[maxInFlight];
+            _pointBuilderHandlers = new PointBuilderHandler[_maxInFlight];
             for (int i = 0; i < _pointBuilderHandlers.Length; i++)
                 _pointBuilderHandlers[i] = new PointBuilderHandler(
                     pointBuilder,
@@ -129,8 +148,7 @@ namespace Engine.Scripts.Render
             if (_isDestroyed || _pointBuilderHandlers == null || _pointBuilderHandlers.Length == 0)
                 return updatedPartitions;
 
-            int maxInFlight = math.max(1, MaxDirtyUploadsPerFrame);
-            Queue<InFlightBuild> inFlight = new(maxInFlight);
+            Queue<InFlightBuild> inFlight = new(_maxInFlight);
             int nextSlotIndex = 0;
 
             foreach (int3 partition in partitions)
@@ -150,8 +168,11 @@ namespace Engine.Scripts.Render
                 Awaitable<int[]> buildAwaitable = _pointBuilderHandlers[slotIndex].BuildPoints(request);
                 inFlight.Enqueue(new InFlightBuild(partition, slotIndex, buildAwaitable));
 
-                if (inFlight.Count >= maxInFlight)
+
+                if (inFlight.Count >= _maxInFlight)
                 {
+                    VoxelEngineLogger.Info<VoxelWorldRenderer>(" Max in-flight builds reached, awaiting completion...");
+                    await Awaitable.NextFrameAsync();
                     await CompleteBuild(inFlight.Dequeue(), updatedPartitions);
                     if (_isDestroyed) return updatedPartitions;
                 }

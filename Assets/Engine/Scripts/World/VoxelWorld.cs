@@ -4,6 +4,7 @@ using Engine.Scripts.Jobs.Chunk;
 using Engine.Scripts.Jobs.ColliderBake;
 using Engine.Scripts.Jobs.Meshing;
 using Engine.Scripts.Noise;
+using Engine.Scripts.Render;
 using Engine.Scripts.Settings;
 using Engine.Scripts.Utils;
 using Engine.Scripts.Utils.Extensions;
@@ -17,11 +18,13 @@ namespace Engine.Scripts.World
     ///     Top-level world controller that wires together chunk generation, meshing and colliders
     ///     and exposes a simple API for querying and modifying voxels around a focus transform.
     /// </summary>
+    [DefaultExecutionOrder(-101), RequireComponent(typeof(VoxelWorldRenderer))]
     public class VoxelWorld : Singleton<VoxelWorld>
     {
         [SerializeField] private Transform focus;
 
         [SerializeField] private VoxelEngineSettings settings;
+        [SerializeField] private VoxelWorldRenderer worldRenderer;
 
         private ChunkPool _chunkPool;
         private ChunkScheduler _chunkScheduler;
@@ -29,11 +32,6 @@ namespace Engine.Scripts.World
 
         private bool _isFocused;
         private MeshBuildScheduler _meshBuildScheduler;
-
-        private static VoxelEngineProvider Provider()
-        {
-            return new VoxelEngineProvider();
-        }
 
         /// <summary>
         ///     Gets the voxel ID at the given world voxel position.
@@ -81,7 +79,8 @@ namespace Engine.Scripts.World
             _meshBuildScheduler = VoxelEngineProvider.Current.MeshBuildScheduler(
                 ChunkManager,
                 _chunkPool,
-                VoxelDataImporter.Instance.VoxelRegistry
+                VoxelDataImporter.Instance.VoxelRegistry,
+                worldRenderer
             );
 
             _colliderBakeScheduler = VoxelEngineProvider.Current.ColliderBakeScheduler(
@@ -128,6 +127,8 @@ namespace Engine.Scripts.World
         /// </summary>
         public ChunkManager ChunkManager { get; private set; }
 
+        public VoxelEngineSettings Settings => settings;
+
         #endregion
 
         #region Unity
@@ -139,10 +140,9 @@ namespace Engine.Scripts.World
         protected override void Awake()
         {
             base.Awake();
-            VoxelEngineProvider.Initialize(Provider(), provider =>
+            VoxelEngineProvider.Initialize(new VoxelEngineProvider(), provider =>
             {
                 ConfigureSettings();
-
                 provider.Settings = settings;
             });
 

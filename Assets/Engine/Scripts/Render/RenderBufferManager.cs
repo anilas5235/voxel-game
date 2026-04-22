@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
+using Engine.Scripts.Settings;
 using Engine.Scripts.Utils.Logger;
 using Unity.Mathematics;
 using UnityEngine;
@@ -14,10 +14,13 @@ namespace Engine.Scripts.Render
         private readonly Material _material;
         private readonly Dictionary<int3, AllocInfo> _partitionAllocations = new();
         private bool _isDisposed;
+        private readonly RendererSettings _renderSettings;
 
-        public RenderBufferManager(Material mat, ComputeShader rebuildBufferShader, int initialBuffers = 1)
+        public RenderBufferManager(Material mat, ComputeShader rebuildBufferShader, RendererSettings renderSettings,
+            int initialBuffers = 1)
         {
             _material = mat;
+            _renderSettings = renderSettings;
             RebuildBufferShader = rebuildBufferShader;
             RebuildKernel = rebuildBufferShader.FindKernel("ReBuildIndexAndArgs");
             for (int i = 0; i < initialBuffers; i++) AddNewBuffer();
@@ -94,7 +97,7 @@ namespace Engine.Scripts.Render
 
         private RenderBuffer AddNewBuffer()
         {
-            RenderBuffer rBuffer = new(this, _renderBuffers.Count);
+            RenderBuffer rBuffer = new(this, _renderBuffers.Count, _renderSettings);
             _renderBuffers.Add(rBuffer);
             VoxelEngineLogger.Info<RenderBufferManager>(
                 $"Added new RenderBuffer for {_material.name}. Total buffers: {_renderBuffers.Count}");

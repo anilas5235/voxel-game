@@ -1,4 +1,5 @@
 ﻿using System;
+using UnityEngine.Rendering;
 
 namespace Engine.Scripts.Settings
 {
@@ -11,6 +12,6 @@ namespace Engine.Scripts.Settings
         /// <summary>
         ///     Whether chunk meshes cast shadows.
         /// </summary>
-        public bool CastShadows;
+        public ShadowCastingMode shadows;
     }
 }

@@ -52,11 +52,11 @@ namespace Engine.Scripts.Components
             _queue = new SimpleFastPriorityQueue<int2, int>();
 
             _accessorMap = new NativeParallelHashMap<int2, ChunkVoxelData>(
-                settings.Scheduler.MeshingBatchSize * 6,
+                settings.Scheduler.meshingBatchSize * 6,
                 Allocator.Domain
             );
             _lightAccessorMap = new NativeParallelHashMap<int2, ChunkLightData>(
-                settings.Scheduler.MeshingBatchSize * 6,
+                settings.Scheduler.meshingBatchSize * 6,
                 Allocator.Domain
             );
         }

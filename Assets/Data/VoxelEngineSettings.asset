@@ -17,11 +17,12 @@ MonoBehaviour:
   Chunk:
     ChunkPrefab: {fileID: 972016758114520785, guid: c64e56d0bf3b95d4786aca3e51faf0ed, type: 3}
     DrawDistance: 6
-    LoadDistance: 12
-    UpdateDistance: 8
+    LoadDistance: 8
+    UpdateDistance: 4
   Renderer:
-    CastShadows: 0
+    shadows: 0
   Scheduler:
-    MeshingBatchSize: 6
-    StreamingBatchSize: 8
-    ColliderBatchSize: 6
+    chunkGenBatchSize: 8
+    meshingBatchSize: 8
+    partitionBuildBatchSize: 4
+    colliderBatchSize: 6

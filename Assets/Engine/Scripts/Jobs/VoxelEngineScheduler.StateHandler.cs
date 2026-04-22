@@ -115,7 +115,7 @@ namespace Engine.Scripts.Jobs
         {
             if (!_chunkScheduler.IsReady) return true;
 
-            int count = math.min(Settings.Scheduler.StreamingBatchSize, Queue.Count);
+            int count = math.min(Settings.Scheduler.chunkGenBatchSize, Queue.Count);
 
             for (int i = 0; i < count; i++) Set.Add(Queue.Dequeue());
             _chunkScheduler.Start(Set.ToList());
@@ -185,7 +185,7 @@ namespace Engine.Scripts.Jobs
         {
             if (!_meshBuildScheduler.IsReady) return true;
 
-            int count = math.min(Settings.Scheduler.MeshingBatchSize, Queue.Count);
+            int count = math.min(Settings.Scheduler.meshingBatchSize, Queue.Count);
 
             for (int i = 0; i < count; i++)
             {
@@ -264,7 +264,7 @@ namespace Engine.Scripts.Jobs
 
         protected override bool JobUpdateStep(int3 focus)
         {
-            int count = math.min(Settings.Scheduler.ColliderBatchSize, Queue.Count);
+            int count = math.min(Settings.Scheduler.colliderBatchSize, Queue.Count);
 
             for (int i = 0; i < count; i++)
             {
