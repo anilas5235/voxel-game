@@ -4,11 +4,11 @@ using Engine.Scripts.Behaviour;
 using Engine.Scripts.Components;
 using Engine.Scripts.Data;
 using Engine.Scripts.Jobs.Core;
-using Engine.Scripts.Render;
 using Engine.Scripts.Settings;
 using Engine.Scripts.Utils.Extensions;
 using Engine.Scripts.Utils.Logger;
 using Engine.Scripts.VoxelConfig.Data;
+using Engine.Scripts.World;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
@@ -30,7 +30,7 @@ namespace Engine.Scripts.Jobs.Meshing
         private readonly ChunkManager _chunkManager;
         private readonly ChunkPool _chunkPool;
         private readonly VoxelRegistry _voxelRegistry;
-        private readonly VoxelWorldRenderer _worldRenderer;
+        private readonly VoxelWorld _world;
 
         private Awaitable<HashSet<int3>>.Awaiter _awaiter;
         private ChunkAccessor _chunkAccessor;
@@ -56,19 +56,19 @@ namespace Engine.Scripts.Jobs.Meshing
         /// <param name="chunkManager">Chunk manager used to access chunk data and state.</param>
         /// <param name="chunkPool">Pool providing reusable chunk behaviours and meshes.</param>
         /// <param name="voxelRegistry">Voxel registry providing render generation data for blocks.</param>
-        /// <param name="worldRenderer">World renderer used to trigger GPU mesh generation and receive completion callbacks.</param>
+        /// <param name="world">World event hub used to trigger GPU mesh generation and receive completion callbacks.</param>
         internal MeshBuildScheduler(
             VoxelEngineSettings settings,
             ChunkManager chunkManager,
             ChunkPool chunkPool,
             VoxelRegistry voxelRegistry,
-            VoxelWorldRenderer worldRenderer
+            VoxelWorld world
         )
         {
             _chunkManager = chunkManager;
             _chunkPool = chunkPool;
             _voxelRegistry = voxelRegistry;
-            _worldRenderer = worldRenderer;
+            _world = world;
 
             // Collider uses only Position and Normal from CVertex
             _colliderVertexParams = new NativeArray<VertexAttributeDescriptor>(2, Allocator.Domain)
@@ -115,7 +115,7 @@ namespace Engine.Scripts.Jobs.Meshing
             };
 
             _handle = job.Schedule(_jobs.Length, 1);
-            _awaiter = _worldRenderer.UpdatePartitions(jobs).GetAwaiter();
+            _awaiter = _world.RequestPartitionBuild(jobs).GetAwaiter();
         }
 
         /// <summary>

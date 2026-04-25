@@ -4,10 +4,10 @@ using Engine.Scripts.Jobs.Chunk;
 using Engine.Scripts.Jobs.ColliderBake;
 using Engine.Scripts.Jobs.Meshing;
 using Engine.Scripts.Noise;
-using Engine.Scripts.Render;
 using Engine.Scripts.Settings;
 using Engine.Scripts.Utils.Provider;
 using Engine.Scripts.VoxelConfig.Data;
+using Engine.Scripts.World;
 using UnityEngine;
 
 namespace Engine.Scripts.Utils
@@ -78,13 +78,14 @@ namespace Engine.Scripts.Utils
         internal ChunkScheduler ChunkDataScheduler(
             ChunkManager chunkManager,
             NoiseProfile noiseProfile,
-            GeneratorConfig generatorConfig
+            GeneratorConfig generatorConfig,
+            VoxelWorld world
         )
         {
             GeneratorConfig cfg = generatorConfig;
             cfg.WaterLevel = Settings.Noise.WaterLevel;
             cfg.GlobalSeed = Settings.Seed;
-            return new ChunkScheduler(Settings, chunkManager, noiseProfile, cfg);
+            return new ChunkScheduler(Settings, chunkManager, noiseProfile, cfg, world);
         }
 
         /// <summary>
@@ -94,10 +95,10 @@ namespace Engine.Scripts.Utils
             ChunkManager chunkManager,
             ChunkPool chunkPool,
             VoxelRegistry voxelRegistry,
-            VoxelWorldRenderer worldRenderer
+            VoxelWorld world
         )
         {
-            return new MeshBuildScheduler(Settings, chunkManager, chunkPool, voxelRegistry,worldRenderer);
+            return new MeshBuildScheduler(Settings, chunkManager, chunkPool, voxelRegistry, world);
         }
 
         internal ColliderBakeScheduler ColliderBakeScheduler(ChunkManager chunkManager, ChunkPool chunkPool)

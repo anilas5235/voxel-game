@@ -1,4 +1,7 @@
-﻿using Engine.Scripts.Components;
+﻿using System;
+using System.Collections.Generic;
+using Engine.Scripts.Data;
+using Engine.Scripts.Components;
 using Engine.Scripts.Jobs;
 using Engine.Scripts.Jobs.Chunk;
 using Engine.Scripts.Jobs.ColliderBake;
@@ -8,6 +11,7 @@ using Engine.Scripts.Render;
 using Engine.Scripts.Settings;
 using Engine.Scripts.Utils;
 using Engine.Scripts.Utils.Extensions;
+using Engine.Scripts.Utils.Collections;
 using Engine.Scripts.VoxelConfig.Data;
 using Unity.Mathematics;
 using UnityEngine;
@@ -18,31 +22,52 @@ namespace Engine.Scripts.World
     ///     Top-level world controller that wires together chunk generation, meshing and colliders
     ///     and exposes a simple API for querying and modifying voxels around a focus transform.
     /// </summary>
-    [DefaultExecutionOrder(-101), RequireComponent(typeof(VoxelWorldRenderer))]
+    [DefaultExecutionOrder(-101)]
     public class VoxelWorld : Singleton<VoxelWorld>
     {
         [SerializeField] private Transform focus;
 
         [SerializeField] private VoxelEngineSettings settings;
-        [SerializeField] private VoxelWorldRenderer worldRenderer;
 
+        private VoxelEngineScheduler _scheduler;
         private ChunkPool _chunkPool;
         private ChunkScheduler _chunkScheduler;
         private ColliderBakeScheduler _colliderBakeScheduler;
+        private NoiseProfile _noiseProfile;
+
 
         private bool _isFocused;
         private bool _isShuttingDown;
         private MeshBuildScheduler _meshBuildScheduler;
+
+        internal event Action<Chunk> ChunkChanged;
+        internal event Action<int2, UnsafeIntervalList<ushort>> ChunkDataReady;
+        internal event Action<int2> ChunkEvicted;
+        internal event Action<int3> PartitionEvicted;
+        internal event Func<HashSet<int3>, Awaitable<HashSet<int3>>> PartitionBuildRequested;
+
+        internal void RaiseChunkChanged(Chunk chunk) => ChunkChanged?.Invoke(chunk);
+
+        internal void RaiseChunkDataReady(int2 chunk, UnsafeIntervalList<ushort> voxelData)
+            => ChunkDataReady?.Invoke(chunk, voxelData);
+
+        internal void RaiseChunkEvicted(int2 chunkPos) => ChunkEvicted?.Invoke(chunkPos);
+
+        internal void RaisePartitionEvicted(int3 partitionPos) => PartitionEvicted?.Invoke(partitionPos);
+
+        internal async Awaitable<HashSet<int3>> RequestPartitionBuild(HashSet<int3> partitions)
+        {
+            if (PartitionBuildRequested == null) return new HashSet<int3>();
+
+            return await PartitionBuildRequested.Invoke(partitions);
+        }
 
         /// <summary>
         ///     Gets the voxel ID at the given world voxel position.
         /// </summary>
         /// <param name="position">World voxel position.</param>
         /// <returns>Voxel ID at the given position.</returns>
-        public ushort GetVoxel(Vector3Int position)
-        {
-            return ChunkManager.GetVoxel(position);
-        }
+        public ushort GetVoxel(Vector3Int position) => ChunkManager.GetVoxel(position);
 
         /// <summary>
         ///     Sets the voxel ID at a given world voxel position and optionally triggers a remesh.
@@ -51,10 +76,8 @@ namespace Engine.Scripts.World
         /// <param name="position">World voxel position.</param>
         /// <param name="remesh">If true, the affected chunks will be re-meshed.</param>
         /// <returns><c>true</c> if the voxel could be set; otherwise, <c>false</c>.</returns>
-        public bool SetVoxel(ushort voxelId, Vector3Int position, bool remesh = true)
-        {
-            return ChunkManager.SetVoxel(voxelId, position, remesh);
-        }
+        public bool SetVoxel(ushort voxelId, Vector3Int position, bool remesh = true) =>
+            ChunkManager.SetVoxel(voxelId, position, remesh);
 
         /// <summary>
         ///     Adjusts derived chunk settings such as load and update distance based on the
@@ -72,16 +95,19 @@ namespace Engine.Scripts.World
         /// </summary>
         private void ConstructEngineComponents()
         {
-            NoiseProfile = VoxelEngineProvider.Current.NoiseProfile();
+            _noiseProfile = VoxelEngineProvider.Current.NoiseProfile();
             ChunkManager = VoxelEngineProvider.Current.ChunkManager();
+            ChunkManager.OnChunkChange += RaiseChunkChanged;
 
             _chunkPool = VoxelEngineProvider.Current.ChunkPool(transform);
+            _chunkPool.OnChunkEvicted += HandleChunkEvicted;
+            _chunkPool.OnPartitionEvicted += HandlePartitionEvicted;
 
             _meshBuildScheduler = VoxelEngineProvider.Current.MeshBuildScheduler(
                 ChunkManager,
                 _chunkPool,
                 VoxelDataImporter.Instance.VoxelRegistry,
-                worldRenderer
+                this
             );
 
             _colliderBakeScheduler = VoxelEngineProvider.Current.ColliderBakeScheduler(
@@ -91,11 +117,12 @@ namespace Engine.Scripts.World
 
             _chunkScheduler = VoxelEngineProvider.Current.ChunkDataScheduler(
                 ChunkManager,
-                NoiseProfile,
-                VoxelDataImporter.Instance.CreateConfig()
+                _noiseProfile,
+                VoxelDataImporter.Instance.CreateConfig(),
+                this
             );
 
-            Scheduler = VoxelEngineProvider.Current.VoxelEngineScheduler(
+            _scheduler = VoxelEngineProvider.Current.VoxelEngineScheduler(
                 _meshBuildScheduler,
                 _chunkScheduler,
                 _colliderBakeScheduler,
@@ -103,8 +130,6 @@ namespace Engine.Scripts.World
                 _chunkPool
             );
 
-            _chunkPool.OnChunkEvicted += HandleChunkEvicted;
-            _chunkPool.OnPartitionEvicted += HandlePartitionEvicted;
         }
 
         private void HandleChunkEvicted(int2 chunkPos)
@@ -112,14 +137,14 @@ namespace Engine.Scripts.World
             if (_isShuttingDown) return;
 
             ChunkManager.UnloadChunk(chunkPos);
-            worldRenderer.RemoveChunkData(chunkPos);
+            RaiseChunkEvicted(chunkPos);
         }
 
         private void HandlePartitionEvicted(int3 partitionPos)
         {
             if (_isShuttingDown) return;
 
-            worldRenderer.RemovePartitionRenderData(partitionPos);
+            RaisePartitionEvicted(partitionPos);
         }
 
         #region API
@@ -127,19 +152,9 @@ namespace Engine.Scripts.World
         /// <summary>
         ///     The partition coordinates of the current focus position.
         /// </summary>
-        private int3 FocusPartitionCoords { get; set; }
+        public int3 FocusPartitionCoords { get; private set; }
 
-        private int3 FocusPosition { get; set; }
-
-        /// <summary>
-        ///     Gets the central scheduler that coordinates chunk data, mesh and collider jobs.
-        /// </summary>
-        private VoxelEngineScheduler Scheduler { get; set; }
-
-        /// <summary>
-        ///     Gets the noise profile used for procedural terrain generation.
-        /// </summary>
-        private NoiseProfile NoiseProfile { get; set; }
+        public int3 FocusPosition { get; private set; }
 
         /// <summary>
         ///     Gets the chunk manager that stores and accesses chunk data.
@@ -189,10 +204,10 @@ namespace Engine.Scripts.World
             if (!(newFocusCoords == FocusPartitionCoords).AndReduce())
             {
                 FocusPartitionCoords = newFocusCoords;
-                Scheduler.FocusUpdate(FocusPartitionCoords);
+                _scheduler.FocusUpdate(FocusPartitionCoords);
             }
 
-            Scheduler.ScheduleUpdate(FocusPartitionCoords);
+            _scheduler.ScheduleUpdate(FocusPartitionCoords);
         }
 
         private void FixedUpdate()
@@ -209,6 +224,7 @@ namespace Engine.Scripts.World
         protected override void OnDestroy()
         {
             _isShuttingDown = true;
+            if (ChunkManager != null) ChunkManager.OnChunkChange -= RaiseChunkChanged;
             if (_chunkPool != null)
             {
                 _chunkPool.OnChunkEvicted -= HandleChunkEvicted;
@@ -217,7 +233,7 @@ namespace Engine.Scripts.World
             }
 
             base.OnDestroy();
-            Scheduler.Dispose();
+            _scheduler.Dispose();
             ChunkManager.Dispose();
         }
 

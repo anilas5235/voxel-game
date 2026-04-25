@@ -85,18 +85,33 @@ namespace Engine.Scripts.Render
         {
             if (world == null) world = VoxelWorld.Instance;
             RenderPipelineManager.beginCameraRendering += Draw;
-            world.ChunkManager.OnChunkChange += HandleChunkChange;
+            world.ChunkChanged += HandleChunkChange;
+            world.ChunkDataReady += HandleChunkDataReady;
+            world.ChunkEvicted += RemoveChunkData;
+            world.PartitionEvicted += RemovePartitionRenderData;
+            world.PartitionBuildRequested += UpdatePartitions;
         }
 
         private void OnDisable()
         {
             RenderPipelineManager.beginCameraRendering -= Draw;
-            if (world != null && world.ChunkManager != null) world.ChunkManager.OnChunkChange -= HandleChunkChange;
+            if (world == null) return;
+
+            world.ChunkChanged -= HandleChunkChange;
+            world.ChunkDataReady -= HandleChunkDataReady;
+            world.ChunkEvicted -= RemoveChunkData;
+            world.PartitionEvicted -= RemovePartitionRenderData;
+            world.PartitionBuildRequested -= UpdatePartitions;
         }
 
         private void HandleChunkChange(Chunk chunk)
         {
             AddOrUpdateChunk(chunk.Position, chunk.VoxelData.GetData());
+        }
+
+        private void HandleChunkDataReady(int2 chunk, UnsafeIntervalList<ushort> voxelData)
+        {
+            AddOrUpdateChunk(chunk, voxelData);
         }
 
         protected override void OnDestroy()

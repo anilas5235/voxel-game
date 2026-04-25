@@ -3,7 +3,7 @@ using Engine.Scripts.Components;
 using Engine.Scripts.Data;
 using Engine.Scripts.Jobs.Core;
 using Engine.Scripts.Noise;
-using Engine.Scripts.Render;
+using Engine.Scripts.World;
 using Engine.Scripts.Settings;
 using Engine.Scripts.Utils.Extensions;
 using Engine.Scripts.Utils.Logger;
@@ -24,6 +24,7 @@ namespace Engine.Scripts.Jobs.Chunk
         private readonly ChunkManager _chunkManager;
         private readonly GeneratorConfig _config;
         private readonly NoiseProfile _noiseProfile;
+        private readonly VoxelWorld _world;
         private JobHandle _handle;
         private NativeList<int2> _jobs;
         private NativeParallelHashMap<int2, ChunkVoxelData> _results;
@@ -44,12 +45,14 @@ namespace Engine.Scripts.Jobs.Chunk
             VoxelEngineSettings settings,
             ChunkManager chunkManager,
             NoiseProfile noiseProfile,
-            GeneratorConfig config
+            GeneratorConfig config,
+            VoxelWorld world
         )
         {
             _chunkManager = chunkManager;
             _noiseProfile = noiseProfile;
             _config = config;
+            _world = world;
             _jobs = new NativeList<int2>(Allocator.Domain);
             _results = new NativeParallelHashMap<int2, ChunkVoxelData>(
                 settings.Chunk.LoadDistance.SquareSize(),
@@ -111,9 +114,8 @@ namespace Engine.Scripts.Jobs.Chunk
 
         private void UploadChunks()
         {
-            VoxelWorldRenderer worldRenderer = VoxelWorldRenderer.Instance;
-            if (!worldRenderer) return;
-            foreach (KeyValue<int2, ChunkVoxelData> r in _results) worldRenderer.AddOrUpdateChunk(r.Key, r.Value.Data);
+            foreach (KeyValue<int2, ChunkVoxelData> r in _results)
+                _world.RaiseChunkDataReady(r.Key, r.Value.Data);
         }
 
         /// <summary>
