@@ -77,6 +77,7 @@ namespace Engine.Scripts.Components
         internal void Dispose()
         {
             _accessorMap.Dispose();
+            _lightAccessorMap.Dispose();
             foreach ((int2 _, Chunk chunk) in _chunks) chunk.Dispose();
         }
 
@@ -85,6 +86,7 @@ namespace Engine.Scripts.Components
         /// </summary>
         internal void FocusUpdate(int3 focus)
         {
+            _focus = focus;
             _queue.UpdateAllPriorities(pos => -PriorityUtil.DistPriority(ref pos, ref focus));
         }
 
@@ -111,7 +113,26 @@ namespace Engine.Scripts.Components
         /// <summary>
         ///     Removes the chunk data (eviction). Persistence hook could be added here.
         /// </summary>
-        private void RemoveChunkData(int2 position) => _chunks.Remove(position);
+        private void RemoveChunkData(int2 position)
+        {
+            UnloadChunk(position);
+        }
+
+        internal void UnloadChunk(int2 position)
+        {
+            if (_queue.Contains(position)) _queue.Remove(position);
+            if (!_chunks.TryGetValue(position, out Chunk chunk)) return;
+
+            chunk.Dispose();
+            _chunks.Remove(position);
+
+            for (int pId = 0; pId < PartitionsPerChunk; pId++)
+            {
+                int3 partitionPos = new(position.x, pId, position.y);
+                _reMeshPartitions.Remove(partitionPos);
+                _reCollidePartitions.Remove(partitionPos);
+            }
+        }
 
         /// <summary>
         ///     Builds a <see cref="ChunkAccessor" /> that includes a 3x3 neighborhood for given positions.

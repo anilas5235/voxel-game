@@ -224,7 +224,8 @@ namespace Engine.Scripts.Jobs
 
         private bool ShouldScheduleForMeshing(int3 position)
         {
-            return (!ChunkPool.IsPartitionActive(position) || ChunkManager.ShouldReMesh(position)) &&
+            return ChunkManager.IsChunkLoaded(position.xz) &&
+                   (!ChunkPool.IsPartitionActive(position) || ChunkManager.ShouldReMesh(position)) &&
                    !Set.Contains(position);
         }
     }
@@ -288,7 +289,8 @@ namespace Engine.Scripts.Jobs
 
         private bool ShouldScheduleForBaking(int3 position)
         {
-            return (!ChunkPool.IsCollidable(position) || ChunkManager.ShouldReCollide(position)) &&
+            return ChunkManager.IsChunkLoaded(position.xz) &&
+                   (!ChunkPool.IsCollidable(position) || ChunkManager.ShouldReCollide(position)) &&
                    !Set.Contains(position);
         }
 

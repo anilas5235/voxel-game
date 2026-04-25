@@ -19,6 +19,9 @@ namespace Engine.Scripts.Components
     /// </summary>
     internal class ChunkPool
     {
+        internal Action<int2> OnChunkEvicted;
+        internal Action<int3> OnPartitionEvicted;
+
         private readonly Dictionary<int2, ChunkBehaviour> _chunkMap;
         private readonly int _chunkPoolSize;
         private readonly SimpleFastPriorityQueue<int2, int> _chunkQueue;
@@ -29,6 +32,7 @@ namespace Engine.Scripts.Components
         private readonly int _partitionPoolSize;
         private readonly SimpleFastPriorityQueue<int3, int> _partitionQueue;
         private readonly ObjectPool<ChunkBehaviour> _pool;
+        private bool _emitEvictionEvents = true;
 
         private int3 _focus;
 
@@ -126,17 +130,7 @@ namespace Engine.Scripts.Components
             if (_chunkQueue.Count >= _chunkPoolSize)
             {
                 int2 reclaim = _chunkQueue.Dequeue();
-                ChunkBehaviour reclaimBehaviour = _chunkMap[reclaim];
-                reclaimBehaviour.ClearData();
-                _pool.Release(reclaimBehaviour);
-                _chunkMap.Remove(reclaim);
-                for (int pId = 0; pId < PartitionsPerChunk; pId++)
-                {
-                    int3 partitionPos = new(reclaim.x, pId, reclaim.y);
-                    _meshMap.Remove(partitionPos);
-                    _partitionQueue.Remove(partitionPos);
-                    _colliderSet.Remove(partitionPos);
-                }
+                ReclaimChunk(reclaim);
             }
 
             ChunkBehaviour behaviour = _pool.Get();
@@ -179,11 +173,39 @@ namespace Engine.Scripts.Components
             if (_partitionQueue.Count <= _partitionPoolSize) return partition;
 
             int3 reclaim = _partitionQueue.Dequeue();
-            ChunkPartition reclaimPartition = _meshMap[reclaim];
-            reclaimPartition.Clear();
-            _meshMap.Remove(reclaim);
-            _colliderSet.Remove(reclaim);
+            ReclaimPartition(reclaim);
             return partition;
+        }
+
+        private void ReclaimChunk(int2 reclaim)
+        {
+            ChunkBehaviour reclaimBehaviour = _chunkMap[reclaim];
+            reclaimBehaviour.ClearData();
+            _pool.Release(reclaimBehaviour);
+            _chunkMap.Remove(reclaim);
+
+            for (int pId = 0; pId < PartitionsPerChunk; pId++)
+            {
+                int3 partitionPos = new(reclaim.x, pId, reclaim.y);
+                ReclaimPartition(partitionPos);
+            }
+
+            if (_emitEvictionEvents) OnChunkEvicted?.Invoke(reclaim);
+        }
+
+        private void ReclaimPartition(int3 partitionPos)
+        {
+            if (_meshMap.TryGetValue(partitionPos, out ChunkPartition reclaimPartition))
+            {
+                reclaimPartition.Clear();
+                _meshMap.Remove(partitionPos);
+            }
+
+            if (_partitionQueue.Contains(partitionPos)) _partitionQueue.Remove(partitionPos);
+            if (_colliderQueue.Contains(partitionPos)) _colliderQueue.Remove(partitionPos);
+            _colliderSet.Remove(partitionPos);
+
+            if (_emitEvictionEvents) OnPartitionEvicted?.Invoke(partitionPos);
         }
 
         /// <summary>
@@ -192,6 +214,13 @@ namespace Engine.Scripts.Components
         internal void ColliderBaked(int3 position)
         {
             _colliderSet.Add(position);
+        }
+
+        internal void Dispose()
+        {
+            _emitEvictionEvents = false;
+            OnChunkEvicted = null;
+            OnPartitionEvicted = null;
         }
     }
 }

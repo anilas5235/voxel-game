@@ -63,10 +63,20 @@ namespace Engine.Scripts.Render
 
             if (hasAlloc && numPages == allocInfo.Count) return allocInfo;
 
-            Release(allocInfo, partitionPos);
+            if (hasAlloc) Release(allocInfo, partitionPos);
             AllocInfo allocation = AllocPages(pointCount, numPages);
             _partitionAllocations[partitionPos] = allocation;
             return allocation;
+        }
+
+        public bool ReleasePartition(int3 partitionPos)
+        {
+            ThrowIfDisposed();
+
+            if (!_partitionAllocations.TryGetValue(partitionPos, out AllocInfo allocInfo)) return false;
+
+            Release(allocInfo, partitionPos);
+            return true;
         }
 
         private AllocInfo AllocPages(int pointCount, int numPages)

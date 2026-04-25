@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using Engine.Scripts.Data;
 using System.Runtime.InteropServices;
 using Engine.Scripts.Settings;
 using Engine.Scripts.Utils;
@@ -34,6 +35,7 @@ namespace Engine.Scripts.Render
 
         private RenderBufferManager _solidBufferManager;
         private RenderBufferManager _transparentBufferManager;
+        private bool _buffersRebuildPending;
 
         protected override void Awake()
         {
@@ -83,12 +85,18 @@ namespace Engine.Scripts.Render
         {
             if (world == null) world = VoxelWorld.Instance;
             RenderPipelineManager.beginCameraRendering += Draw;
-            world.ChunkManager.OnChunkChange += chunk => AddOrUpdateChunk(chunk.Position, chunk.VoxelData.GetData());
+            world.ChunkManager.OnChunkChange += HandleChunkChange;
         }
 
         private void OnDisable()
         {
             RenderPipelineManager.beginCameraRendering -= Draw;
+            if (world != null && world.ChunkManager != null) world.ChunkManager.OnChunkChange -= HandleChunkChange;
+        }
+
+        private void HandleChunkChange(Chunk chunk)
+        {
+            AddOrUpdateChunk(chunk.Position, chunk.VoxelData.GetData());
         }
 
         protected override void OnDestroy()
@@ -117,6 +125,22 @@ namespace Engine.Scripts.Render
             _foliageBufferManager.Draw(cam);
         }
 
+        private void LateUpdate()
+        {
+            if (_isDestroyed || !_buffersRebuildPending) return;
+
+            _solidBufferManager.RebuildBuffers();
+            _transparentBufferManager.RebuildBuffers();
+            _foliageBufferManager.RebuildBuffers();
+            _buffersRebuildPending = false;
+        }
+
+        private void RequestBuffersRebuild()
+        {
+            if (_isDestroyed) return;
+            _buffersRebuildPending = true;
+        }
+
 
         public void AddOrUpdateChunk(int2 chunk, UnsafeIntervalList<ushort> voxelData)
         {
@@ -134,6 +158,28 @@ namespace Engine.Scripts.Render
             GraphicsBuffer dataBuffer = new(Target.Structured, intervalData.Length, Marshal.SizeOf<uint2>());
             dataBuffer.SetData(intervalData);
             _voxelDataBuffers[chunk] = dataBuffer;
+        }
+
+        public void RemoveChunkData(int2 chunk)
+        {
+            if (!_voxelDataBuffers.TryGetValue(chunk, out GraphicsBuffer existingBuffer)) return;
+
+            existingBuffer.Dispose();
+            _voxelDataBuffers.Remove(chunk);
+        }
+
+        public void RemovePartitionRenderData(int3 partition)
+        {
+            if (_isDestroyed) return;
+
+            bool changed = false;
+            changed |= _solidBufferManager.ReleasePartition(partition);
+            changed |= _transparentBufferManager.ReleasePartition(partition);
+            changed |= _foliageBufferManager.ReleasePartition(partition);
+
+            if (!changed) return;
+
+            RequestBuffersRebuild();
         }
 
         public async Awaitable<HashSet<int3>> UpdatePartitions(HashSet<int3> partitions)
@@ -181,9 +227,7 @@ namespace Engine.Scripts.Render
 
             if (updatedPartitions.Count > 0)
             {
-                _solidBufferManager.RebuildBuffers();
-                _transparentBufferManager.RebuildBuffers();
-                _foliageBufferManager.RebuildBuffers();
+                RequestBuffersRebuild();
             }
 
             return updatedPartitions;

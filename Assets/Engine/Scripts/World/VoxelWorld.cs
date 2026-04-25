@@ -31,6 +31,7 @@ namespace Engine.Scripts.World
         private ColliderBakeScheduler _colliderBakeScheduler;
 
         private bool _isFocused;
+        private bool _isShuttingDown;
         private MeshBuildScheduler _meshBuildScheduler;
 
         /// <summary>
@@ -101,6 +102,24 @@ namespace Engine.Scripts.World
                 ChunkManager,
                 _chunkPool
             );
+
+            _chunkPool.OnChunkEvicted += HandleChunkEvicted;
+            _chunkPool.OnPartitionEvicted += HandlePartitionEvicted;
+        }
+
+        private void HandleChunkEvicted(int2 chunkPos)
+        {
+            if (_isShuttingDown) return;
+
+            ChunkManager.UnloadChunk(chunkPos);
+            worldRenderer.RemoveChunkData(chunkPos);
+        }
+
+        private void HandlePartitionEvicted(int3 partitionPos)
+        {
+            if (_isShuttingDown) return;
+
+            worldRenderer.RemovePartitionRenderData(partitionPos);
         }
 
         #region API
@@ -189,6 +208,14 @@ namespace Engine.Scripts.World
         /// </summary>
         protected override void OnDestroy()
         {
+            _isShuttingDown = true;
+            if (_chunkPool != null)
+            {
+                _chunkPool.OnChunkEvicted -= HandleChunkEvicted;
+                _chunkPool.OnPartitionEvicted -= HandlePartitionEvicted;
+                _chunkPool.Dispose();
+            }
+
             base.OnDestroy();
             Scheduler.Dispose();
             ChunkManager.Dispose();
