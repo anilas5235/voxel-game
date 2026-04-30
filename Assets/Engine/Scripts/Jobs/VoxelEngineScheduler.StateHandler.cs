@@ -205,12 +205,13 @@ namespace Engine.Scripts.Jobs
             if (!_meshBuildScheduler.IsReady) return false;
 
             int count = math.min(Settings.Scheduler.meshingBatchSize, Queue.Count);
+            int prioThreshold = ChunkPool.GetPartitionPrioThreshold();
             int accepted = 0;
 
             while (accepted < count && Queue.Count > 0)
             {
                 int3 chunk = Queue.Dequeue();
-                if (!IsPartitionStillRelevant(chunk, focus)) continue;
+                if (!IsPartitionStillRelevant(chunk, focus, prioThreshold)) continue;
                 if (!CanGenerateMeshForChunk(chunk) || !ShouldScheduleForMeshing(chunk)) continue;
                 Set.Add(chunk);
                 accepted++;
@@ -254,11 +255,12 @@ namespace Engine.Scripts.Jobs
                    !Set.Contains(position);
         }
 
-        private bool IsPartitionStillRelevant(int3 position, int3 focus)
+        private bool IsPartitionStillRelevant(int3 position, int3 focus, int prioThreshold)
         {
             int drawDistance = Settings.Chunk.DrawDistance;
             return math.abs(position.x - focus.x) <= drawDistance &&
-                   math.abs(position.z - focus.z) <= drawDistance;
+                   math.abs(position.z - focus.z) <= drawDistance &&
+                   -DistPriority(ref position, ref focus) > prioThreshold;
         }
     }
 
