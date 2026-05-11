@@ -169,11 +169,12 @@ subgraph CPU["CPU"]
     I --> J[Collider Applied]
 
     K[Resreve Global Buffer Space]
+    B[Compute Shader Queue]
 end
 
 subgraph GPU
     direction LR
-    E --> B[Compute Shader Queue]
+    E --> B
     B --> C[Build Vertex Buffer]
     C --> K
     K --> L[Copy Vertex to Global
