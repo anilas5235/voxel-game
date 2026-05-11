@@ -163,24 +163,21 @@ subgraph CPU["CPU"]
     D[Request Partition] --> E[Mesh Queue]
     E --> F[Build Collider Mesh 
     CPU Job]
-    F --> G[Render Mesh Applied]
-    G --> H[Bake Collider Queue]
+    F --> H[Bake Collider Queue]
     H --> I[Bake Collider
     CPU Job]
     I --> J[Collider Applied]
 
-    C --> K[Resreve Global Buffer Space
-    CPU]
+    K[Resreve Global Buffer Space]
 end
 
 subgraph GPU
     direction LR
     E --> B[Compute Shader Queue]
-    B --> C[Build Vertex Buffer
-    Shader]
+    B --> C[Build Vertex Buffer]
+    C --> K
     K --> L[Copy Vertex to Global
-    & ReBuild Indices
-    Shader]
+    & ReBuild Indices]
 end   
 ```
 
