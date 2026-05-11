@@ -36,18 +36,24 @@ Trade-offs:
 
 ```mermaid
 flowchart LR
+subgraph CPU["CPU (one-time setup)"]
+    direction LR
     A[Voxel Registry 
     Data] --> B[Build Texture2D
-Array]
-B --> C[Bind Array +
-Material Properties]
+    Array]
+    B --> C[Bind Array +
+    Material Properties]
+end
 
-T[Vertex] --> U[Extract Texture
-Index & Sample
-Texture Array]
-U --> V[Apply AO
-...]
-V --> W[Output Color]
+subgraph GPU
+    direction LR
+    T[Vertex] --> U[Extract Texture
+    Index & Sample
+    Texture Array]
+    U --> V[Apply AO
+    ...]
+    V --> W[Output Color]
+end
 ```
 
 ### Description
@@ -99,29 +105,35 @@ Trade-offs:
 
 ```mermaid
 flowchart LR
+subgraph CPU["CPU (one-time setup)"]
+    direction LR
     A[Voxel Registry 
     Data] --> B[Build Texture2D
-Array]
-B --> C[Bind Array +
-Material Properties]
+    Array]
+    B --> C[Bind Array +
+    Material Properties]
 
-A --> D[Build Quad
-Buffer]
-D --> E[Bind Buffer +
-Material Properties]
+    A --> D[Build Quad
+    Buffer]
+    D --> E[Bind Buffer +
+    Material Properties]
+end
 
-L[Point] --> M[Extract Quad
-Index & Sample
-Quad Buffer]
-M --> O[Expand to Quads
-Geometry Shader]
-O --> U[Extract Texture
-Index & Sample
-Texture Array]
-U --> V[Apply AO
-& Lighting
-...]
-V --> W[Output Color]
+subgraph GPU
+    direction LR
+    L[Point] --> M[Extract Quad
+    Index & Sample
+    Quad Buffer]
+    M --> O[Expand to Quads
+    Geometry Shader]
+    O --> U[Extract Texture
+    Index & Sample
+    Texture Array]
+    U --> V[Apply AO
+    & Lighting
+    ...]
+    V --> W[Output Color]
+end
 ```
 
 ### Description
@@ -146,23 +158,30 @@ Trade-offs:
 
 ```mermaid
 flowchart LR
+subgraph CPU["CPU"]
+    direction LR
     D[Request Partition] --> E[Mesh Queue]
     E --> F[Build Collider Mesh 
     CPU Job]
-F --> G[Render Mesh Applied]
-G --> H[Bake Collider Queue]
-H --> I[Bake Collider
-CPU Job]
-I --> J[Collider Applied]
+    F --> G[Render Mesh Applied]
+    G --> H[Bake Collider Queue]
+    H --> I[Bake Collider
+    CPU Job]
+    I --> J[Collider Applied]
 
-E --> B[Compute Shader Queue]
-B --> C[Build Vertex Buffer
-Shader]
-C --> K[Resreve Global Buffer Space
-CPU]
-K --> L[Copy Vertex to Global
-& ReBuild Indices
-Shader]   
+    C --> K[Resreve Global Buffer Space
+    CPU]
+end
+
+subgraph GPU
+    direction LR
+    E --> B[Compute Shader Queue]
+    B --> C[Build Vertex Buffer
+    Shader]
+    K --> L[Copy Vertex to Global
+    & ReBuild Indices
+    Shader]
+end   
 ```
 
 ### Description
@@ -186,43 +205,51 @@ Trade-offs:
 
 ```mermaid
 flowchart LR
+subgraph CPU["CPU"]
+    direction LR
+    
     A[Voxel Registry 
     Data] --> B[Build Texture2D
-Array]
-B --> C[Bind Array +
-Material Properties]
+    Array]
+    B --> C[Bind Array +
+    Material Properties]
 
-A --> D[Build Quad
-Buffer]
-D --> E[Bind Buffer +
-Material Properties]
+    A --> D[Build Quad
+    Buffer]
+    D --> E[Bind Buffer +
+    Material Properties]
 
-A --> F[Build Shape
-Buffer]
-F --> G[Bind Buffer +
-Material Properties]
+    A --> F[Build Shape
+    Buffer]
+    F --> G[Bind Buffer +
+    Material Properties]
 
-H[VoxelWorldRenderer] --> I[Prepares & administers
-Global Buffers]
-I--> J[Issue Indirect Draw]
+    H[VoxelWorldRenderer] --> I[Prepares & administers
+    Global Buffers]
+    I --> J[Issue Indirect Draw
+    - every frame]
+end
 
-K[IndexID
-6 per Point
--Vertex Pulling] --> L[Get Point 
-from Buffer over
-IndexBuffer]
-L --> M[Extract Quad
-Index & Sample
-Quad Buffer]
-M --> O[Pick correct Vertex
-from Quad Data]
-O --> U[Extract Texture
-Index & Sample
-Texture Array]
-U --> V[Apply AO
-& Lighting
-...]
-V --> W[Output Color]
+subgraph GPU
+    direction LR
+    K[IndexID
+    6 per Point
+    -Vertex Pulling] --> L[Get Point 
+    from Buffer over
+    IndexBuffer]
+    L --> M[Extract Quad
+    Index & Sample
+    Quad Buffer]
+    M --> O[Pick correct Vertex
+    from Quad Data]
+    O --> U[Extract Texture
+    Index & Sample
+    Texture Array]
+    U --> V[Apply AO
+    & Lighting
+    ...]
+    V --> W[Output Color]
+end
 ```
 
 ### Description
